@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../pwu_archive/.idea/pwu_archive.iml" filepath="$PROJECT_DIR$/../pwu_archive/.idea/pwu_archive.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/pwu_archivewhy.iml" filepath="$PROJECT_DIR$/.idea/pwu_archivewhy.iml" />
     </modules>
   </component>
 </project>
