@@ -11,7 +11,7 @@ venv/
 .venv/
 env/
 ENV/
-.ENV/
+archiveproject/.env/
 env.bak/
 venv.bak/
 
@@ -30,6 +30,7 @@ media/
 .idea/
 *.swp
 *.swo
+.xml
 
 # --- System files ---
 .DS_Store
