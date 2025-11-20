@@ -1,4 +1,42 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# --- Virtual environment ---
+venv/
+.venv/
+env/
+ENV/
+.ENV/
+env.bak/
+venv.bak/
+
+# --- Django specific ---
+db.sqlite3
+staticfiles/
+media/
+*.log
+
+# --- Environment & Secrets ---
 .env
-.venv
-/env
-/venv
+.env.*
+
+# --- IDE (PyCharm, VSCode, etc) ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- System files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Migrations (optional: ignore if still initial development) ---
+#*/migrations/*
+# Keep the __init__.py so Django detects the package
+# !*/migrations/__init__.py
