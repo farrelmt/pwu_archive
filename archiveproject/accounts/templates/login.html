@@ -1,13 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends 'login_base.html' %}
 
-{% load static tailwind_tags %}
-<head>
-    {% tailwind_css %}
-    <meta charset="UTF-8">
-    <title>LOGIN</title>
-</head>
-<body class="bg-gray-100">
-    <h1>LOGIN PAGE</h1>
-</body>
-</html>
+{% block content %}
+    <div class="flex-col">
+        <h1 class="text-white text-4xl font-bold text-center mb-12">SISTEM ARSIP PWU</h1>
+        <div class="bg-white p-8 rounded shadow-md w-96">
+            <h2 class="text-black text-3xl font-bold mb-6 text-center">LOGIN</h2>
+
+            <form method="POST" action="{% url 'accounts:login' %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <input type="text" name="username" placeholder="Username"
+                     class="text-black w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+
+                <div class="mb-3">
+                    <input type="text" name="password" placeholder="Password"
+                     class="text-black w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <!--
+                    <label class="flex items-center text-sm text-black font-bold">
+                        <input type="checkbox" name="remember" class="bg-white border-gray-300 text-blue-500 mr-2">
+                        Ingat Saya
+                    </label>
+                    -->
+                    <a href="" class="text-sm text-black font-bold w-full text-right">
+                        Lupa password?
+                    </a>
+                </div>
+                <div class="flex justify-center mt-6">
+                   <button type="submit" class="bg-blue-900 text-white w-full py-2 rounded-md
+                    hover:bg-blue-950 focus:outline-none">Masuk</button>
+                </div>
+
+                {% if error %}
+                    <p class="text-red-600 mt-6 text-center">{{ error }}</p>
+                {% endif %}
+            </form>
+
+        </div>
+    </div>
+
+{% endblock %}

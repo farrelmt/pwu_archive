@@ -37,7 +37,5 @@ media/
 Thumbs.db
 desktop.ini
 
-# --- Migrations (optional: ignore if still initial development) ---
-#*/migrations/*
-# Keep the __init__.py so Django detects the package
-# !*/migrations/__init__.py
+# --- Database ---
+pwu_archive_db

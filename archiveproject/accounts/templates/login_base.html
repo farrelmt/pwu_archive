@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static tailwind_tags %}
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEM ARSIP PWU</title>
+
+    {% tailwind_css %}
+</head>
+
+<body class="bg-blue-950 flex items-center justify-center min-h-screen">
+    {% if messages %}
+        {% for message in messages %}
+        {% endfor %}
+    {% endif %}
+
+    {% block content %}
+    {% endblock %}
+</body>
+
+</html>
