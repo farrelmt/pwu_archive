@@ -20,3 +20,4 @@ def login_view(request):
 def logout_view(request):
     auth_logout(request)
     return redirect('accounts:login')
+
