@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static tailwind_tags %}
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>{% block title %}SISTEM - BERANDA{% endblock %}</title>
+
+    {% tailwind_css %}
+</head>
+
+<body class="bg-white min-h-screen">
+    <nav class="bg-blue-900 text-white flex justify-between items-center px-4 py-3">
+        <div class="flex items-center space-x-2">
+            <h2 class="font-bold text-lg">SISTEM ARSIP PWU</h2>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <a href="#">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                    <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0
+                    2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297
+                    1.206c-1.544.57-3.16.99-4.831
+                    1.243a3.75 3.75 0 1 1-7.48 0
+                    24.585 24.585 0 0 1-4.831-1.244.75.75
+                    0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25
+                    9.75V9Zm4.502 8.9a2.25 2.25 0 1
+                    0 4.496 0 25.057 25.057 0 0
+                    1-4.496 0Z" clip-rule="evenodd" />
+                </svg>
+            </a>
+        </div>
+    </nav>
+
+    <div class="flex">
+        <aside id="sidebar"
+               class="flex flex-col bg-blue-950 text-white w-35 min-h-screen p-0 space-y-0 transform
+               transition-transform -translate-x-full md:translate-x-0 fixed md:relative">
+            <div class="">
+                <a href="#" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Beranda</a>
+                <a href="#" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Disposisi</a>
+                <a href="#" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Nota Dinas</a>
+                <a href="#" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Surat Keluar</a>
+                <a href="#" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Monitor</a>
+                <a href="#" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Divisi</a>
+            </div>
+            <div class="mt-20">
+                <a href="#" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Pengaturan</a>
+                <a href="{% url 'accounts:logout' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Keluar</a>
+            </div>
+        </aside>
+
+        <main class="">
+            {% block content %}
+            {% endblock %}
+        </main>
+    </div>
+</body>
+
+</html>
