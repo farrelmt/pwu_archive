@@ -2,8 +2,16 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
 @login_required(login_url='accounts:login')
-def home(request):
-    return render(request, 'home.html')
+def dashboard(request):
+    links = [
+        {"page": "beranda", "url": "", "title": "Beranda"},
+        {"page": "disposisi", "url": "disposisi.html", "title": "Disposisi"},
+        {"page": "nota_dinas", "url": "nota_dinas.html", "title": "Nota Dinas"},
+        {"page": "surat_keluar", "url": "surat_keluar.html", "title": "Surat Keluar"},
+        {"page": "monitor", "url": "monitoring.html", "title": "Monitor"},
+        {"page": "divisi", "url": "divisi.html", "title": "Divisi"},
+    ]
+    return render(request, 'dashboard.html', {'links': links})
 
 def disposisi(request):
     return render(request, 'disposisi.html')
