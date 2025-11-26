@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <title>{% block title %}SISTEM - BERANDA{% endblock %}</title>
+     <title>{% block title %}SISTEM ARSIP{% endblock %}</title>
 
     {% tailwind_css %}
 </head>
@@ -13,7 +13,7 @@
 <body class="bg-white min-h-screen">
     <nav class="bg-blue-900 text-white flex justify-between items-center px-4 py-3">
         <div class="flex items-center space-x-2">
-            <h2 class="font-bold text-lg">SISTEM ARSIP PWU</h2>
+            <p class="text-8xl font-bold text-lg">SISTEM ARSIP PWU</p>
         </div>
 
         <div class="flex items-center space-x-4">
@@ -35,17 +35,31 @@
 
     <div class="flex">
         <aside id="sidebar"
-               class="flex flex-col bg-blue-950 text-white w-35 min-h-screen p-0 space-y-0 transform
+               class="flex flex-col bg-blue-950 text-white w-40 min-h-screen p-0 space-y-0 transform
                transition-transform -translate-x-full md:translate-x-0 fixed md:relative">
             <div class="">
-                {% for link in links %}
-                    <a href="{{link.url}}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">
-                        {{link.title}}
-                    </a>
-                {% endfor %}
+                <a href="{% url 'homepage:dashboard' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">
+                    Beranda
+                </a>
+                <a href="{% url 'homepage:disposisi' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">
+                    Disposisi
+                </a>
+                <a href="{% url 'homepage:notadinas' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">
+                    Nota Dinas
+                </a>
+                <a href="{% url 'homepage:suratkeluar' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">
+                    Surat Keluar
+                </a>
+                <a href="{% url 'homepage:monitor' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">
+                    Monitor
+                </a>
+                <a href="{% url 'homepage:divisi' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">
+                    Divisi
+                </a>
             </div>
+
             <div class="mt-14">
-                <a href="#" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Pengaturan</a>
+                <a href="{% url 'homepage:pengaturan' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Pengaturan</a>
                 <a href="{% url 'accounts:logout' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center">Keluar</a>
             </div>
         </aside>

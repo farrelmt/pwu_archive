@@ -10,7 +10,7 @@ def login_view(request):
 
         if user is not None:
             auth_login(request, user)
-            return redirect('homepage:homepage')
+            return redirect('homepage:dashboard')
         else:
             return render(request, 'login.html', {'error': 'Invalid username or password.'})
 
