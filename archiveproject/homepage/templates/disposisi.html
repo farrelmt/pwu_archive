@@ -1,7 +1,75 @@
 {% extends 'home_base.html' %}
 {% block title %}SISTEM ARSIP - DISPOSISI{% endblock %}
 {% block content %}
-    <h1>Disposisi</h1>
+    <div class="bg-gray-50 p-2 h-126 select-none">
+        <div class="mt-2 flex justify-between">
+            <div class="flex">
+                <p class="font-bold text-sm mt-[2px]">Cari </p>
+                <input class="mx-2 mt-1 border rounded p-1 h-4 text-sm" type="text">
+                <button class="flex items-center justify-center bg-blue-950 text-white w-6 h-6 rounded hover:bg-blue-900">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 items-center">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="flex">
+                <button class="bg-blue-950 text-white rounded-lg mx-1 w-18 h-6 text-xs hover:bg-blue-900">Filter</button>
+                <button class="bg-blue-950 text-white rounded-lg mx-1 w-18 h-6 text-xs hover:bg-blue-900">Tambah</button>
+            </div>
+        </div>
+
+        <div class="mt-1 w-full h-[420px] bg-white border border-gray-200 shadow p-1">
+            <div class="overflow-x-auto overflow-y-auto h-full">
+                <table class="table-fixed min-w-[900px] border-collapse border border-gray-300 text-xs text-center">
+                    <thead>
+                        <tr>
+                            <th class="border px-4 py-2 bg-gray-100 w-15">No</th>
+                            <th class="border px-4 py-2 bg-gray-100 w-20">Tanggal Surat Diterima</th>
+                            <th class="border px-4 py-2 bg-gray-100">Tanggal Surat</th>
+                            <th class="border px-4 py-2 bg-gray-100">Nomor Surat</th>
+                            <th class="border px-4 py-2 bg-gray-100">Pengirim</th>
+                            <th class="border px-4 py-2 bg-gray-100">Lampiran</th>
+                            <th class="border px-4 py-2 bg-gray-100">Tujuan</th>
+                            <th class="border px-4 py-2 bg-gray-100">Tembusan</th>
+                            <th class="border px-4 py-2 bg-gray-100">Perihal</th>
+                            <th class="border px-4 py-2 bg-gray-100">Status Pengajuan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for i in "123412341234" %}
+                        <tr>
+                          <td class="border px-4 py-2">1</td>
+                          <td class="border px-4 py-2">25 Desember 2099</td>
+                          <td class="border px-4 py-2">22 Desember 2099</td>
+                          <td class="border px-4 py-2">SD1022-342423AADD</td>
+                          <td class="border px-4 py-2">Bapak Arif Multono</td>
+                          <td class="border px-4 py-2">-</td>
+                          <td class="border px-4 py-2">Direktur Utama</td>
+                          <td class="border px-4 py-2">-</td>
+                          <td class="border px-4 py-2">Lorem ipsum dolor sit amet, consectetur...</td>
+                          <td class="border px-4 py-2">Belum Diajukan</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="mt-2 flex justify-between">
+            <div class="flex text-sm mt-1">
+                <p>Halaman {} dari {} </p>
+            </div>
+
+            <div class="flex">
+                <button class="bg-blue-950 text-white rounded-lg mx-1 w-24 h-6 text-xs hover:bg-blue-900">Sebelumnya</button>
+                <div>
+                    <button class="bg-gray-200 text-blue-950 rounded-full mx-1 w-6 h-6 text-xs hover:bg-blue-900 hover:text-white">1</button>
+                </div>
+                <button class="bg-blue-950 text-white rounded-lg mx-1 w-24 h-6 text-xs hover:bg-blue-900">Selanjutnya</button>
+            </div>
+        </div>
+    </div>
 
 
 
