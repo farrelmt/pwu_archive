@@ -10,64 +10,68 @@
     {% tailwind_css %}
 </head>
 
-<body class="bg-white min-h-screen overflow-hidden">
-    <nav class="bg-blue-900 text-white flex justify-between items-center px-4 py-1">
-        <div class="flex items-center space-x-2">
-            <p class="text-8xl font-bold text-lg">SISTEM ARSIP PWU</p>
-        </div>
-
-        <div class="flex items-center space-x-4">
-            <a href="#">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
-                    <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0
-                    2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297
-                    1.206c-1.544.57-3.16.99-4.831
-                    1.243a3.75 3.75 0 1 1-7.48 0
-                    24.585 24.585 0 0 1-4.831-1.244.75.75
-                    0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25
-                    9.75V9Zm4.502 8.9a2.25 2.25 0 1
-                    0 4.496 0 25.057 25.057 0 0
-                    1-4.496 0Z" clip-rule="evenodd" />
-                </svg>
-            </a>
-        </div>
-    </nav>
-
-    <div class="flex">
-        <aside id="sidebar"
-               class="flex flex-col bg-blue-950 text-white w-28 min-h-screen p-0 space-y-0 transform
-               transition-transform -translate-x-full md:translate-x-0 fixed md:relative justify-between">
-            <div class="">
-                <a href="{% url 'homepage:dashboard' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
-                    Beranda
-                </a>
-                <a href="{% url 'homepage:disposisi' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
-                    Disposisi
-                </a>
-                <a href="{% url 'homepage:notadinas' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
-                    Nota Dinas
-                </a>
-                <a href="{% url 'homepage:suratkeluar' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
-                    Surat Keluar
-                </a>
-                <a href="{% url 'homepage:monitor' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
-                    Monitor
-                </a>
-                <a href="{% url 'homepage:divisi' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
-                    Divisi
-                </a>
+<body class="bg-white min-h-screen overflow-x-auto overflow-y-auto">
+    <div>
+        <nav class="bg-blue-900 text-white flex justify-between items-center px-4 py-1">
+            <div class="flex items-center space-x-2">
+                <p class="text-8xl font-bold text-lg">SISTEM ARSIP PWU</p>
             </div>
 
-            <div class="mb-10">
-                <a href="{% url 'homepage:pengaturan' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">Pengaturan</a>
-                <a href="{% url 'accounts:logout' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">Keluar</a>
+            <div class="flex items-center space-x-4">
+                <a href="#">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                        <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0
+                        2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297
+                        1.206c-1.544.57-3.16.99-4.831
+                        1.243a3.75 3.75 0 1 1-7.48 0
+                        24.585 24.585 0 0 1-4.831-1.244.75.75
+                        0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25
+                        9.75V9Zm4.502 8.9a2.25 2.25 0 1
+                        0 4.496 0 25.057 25.057 0 0
+                        1-4.496 0Z" clip-rule="evenodd" />
+                    </svg>
+                </a>
             </div>
-        </aside>
+        </nav>
 
-        <main class="w-full text-black ">
-            {% block content %}
-            {% endblock %}
-        </main>
+        <div class="flex">
+            <aside id="sidebar"
+               class="fixed flex flex-col bg-blue-950 text-white w-28 h-126
+               p-0 space-y-0 transform transition-transform -translate-x-full md:translate-x-0
+               md:relative justify-between min">
+
+                <div class="">
+                    <a href="{% url 'homepage:dashboard' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
+                        Beranda
+                    </a>
+                    <a href="{% url 'homepage:disposisi' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
+                        Disposisi
+                    </a>
+                    <a href="{% url 'homepage:notadinas' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
+                        Nota Dinas
+                    </a>
+                    <a href="{% url 'homepage:suratkeluar' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
+                        Surat Keluar
+                    </a>
+                    <a href="{% url 'homepage:monitor' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
+                        Monitor
+                    </a>
+                    <a href="{% url 'homepage:divisi' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">
+                        Divisi
+                    </a>
+                </div>
+
+                <div class="mb-2">
+                    <a href="{% url 'homepage:pengaturan' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">Pengaturan</a>
+                    <a href="{% url 'accounts:logout' %}" class="block py-2 px-3 hover:bg-blue-700 rounded text-center text-sm">Keluar</a>
+                </div>
+            </aside>
+
+            <main class="w-full text-black md:ml">
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
     </div>
 </body>
 
