@@ -35,7 +35,7 @@
         </nav>
 
         <div class="flex">
-            <aside id="sidebar"
+            <aside id="flex sidebar"
                class="fixed flex flex-col bg-blue-950 text-white w-28 h-126
                p-0 space-y-0 transform transition-transform -translate-x-full md:translate-x-0
                md:relative justify-between min">
@@ -67,7 +67,7 @@
                 </div>
             </aside>
 
-            <main class="w-full text-black md:ml">
+            <main class="flex w-full text-black md:ml overflow-hidden">
                 {% block content %}
                 {% endblock %}
             </main>
