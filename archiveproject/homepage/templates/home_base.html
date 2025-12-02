@@ -13,6 +13,12 @@
 <body class="bg-white min-h-screen overflow-x-auto overflow-y-auto">
     <div>
         <nav class="bg-blue-900 text-white flex justify-between items-center px-4 py-1">
+            <button id="menuBtn" class="md:hidden mr-3 flex">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+            </button>
+
             <div class="flex items-center space-x-2">
                 <p class="text-8xl font-bold text-lg select-none">SISTEM ARSIP PWU</p>
             </div>
@@ -35,7 +41,7 @@
         </nav>
 
         <div class="flex">
-            <aside id="flex sidebar"
+            <aside id="sidebar"
                class="fixed flex flex-col bg-blue-950 text-white w-28 h-126
                p-0 space-y-0 transform transition-transform -translate-x-full md:translate-x-0
                md:relative justify-between min">
@@ -73,6 +79,18 @@
             </main>
         </div>
     </div>
+
+    <script>
+        const menuBtn = document.getElementById("menuBtn");
+        const sidebar = document.getElementById("sidebar");
+
+        menuBtn.addEventListener("click", () => {
+            sidebar.classList.toggle("-translate-x-full");
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+
 </body>
 
 </html>
