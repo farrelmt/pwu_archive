@@ -44,7 +44,7 @@
             <aside id="sidebar"
                class="fixed flex flex-col bg-blue-950 text-white w-28 h-126
                p-0 space-y-0 transform transition-transform -translate-x-full md:translate-x-0
-               md:relative justify-between min">
+               md:relative justify-between min z-10">
 
                 <div class="">
                     <a href="{% url 'homepage:dashboard' %}" class="block py-2 px-3 hover:bg-blue-700 text-center text-xs ">
@@ -73,7 +73,7 @@
                 </div>
             </aside>
 
-            <main class="flex w-full text-black md:ml overflow-hidden">
+            <main class="flex w-full bg-white text-black md:ml overflow-hidden">
                 {% block content %}
                 {% endblock %}
             </main>

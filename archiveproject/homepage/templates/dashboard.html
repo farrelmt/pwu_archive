@@ -1,14 +1,14 @@
 {% extends 'home_base.html' %}
 {% block title %}SISTEM ARSIP - BERANDA{% endblock %}
 {% block content %}
-    <div class="flex flex-grow justify-center grid place-items-center grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-8 gap-6 p-4 my-1 text-transparent">
+    <div class="grid place-items-center justify-center grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-8 gap-6 p-4">
 
         {% for link in links %}
-        <div class="">
+        <div class="h-full">
             <a href="{{link.url}}"
-               class="block bg-blue-900 shadow-md hover:shadow-lg rounded-lg p-4 w-40 h-40
+               class="block bg-blue-900 shadow-md hover:shadow-lg rounded-lg p-4 w-30 h-30
                       border hover:bg-blue-950 transition duration-200
-                      flex flex-col items-center justify-center space-y-2 text-center">
+                      flex flex-col items-center justify-center  text-center">
 
                 {% if link.icon == "beranda" %}
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"

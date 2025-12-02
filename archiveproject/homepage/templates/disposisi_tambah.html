@@ -1,0 +1,109 @@
+{% extends 'home_base.html' %}
+{% block title %}TAMBAH DISPOSISI{% endblock %}
+{% block content %}
+
+<div class="bg-gray-50/10 p-4 select-none w-full">
+
+    <div class="space-y-2">
+
+        <div class="flex items-center justify-between">
+           <div class="flex mt-1">
+                <p class="text-xs font-semibold w-40">Tanggal Surat Diterima</p>
+                <input class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
+                <p class="mx-2 text-2xl self-start leading-none">/</p>
+                <input class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
+                <p class="mx-2 text-2xl self-start leading-none">/</p>
+                <input class="border rounded-sm w-10 p-1 h-6 px-1 text-xs bg-white" type="text">
+           </div>
+
+            <div class="flex ">
+                <button class="bg-blue-950 text-white font-bold rounded ml-2 px-2 h-6 text-[8px] hover:bg-blue-900">
+                    Upload Dokumen Surat Masuk
+                </button>
+            </div>
+        </div>
+
+        <div class="flex items-center">
+            <p class="text-xs font-semibold w-40">Nomor Agenda</p>
+            <p class="font-semibold w-6 text-center">1</p>
+            <p class="text-2xl mx-2">/</p>
+            <input class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
+            <p class="mx-2 text-2xl ">/</p>
+            <input class="border rounded-sm w-10 p-1 h-6 px-1 text-xs bg-white" type="text">
+        </div>
+
+        <div class="flex items-center">
+            <p class="text-xs font-semibold w-40">Tanggal Surat</p>
+                <input class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
+                <p class="mx-2 text-2xl items-center">/</p>
+                <input class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
+                <p class="mx-2 text-2xl">/</p>
+                <input class="border rounded-sm w-10 p-1 h-6 px-1 text-xs bg-white" type="text">
+        </div>
+
+        <div class="flex items-center">
+            <p class="text-xs font-semibold w-40">Nomor Surat</p>
+            <input class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+        </div>
+
+        <div class="flex items-center">
+            <p class="text-xs font-semibold w-40">Pengirim</p>
+            <input class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+        </div>
+
+        <div class="flex items-center">
+            <p class="text-xs font-semibold w-40">Lampiran</p>
+            <input class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+        </div>
+
+        <div class="flex items-center">
+            <p class="text-xs font-semibold w-40">Tujuan</p>
+            <select class="border rounded-sm w-36 p-1 text-xs bg-white">
+                <option>Direktur Utama</option>
+                <option>Direktur</option>
+            </select>
+        </div>
+
+        <div class="flex items-center">
+            <p class="text-xs font-semibold w-40">Tembusan</p>
+            <input class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+        </div>
+
+        <div class="flex items-center">
+            <p class="text-xs font-semibold w-40">Perihal</p>
+            <textarea
+                class="border p-1 h-20 text-xs bg-white flex-grow resize-none"
+            ></textarea>
+        </div>
+
+        <div class="flex items-center">
+            <p class="text-xs font-semibold w-40">Diajukan Kepada</p>
+            <div class="flex items-center gap-2">
+                <select class="border rounded-sm w-36 p-1 text-xs bg-white">
+                    <option>Direktur Utama</option>
+                    <option>Direktur</option>
+                </select>
+            </div>
+        </div>
+
+
+    </div>
+
+    <br/>
+    <div class="flex justify-between bottom-0 mt-8">
+        <a href="{% url 'homepage:disposisi' %}">
+            <button class="bg-blue-950 text-white font-semibold rounded w-24 h-6 text-xs hover:bg-blue-900">
+                Kembali
+            </button>
+        </a>
+
+        <a href="{% url 'homepage:disposisi' %}">
+            <button class="bg-blue-950 text-white font-semibold rounded w-24 h-6 text-xs hover:bg-blue-900">
+                Tambah
+            </button>
+        </a>
+    </div>
+
+</div>
+
+{% endblock %}

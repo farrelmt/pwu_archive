@@ -5,11 +5,16 @@ app_name = 'homepage'
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
-    path('disposisi', views.disposisi, name='disposisi'),
-    path('notadinas', views.nota_dinas, name='notadinas'),
-    path('suratkeluar', views.surat_keluar, name='suratkeluar'),
-    path('monitor', views.monitoring, name='monitor'),
-    path('divisi', views.divisi, name='divisi'),
-    path('pengaturan', views.pengaturan, name='pengaturan'),
-    path('notif', views.notifikasi, name='notif'),
+    path('disposisi/', views.disposisi, name='disposisi'),
+    path('disposisi/tambah/', views.tambah_disposisi, name='tambahdisposisi'),
+    path('disposisi/filter/', views.filter_disposisi, name='filterdisposisi'),
+    path('disposisi/<int:pk>/', views.detail_disposisi, name='disposisi'),
+
+    path('nota-dinas/', views.nota_dinas, name='notadinas'),
+    path('surat-keluar/', views.surat_keluar, name='suratkeluar'),
+    path('monitor/', views.monitoring, name='monitor'),
+    path('divisi/', views.divisi, name='divisi'),
+    path('pengaturan/', views.pengaturan, name='pengaturan'),
+    path('notif/', views.notifikasi, name='notif'),
+
 ]

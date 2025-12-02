@@ -16,6 +16,18 @@ def dashboard(request):
 def disposisi(request):
     return render(request, 'disposisi.html')
 
+def tambah_disposisi(request):
+    return render(request, 'disposisi_tambah.html')
+
+def filter_disposisi(request):
+    return render(request, 'dashboard.html')
+
+def detail_disposisi(request):
+    return render(request, 'dashboard.html')
+
+def nota_dinas(request):
+    pass
+
 def nota_dinas(request):
     return render(request, 'nota_dinas.html')
 

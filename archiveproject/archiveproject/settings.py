@@ -111,6 +111,8 @@ STATICFILES_DIRS = [BASE_DIR / 'theme' / 'static']
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
+APPEND_SLASH = True
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 NPM_BIN_PATH = "C:\\Program Files\\nodejs\\npm.cmd"

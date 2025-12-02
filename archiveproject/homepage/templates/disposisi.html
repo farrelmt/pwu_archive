@@ -13,45 +13,58 @@
                 </button>
             </div>
 
-            <div class="flex">
-                <button class="bg-blue-950 text-white rounded-lg mx-1 w-18 h-6 text-xs hover:bg-blue-900 hover:shadow-md">Filter</button>
-                <button class="bg-blue-950 text-white rounded-lg mx-1 w-18 h-6 text-xs hover:bg-blue-900 hover:shadow-md">Tambah</button>
+            <div class="flex gap-2">
+                <a href="{% url 'homepage:filterdisposisi' %}"
+                   class="hidden sm:flex items-center justify-center
+                          bg-blue-950 text-white text-xs rounded-lg
+                          w-20 h-6 mx-1 hover:bg-blue-900 hover:shadow-md">
+                    Filter
+                </a>
+
+                <a href="{% url 'homepage:tambahdisposisi' %}"
+                   class="hidden sm:flex items-center justify-center
+                          bg-blue-950 text-white text-xs rounded-lg
+                          w-20 h-6 mx-1 hover:bg-blue-900 hover:shadow-md">
+                    Tambah
+                </a>
             </div>
+
         </div>
 
         <div class="mt-1 w-full h-[420px] bg-white border border-gray-200 shadow p-1">
-            <div class="overflow-x-auto overflow-y-auto h-full w-full">
-                <table class="table-fixed w-600 border-collapse border border-gray-300 text-xs text-center">
-                    <thead>
+            <div class="overflow-y-auto h-full w-full">
+                <table class="table-fixed border-collapse border border-gray-300 text-xs text-center w-full">
+                    <thead class="sticky top-0 bg-gray-400 z-2">
                         <tr>
-                            <th class="border px-4 py-2 bg-gray-400 w-12">No</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-35">Tanggal Surat Diterima</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-50"> Nomor Agenda</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-35">Tanggal Surat</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-70">Nomor Surat</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-50">Pengirim</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-35">Lampiran</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-35">Tujuan</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-35">Tembusan</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-100">Perihal</th>
-                            <th class="border px-4 py-2 bg-gray-400 w-35">Status Pengajuan</th>
+                            <th class="border px-4 py-2 w-12">No</th>
+                            <th class="border px-4 py-2 w-35">Tanggal Surat Diterima</th>
+                            <th class="border px-4 py-2 w-50"> Nomor Agenda</th>
+                            <th class="border px-4 py-2 w-35">Tanggal Surat</th>
+                            <th class="border px-4 py-2 w-70">Nomor Surat</th>
+                            <th class="border px-4 py-2 w-50">Pengirim</th>
+                            <th class="border px-4 py-2 w-35">Lampiran</th>
+                            <th class="border px-4 py-2 w-35">Tujuan</th>
+                            <th class="border px-4 py-2 w-35">Tembusan</th>
+                            <th class="border px-4 py-2 w-100">Perihal</th>
+                            <th class="border px-4 py-2 w-35">Status Pengajuan</th>
                         </tr>
                     </thead>
+
                     <tbody>
-                    {% for i in "123412341234" %}
+                    {% for i in "12341234123412341234" %}
                         <tr onclick="window.location.href='';"
                             class="cursor-pointer hover:bg-gray-100 transition">
-                          <td class="border px-4 py-2">1</td>
-                          <td class="border px-4 py-2">25 Desember 2099</td>
-                          <td class="border px-4 py-2">199.5/12/2029</td>
-                          <td class="border px-4 py-2">22 Desember 2099</td>
-                          <td class="border px-4 py-2">SD1022-342423AADD</td>
-                          <td class="border px-4 py-2">Bapak Arif Multono</td>
-                          <td class="border px-4 py-2">-</td>
-                          <td class="border px-4 py-2">Direktur Utama</td>
-                          <td class="border px-4 py-2">-</td>
-                          <td class="border px-4 py-2 text-left">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</td>
-                          <td class="border px-4 py-2">Belum Diajukan</td>
+                            <td class="border px-4 py-2">1</td>
+                            <td class="border px-4 py-2">25 Desember 2099</td>
+                            <td class="border px-4 py-2">199.5/12/2029</td>
+                            <td class="border px-4 py-2">22 Desember 2099</td>
+                            <td class="border px-4 py-2">SD1022-342423AADD</td>
+                            <td class="border px-4 py-2">Bapak Arif Multono</td>
+                            <td class="border px-4 py-2">-</td>
+                            <td class="border px-4 py-2">Direktur Utama</td>
+                            <td class="border px-4 py-2">-</td>
+                            <td class="border px-4 py-2 text-left">Lorem ipsum ...</td>
+                            <td class="border px-4 py-2">Belum Diajukan</td>
                         </tr>
                     {% endfor %}
                     </tbody>
@@ -59,21 +72,27 @@
             </div>
         </div>
 
-        <div class="mt-2 flex justify-between">
-            <div class="flex text-sm mt-1">
+
+        <div class="mt-2 flex justify-center md:justify-between">
+            <div class="flex text-sm mt-1 hidden md:inline font-semibold">
                 <p>Halaman {} dari {} </p>
             </div>
 
             <div class="flex">
-                <button class="bg-blue-950 text-white rounded-lg mx-1 w-24 h-6 text-xs hover:bg-blue-900 hover:shadow-md">
+                <button class="bg-blue-950 text-white rounded-lg hover:bg-blue-900 hover:shadow-md
+                    mx-1 w-18 md:w-24 h-6 text-xs ">
                     Sebelumnya
                 </button>
-                <div>
-                    <button class="bg-gray-200 text-blue-950 rounded-full mx-1 w-6 h-6 text-xs hover:bg-blue-900 hover:text-white hover:shadow-md">
+                <div class="flex justify-center mx-1 ">
+                    {% for i in "12" %}
+                    <button class="bg-gray-200 mx-1 text-blue-950 rounded-full w-6 h-6 text-xs hover:bg-blue-900 hover:text-white hover:shadow-md">
                         1
                     </button>
+                    {% endfor %}
+                    <p class="mx-2">...</p>
                 </div>
-                <button class="bg-blue-950 text-white rounded-lg mx-1 w-24 h-6 text-xs hover:bg-blue-900 hover:shadow-md">
+                <button class="bg-blue-950 text-white rounded-lg hover:bg-blue-900 hover:shadow-md
+                    mx-1 w-18 md:w-24 h-6 text-xs ">
                     Selanjutnya
                 </button>
             </div>
