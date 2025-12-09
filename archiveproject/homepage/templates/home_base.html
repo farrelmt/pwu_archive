@@ -50,7 +50,7 @@
                     <a href="{% url 'homepage:dashboard' %}" class="block py-2 px-3 hover:bg-blue-700 text-center text-xs ">
                         Beranda
                     </a>
-                    <a href="{% url 'homepage:disposisi' %}" class="block py-2 px-3 hover:bg-blue-700 text-center text-xs">
+                    <a href="{% url 'disposisi:disposisi' %}" class="block py-2 px-3 hover:bg-blue-700 text-center text-xs">
                         Disposisi
                     </a>
                     <a href="{% url 'homepage:notadinas' %}" class="block py-2 px-3 hover:bg-blue-700 text-center text-xs">
@@ -92,5 +92,20 @@
     {% block extra_js %}{% endblock %}
 
 </body>
+
+<style>
+/* Restore native date picker icon */
+input[type="date"] {
+    -webkit-appearance: auto;
+    appearance: auto;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 1;
+    display: block;
+    cursor: pointer;
+}
+</style>
+
 
 </html>

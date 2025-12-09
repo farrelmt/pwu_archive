@@ -13,9 +13,6 @@ def dashboard(request):
     ]
     return render(request, 'dashboard.html', {'links': links})
 
-def disposisi(request):
-    return render(request, 'disposisi.html')
-
 def nota_dinas(request):
     pass
 

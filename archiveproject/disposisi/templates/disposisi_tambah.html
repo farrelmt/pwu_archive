@@ -6,20 +6,14 @@
     <form method="post">
     {% csrf_token %}
         <div class="space-y-2">
-
             <div class="flex items-center justify-between">
                <div class="flex mt-1">
-                    <p class="text-xs font-semibold w-40">Tanggal Surat Diterima</p>
-                    <input name="dd_tsd" maxlength="2" required
-                            class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
-                    <p class="mx-2 text-2xl self-start leading-none">/</p>
-                    <input name="mm_tsd" maxlength="2" required
-                            class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
-                    <p class="mx-2 text-2xl self-start leading-none">/</p>
-                    <input name="yy_tsd" maxlength="4" required
-                            class="border rounded-sm w-10 p-1 h-6 px-1 text-xs bg-white" type="text">
+                   <p class="text-xs font-semibold w-40">Tanggal Surat Diterima</p>
+                   <input type="date" name="tanggal_surat_diterima" id="date_tsd"
+                            class="border border-black rounded-md shadow-sm pl-1">
                </div>
             </div>
+
             <div class="flex items-center">
                 <p class="text-xs font-semibold w-40">Nomor Agenda</p>
                 <p id = "nomor_agenda"
@@ -30,35 +24,30 @@
                 <p class="mx-2 text-2xl ">/</p>
                 <p id = "tahun_agenda"
                         class="mx-1 w-8">----</p>
+                <input type="hidden" name="nomor_agenda" id="nomor_agenda_input">
             </div>
 
             <div class="flex items-center">
                 <p class="text-xs font-semibold w-40">Tanggal Surat</p>
-                    <input name="dd_ts" required
-                            class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
-                    <p class="mx-2 text-2xl items-center">/</p>
-                    <input name="mm_ts" required
-                            class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
-                    <p class="mx-2 text-2xl">/</p>
-                    <input name="yy_ts" required
-                            class="border rounded-sm w-10 p-1 h-6 px-1 text-xs bg-white" type="text">
+                <input type="date" name="tanggal_surat" id="date_ts"
+                            class="border border-black rounded-md shadow-sm pl-1">
             </div>
 
             <div class="flex items-center">
                 <p class="text-xs font-semibold w-40">Nomor Surat</p>
-                <input name="nomor_surat" required
+                <input name="nomor_surat" required autocomplete="off"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
                 <p class="text-xs font-semibold w-40">Pengirim</p>
-                <input name="pengirim" required
+                <input name="pengirim" required autocomplete="off"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
                 <p class="text-xs font-semibold w-40">Lampiran</p>
-                <input name="lampiran" required
+                <input name="lampiran" required autocomplete="off"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
@@ -73,13 +62,13 @@
 
             <div class="flex items-center">
                 <p class="text-xs font-semibold w-40">Tembusan</p>
-                <input name="tembusan" required
+                <input name="tembusan" required autocomplete="off"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
                 <p class="text-xs font-semibold w-40">Perihal</p>
-                <textarea name="perihal" required
+                <textarea name="perihal" required autocomplete="off"
                     class="border p-1 h-20 text-xs bg-white flex-grow resize-none"
                 ></textarea>
             </div>
@@ -97,7 +86,7 @@
 
             <div class="flex items-center">
                 <p class="text-xs font-semibold w-40">Dokumen Surat Masuk</p>
-                <input name="dokumen_surat_masuk" required
+                <input name="dokumen_surat_masuk" required autocomplete="off"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
@@ -105,7 +94,7 @@
 
         <br/>
         <div class="flex justify-between bottom-0 mt-8">
-            <a href="{% url 'homepage:disposisi' %}">
+            <a href="{% url 'disposisi:disposisi' %}">
                 <button class="bg-blue-950 text-white font-semibold rounded w-24 h-6 text-xs hover:bg-blue-900">
                     Kembali
                 </button>
@@ -120,20 +109,8 @@
 </div>
 
 <script>
-    document.querySelector('[name="dd_tsd"]').addEventListener('input', function () {
-        if (this.value.length === 2) {
-            document.querySelector('[name="mm_tsd"]').focus();
-        }
-    });
-    document.querySelector('[name="mm_tsd"]').addEventListener('input', function () {
-        if (this.value.length === 2) {
-            document.querySelector('[name="yy_tsd"]').focus();
-        }
-    });
-
-    const dd = document.querySelector('[name="dd_tsd"]');
-    const mm = document.querySelector('[name="mm_tsd"]');
-    const yy = document.querySelector('[name="yy_tsd"]');
+    const dateInput = document.getElementById('date_tsd');
+    const nomorAgendaInput = document.getElementById('nomor_agenda_input');
 
     const nomorAgenda = document.getElementById('nomor_agenda');
     const bulanAgenda = document.getElementById('bulan_agenda');
@@ -145,26 +122,25 @@
     ];
 
     function updateAgenda() {
-        // Nomor agenda dari tanggal
-        nomorAgenda.textContent = dd.value || '--';
+        if(!dateInput.value){
+            nomorAgenda.textContent = '--';
+            bulanAgenda.textContent = '--';
+            tahunAgenda.textContent = '----';
+            return;
+        }
 
-        // Bulan romawi
-        const bulan = parseInt(mm.value);
-        bulanAgenda.textContent = (bulan >= 1 && bulan <= 12)
-            ? bulanRomawi[bulan]
-            : '--';
+        const [year, month, day] = dateInput.value.split('-');
 
-        // Tahun
-        const tahun = parseInt(yy.value);
-        tahunAgenda.textContent = (tahun >= 1900 && tahun <= 2100)
-        ? tahun : '----';
+        const nomor = parseInt(day, 10)
+        const bulan = bulanRomawi[parseInt(month, 10)];
+
+        nomorAgenda.textContent = nomor;
+        bulanAgenda.textContent = bulan;
+        tahunAgenda.textContent = year;
+        nomorAgendaInput.value = `${nomor}/${bulan}/${year}`;
     }
 
-    dd.addEventListener('input', updateAgenda);
-    mm.addEventListener('input', updateAgenda);
-    yy.addEventListener('input', updateAgenda);
-
-
+    dateInput.addEventListener('change', updateAgenda);
 </script>
 
 {% endblock %}
