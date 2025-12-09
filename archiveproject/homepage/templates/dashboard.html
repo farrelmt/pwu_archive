@@ -1,7 +1,7 @@
 {% extends 'home_base.html' %}
 {% block title %}SISTEM ARSIP - BERANDA{% endblock %}
 {% block content %}
-    <div class="grid place-items-center justify-center grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-8 gap-6 p-4">
+    <div class="grid place-items-center grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-8 gap-2 p-4">
 
         {% for link in links %}
         <div class="h-full">
@@ -52,7 +52,19 @@
 
         {% endfor %}
 
+        <!--
+        <p>Screen width: <span id="screenWidth"></span> px</p>
+        -->
     </div>
 
+    <script>
+        function updateWidth() {
+            document.getElementById("screenWidth").textContent = window.innerWidth;
+        }
+
+        updateWidth();
+
+        window.addEventListener("resize", updateWidth);
+    </script>
 
 {% endblock %}

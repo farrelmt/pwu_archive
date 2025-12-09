@@ -1,7 +1,7 @@
 {% extends 'home_base.html' %}
 {% block title %}SISTEM ARSIP - DISPOSISI{% endblock %}
 {% block content %}
-    <div class="bg-gray-50 p-2 h-126 select-none w-full">
+    <div class="bg-gray-50 p-2 min-h-[calc(100vh-36px)] select-none w-full">
         <div class="mt-2 flex justify-between">
             <div class="flex">
                 <p class="font-bold text-sm mt-[2px] mx-1">Cari </p>
@@ -14,24 +14,35 @@
             </div>
 
             <div class="flex gap-2">
-                <a href="{% url 'homepage:filterdisposisi' %}"
+                <a href="{% url 'disposisi:filterdisposisi' %}"
                    class="hidden sm:flex items-center justify-center
                           bg-blue-950 text-white text-xs rounded-lg
-                          w-20 h-6 mx-1 hover:bg-blue-900 hover:shadow-md">
+                          w-24 h-6 mx-1 hover:bg-blue-900 hover:shadow-md">
                     Filter
                 </a>
 
-                <a href="{% url 'homepage:tambahdisposisi' %}"
+                <a href="{% url 'disposisi:tambahdisposisi' %}"
                    class="hidden sm:flex items-center justify-center
                           bg-blue-950 text-white text-xs rounded-lg
-                          w-20 h-6 mx-1 hover:bg-blue-900 hover:shadow-md">
+                          w-24 h-6 mx-1 hover:bg-blue-900 hover:shadow-md">
                     Tambah
                 </a>
             </div>
 
         </div>
 
-        <div class="mt-1 w-full h-[420px] bg-white border border-gray-200 shadow p-1">
+        <div class="mt-2 w-full bg-white border border-gray-200 shadow p-1">
+            <div class="flex mb-2">
+                <p class="flex text-sm font-medium mx-1">Tampilkan</p>
+                <select class="flex border w-13 h-5 ml-2 mt-px text-xs bg-white">
+                    <option>10</option>
+                    <option>20</option>
+                    <option>50</option>
+                    <option>100</option>
+                </select>
+
+            </div>
+
             <div class="overflow-y-auto h-full w-full">
                 <table class="table-fixed border-collapse border border-gray-300 text-xs text-center w-full">
                     <thead class="sticky top-0 bg-gray-400 z-2">
@@ -51,7 +62,7 @@
                     </thead>
 
                     <tbody>
-                    {% for i in "12341234123412341234" %}
+                    {% for i in "1" %}
                         <tr onclick="window.location.href='';"
                             class="cursor-pointer hover:bg-gray-100 transition">
                             <td class="border px-4 py-2">1</td>
@@ -84,12 +95,11 @@
                     Sebelumnya
                 </button>
                 <div class="flex justify-center mx-1 ">
-                    {% for i in "12" %}
+                    {% for i in "1" %}
                     <button class="bg-gray-200 mx-1 text-blue-950 rounded-full w-6 h-6 text-xs hover:bg-blue-900 hover:text-white hover:shadow-md">
                         1
                     </button>
                     {% endfor %}
-                    <p class="mx-2">...</p>
                 </div>
                 <button class="bg-blue-950 text-white rounded-lg hover:bg-blue-900 hover:shadow-md
                     mx-1 w-18 md:w-24 h-6 text-xs ">

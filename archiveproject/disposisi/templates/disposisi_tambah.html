@@ -1,0 +1,170 @@
+{% extends 'home_base.html' %}
+{% block title %}TAMBAH DISPOSISI{% endblock %}
+{% block content %}
+
+<div class="bg-gray-50/10 p-4 select-none w-full">
+    <form method="post">
+    {% csrf_token %}
+        <div class="space-y-2">
+
+            <div class="flex items-center justify-between">
+               <div class="flex mt-1">
+                    <p class="text-xs font-semibold w-40">Tanggal Surat Diterima</p>
+                    <input name="dd_tsd" maxlength="2" required
+                            class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
+                    <p class="mx-2 text-2xl self-start leading-none">/</p>
+                    <input name="mm_tsd" maxlength="2" required
+                            class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
+                    <p class="mx-2 text-2xl self-start leading-none">/</p>
+                    <input name="yy_tsd" maxlength="4" required
+                            class="border rounded-sm w-10 p-1 h-6 px-1 text-xs bg-white" type="text">
+               </div>
+            </div>
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Nomor Agenda</p>
+                <p id = "nomor_agenda"
+                        class="mx-1 w-4">--</p>
+                <p class="text-2xl mx-2">/</p>
+                <p id = "bulan_agenda"
+                        class="mx-1 w-4">--</p>
+                <p class="mx-2 text-2xl ">/</p>
+                <p id = "tahun_agenda"
+                        class="mx-1 w-8">----</p>
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Tanggal Surat</p>
+                    <input name="dd_ts" required
+                            class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
+                    <p class="mx-2 text-2xl items-center">/</p>
+                    <input name="mm_ts" required
+                            class="border rounded-sm w-6 p-1 h-6 text-xs bg-white" type="text">
+                    <p class="mx-2 text-2xl">/</p>
+                    <input name="yy_ts" required
+                            class="border rounded-sm w-10 p-1 h-6 px-1 text-xs bg-white" type="text">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Nomor Surat</p>
+                <input name="nomor_surat" required
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Pengirim</p>
+                <input name="pengirim" required
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Lampiran</p>
+                <input name="lampiran" required
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Tujuan</p>
+                <select name="tujuan" required
+                        class="border rounded-sm w-36 p-1 text-xs bg-white">
+                    <option value="DIRUT">Direktur Utama</option>
+                    <option value="DIR">Direktur</option>
+                </select>
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Tembusan</p>
+                <input name="tembusan" required
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Perihal</p>
+                <textarea name="perihal" required
+                    class="border p-1 h-20 text-xs bg-white flex-grow resize-none"
+                ></textarea>
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Diajukan Kepada</p>
+                <div class="flex items-center gap-2">
+                    <select name="diajukan_kepada" required
+                            class="border rounded-sm w-36 p-1 text-xs bg-white">
+                        <option value="DIRUT">Direktur Utama</option>
+                        <option value="DIR">Direktur</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Dokumen Surat Masuk</p>
+                <input name="dokumen_surat_masuk" required
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+        </div>
+
+        <br/>
+        <div class="flex justify-between bottom-0 mt-8">
+            <a href="{% url 'homepage:disposisi' %}">
+                <button class="bg-blue-950 text-white font-semibold rounded w-24 h-6 text-xs hover:bg-blue-900">
+                    Kembali
+                </button>
+            </a>
+
+            <button type="submit"
+                    class="bg-blue-950 text-white font-semibold rounded w-24 h-6 text-xs hover:bg-blue-900">
+                Tambah
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.querySelector('[name="dd_tsd"]').addEventListener('input', function () {
+        if (this.value.length === 2) {
+            document.querySelector('[name="mm_tsd"]').focus();
+        }
+    });
+    document.querySelector('[name="mm_tsd"]').addEventListener('input', function () {
+        if (this.value.length === 2) {
+            document.querySelector('[name="yy_tsd"]').focus();
+        }
+    });
+
+    const dd = document.querySelector('[name="dd_tsd"]');
+    const mm = document.querySelector('[name="mm_tsd"]');
+    const yy = document.querySelector('[name="yy_tsd"]');
+
+    const nomorAgenda = document.getElementById('nomor_agenda');
+    const bulanAgenda = document.getElementById('bulan_agenda');
+    const tahunAgenda = document.getElementById('tahun_agenda');
+
+    const bulanRomawi = [
+        '', 'I', 'II', 'III', 'IV', 'V',
+        'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'
+    ];
+
+    function updateAgenda() {
+        // Nomor agenda dari tanggal
+        nomorAgenda.textContent = dd.value || '--';
+
+        // Bulan romawi
+        const bulan = parseInt(mm.value);
+        bulanAgenda.textContent = (bulan >= 1 && bulan <= 12)
+            ? bulanRomawi[bulan]
+            : '--';
+
+        // Tahun
+        const tahun = parseInt(yy.value);
+        tahunAgenda.textContent = (tahun >= 1900 && tahun <= 2100)
+        ? tahun : '----';
+    }
+
+    dd.addEventListener('input', updateAgenda);
+    mm.addEventListener('input', updateAgenda);
+    yy.addEventListener('input', updateAgenda);
+
+
+</script>
+
+{% endblock %}

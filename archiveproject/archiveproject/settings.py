@@ -26,6 +26,7 @@ INSTALLED_APPS = [
 
     'accounts',
     'homepage',
+    'disposisi',
 ]
 
 TAILWIND_APP_NAME = 'theme'
