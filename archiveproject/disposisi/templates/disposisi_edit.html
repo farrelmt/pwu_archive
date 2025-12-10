@@ -1,10 +1,146 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends 'home_base.html' %}
+{% block title %}Disposisi - Buat Disposisi{% endblock %}
+{% block content %}
 
-</body>
-</html>
+<div class="bg-gray-50/10 p-4 select-none w-full">
+    <form method="post">
+    {% csrf_token %}
+        <div class="space-y-2">
+            <div class="flex items-center justify-between">
+               <div class="flex mt-1">
+                   <p class="text-xs font-semibold w-40">Tanggal Surat Diterima</p>
+                   <input type="date" name="tanggal_surat_diterima" id="date_tsd"
+                            class="border border-black rounded-md shadow-sm pl-1">
+               </div>
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Nomor Agenda</p>
+                <p id = "nomor_agenda"
+                        class="mx-1 w-4">--</p>
+                <p class="text-2xl mx-2">/</p>
+                <p id = "bulan_agenda"
+                        class="mx-1 w-4">--</p>
+                <p class="mx-2 text-2xl ">/</p>
+                <p id = "tahun_agenda"
+                        class="mx-1 w-8">----</p>
+                <input type="hidden" name="nomor_agenda" id="nomor_agenda_input">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Tanggal Surat</p>
+                <input type="date" name="tanggal_surat" id="date_ts"
+                            class="border border-black rounded-md shadow-sm pl-1">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Nomor Surat</p>
+                <input name="nomor_surat" required autocomplete="off"
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Pengirim</p>
+                <input name="pengirim" required autocomplete="off"
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Lampiran</p>
+                <input name="lampiran" required autocomplete="off"
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Tujuan</p>
+                <select name="tujuan" required
+                        class="border rounded-sm w-36 p-1 text-xs bg-white">
+                    <option value="DIRUT">Direktur Utama</option>
+                    <option value="DIR">Direktur</option>
+                </select>
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Tembusan</p>
+                <input name="tembusan" required autocomplete="off"
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Perihal</p>
+                <textarea name="perihal" required autocomplete="off"
+                    class="border p-1 h-20 text-xs bg-white flex-grow resize-none"
+                ></textarea>
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Diajukan Kepada</p>
+                <div class="flex items-center gap-2">
+                    <select name="diajukan_kepada" required
+                            class="border rounded-sm w-36 p-1 text-xs bg-white">
+                        <option value="DIRUT">Direktur Utama</option>
+                        <option value="DIR">Direktur</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center">
+                <p class="text-xs font-semibold w-40">Dokumen Surat Masuk</p>
+                <input name="dokumen_surat_masuk" required autocomplete="off"
+                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+            </div>
+
+        </div>
+
+        <br/>
+        <div class="flex justify-between bottom-0 mt-8">
+            <a href="{% url 'disposisi:disposisi' %}">
+                <button class="bg-blue-950 text-white font-semibold rounded w-24 h-6 text-xs hover:bg-blue-900">
+                    Kembali
+                </button>
+            </a>
+
+            <button type="submit"
+                    class="bg-blue-950 text-white font-semibold rounded w-24 h-6 text-xs hover:bg-blue-900">
+                Buat
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const dateInput = document.getElementById('date_tsd');
+    const nomorAgendaInput = document.getElementById('nomor_agenda_input');
+
+    const nomorAgenda = document.getElementById('nomor_agenda');
+    const bulanAgenda = document.getElementById('bulan_agenda');
+    const tahunAgenda = document.getElementById('tahun_agenda');
+
+    const bulanRomawi = [
+        '', 'I', 'II', 'III', 'IV', 'V',
+        'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'
+    ];
+
+    function updateAgenda() {
+        if(!dateInput.value){
+            nomorAgenda.textContent = '--';
+            bulanAgenda.textContent = '--';
+            tahunAgenda.textContent = '----';
+            return;
+        }
+
+        const [year, month, day] = dateInput.value.split('-');
+
+        const nomor = parseInt(day, 10)
+        const bulan = bulanRomawi[parseInt(month, 10)];
+
+        nomorAgenda.textContent = nomor;
+        bulanAgenda.textContent = bulan;
+        tahunAgenda.textContent = year;
+        nomorAgendaInput.value = `${nomor}/${bulan}/${year}`;
+    }
+
+    dateInput.addEventListener('change', updateAgenda);
+</script>
+
+{% endblock %}

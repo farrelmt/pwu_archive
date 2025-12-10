@@ -7,8 +7,8 @@ urlpatterns = [
     path('', views.list_disposisi, name='disposisi'),
     path('tambah/', views.tambah_disposisi, name='tambahdisposisi'),
     path('filter/', views.filter_disposisi, name='filterdisposisi'),
-    path('<int:pk>/', views.tambah_disposisi, name='detaildisposisi'),
+    path('<int:pk>/', views.detail_disposisi, name='detaildisposisi'),
     path('edit/<int:pk>/', views.update_disposisi, name='editdisposisi'),
-    path('hapus/<int:pk>/', views.tambah_disposisi, name='hapusdisposisi'),
+    path('hapus/<int:pk>/', views.hapus_disposisi, name='hapusdisposisi'),
 ]
 

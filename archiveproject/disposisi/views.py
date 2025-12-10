@@ -31,15 +31,17 @@ def hapus_disposisi(request):
     disposisi = get_object_or_404(Disposisi, pk=request.GET.get('pk'))
     if request.method == 'POST':
         disposisi.delete()
-        return redirect('disposisi:disposisi')
+        return redirect('disposisi'
+                        ':disposisi')
     return render(request, 'disposisi_hapus.html', {'disposisi': disposisi})
 
 def filter_disposisi(request):
     return render(request, 'disposisi_tambah.html')
 
-def detail_disposisi(request):
+def detail_disposisi(request, pk):
+    disposisi = get_object_or_404(Disposisi, pk=pk)
     if request.user.is_authenticated:
-        return render(request, 'disposisi_tambah.html')
+        return render(request, 'disposisi_detail.html', {'disposisi': disposisi})
     else:
         messages.success(request, "You must be logged in to view this page.")
         return redirect('homepage')

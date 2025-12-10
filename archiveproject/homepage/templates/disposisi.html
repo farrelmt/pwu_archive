@@ -4,9 +4,10 @@
     <div class="bg-gray-50 p-2 min-h-[calc(100vh-36px)] select-none w-full">
         <div class="mt-2 flex justify-between">
             <div class="flex">
-                <p class="font-bold text-sm mt-[2px] mx-1">Cari </p>
-                <input class="mx-2 mt-1 border rounded p-1 h-4 text-sm bg-white" type="text">
-                <button class="flex items-center justify-center bg-blue-950 text-white w-6 h-6 rounded hover:bg-blue-900 hover:shadow-sm">
+                <p class="font-bold text-md mt-[2px] mx-1">Cari </p>
+                <input class="mx-2 mt-1 border rounded p-1 h-6 text-md bg-white" type="text">
+                <button class="flex items-center justify-center mt-1 bg-blue-950 text-white w-6 h-6 rounded
+                hover:bg-blue-900 hover:shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 items-center">
                       <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                     </svg>
@@ -16,54 +17,55 @@
             <div class="flex gap-2">
                 <a href="{% url 'disposisi:filterdisposisi' %}"
                    class="hidden sm:flex items-center justify-center
-                          bg-blue-950 text-white text-xs rounded-lg
-                          w-24 h-6 mx-1 hover:bg-blue-900 hover:shadow-md">
+                          bg-blue-950 text-white text-md rounded-lg
+                          w-28 h-8 mx-1 hover:bg-blue-900 hover:shadow-md">
                     Filter
                 </a>
 
                 <a href="{% url 'disposisi:tambahdisposisi' %}"
                    class="hidden sm:flex items-center justify-center
-                          bg-blue-950 text-white text-xs rounded-lg
-                          w-24 h-6 mx-1 hover:bg-blue-900 hover:shadow-md">
+                          bg-blue-950 text-white text-md rounded-lg
+                          w-28 h-8 mx-1 hover:bg-blue-900 hover:shadow-md">
                     Tambah
                 </a>
             </div>
 
         </div>
 
-        <div class="mt-2 w-full bg-white border border-gray-200 shadow p-1">
+        <div class="mt-2 w-full bg-white border border-gray-200 shadow p-2">
             <div class="flex mb-2">
-                <p class="flex text-sm font-medium mx-1">Tampilkan</p>
-                <select class="flex border w-13 h-5 ml-2 mt-px text-xs bg-white">
+                <p class="flex text-md font-medium mx-1 mt-1">Tampilkan</p>
+                <select class="flex border w-13 h-7 ml-2 mt-px text-md bg-white">
                     <option>10</option>
                     <option>20</option>
                     <option>50</option>
                     <option>100</option>
                 </select>
-
             </div>
 
-            <div class="overflow-y-auto h-full w-full">
-                <table class="table-fixed border-collapse border border-gray-300 text-xs text-center w-full">
+            <div class="overflow-y-auto w-full mt-2 sm:max-h-[100px] md:max-h-[300px] lg:max-h-[700px] xl:max-h-[750px]">
+                <table class="table-fixed border-collapse mt-1 border border-gray-300 text-md text-center w-full">
                     <thead class="sticky top-0 bg-gray-400 z-2">
                         <tr>
                             <th class="border px-4 py-2 w-12">No</th>
-                            <th class="border px-4 py-2 w-35">Tanggal Surat Diterima</th>
-                            <th class="border px-4 py-2 w-50"> Nomor Agenda</th>
-                            <th class="border px-4 py-2 w-35">Tanggal Surat</th>
+                            <th class="border px-4 py-2 w-50">Tanggal Surat Diterima</th>
+                            <th class="border px-4 py-2 w-50">Nomor Agenda</th>
+                            <th class="border px-4 py-2 w-50">Tanggal Surat</th>
                             <th class="border px-4 py-2 w-70">Nomor Surat</th>
-                            <th class="border px-4 py-2 w-50">Pengirim</th>
-                            <th class="border px-4 py-2 w-35">Lampiran</th>
-                            <th class="border px-4 py-2 w-35">Tujuan</th>
-                            <th class="border px-4 py-2 w-35">Tembusan</th>
-                            <th class="border px-4 py-2 w-100">Perihal</th>
-                            <th class="border px-4 py-2 w-35">Status Pengajuan</th>
+                            <th class="border px-4 py-2 w-70">Pengirim</th>
+                            <th class="border px-4 py-2 w-50">Lampiran</th>
+                            <th class="border px-4 py-2 w-50">Tujuan</th>
+                            <th class="border px-4 py-2 w-50">Tembusan</th>
+                            <th class="border px-4 py-2 w-140">Perihal</th>
+                            <th class="border px-4 py-2 w-50">Status Pengajuan</th>
                         </tr>
                     </thead>
 
                     <tbody>
+                    {% for 1 in "1234" %}
+
                     {% for disposisi in data %}
-                     <tr onclick="window.location.href='';"
+                     <tr onclick="window.location.href='{{ disposisi.id }}';"
                             class="cursor-pointer hover:bg-gray-100 transition">
                             <td class="border px-4 py-2">{{ forloop.counter }}</td>
                             <td class="border px-4 py-2">{{ disposisi.tanggal_surat_diterima|date:"d F Y"}}</td>
@@ -84,6 +86,7 @@
                         </td>
                     </tr>
                     {% endfor %}
+                    {% endfor %}
                     </tbody>
                 </table>
             </div>
@@ -91,24 +94,25 @@
 
 
         <div class="mt-2 flex justify-center md:justify-between">
-            <div class="flex text-sm mt-1 hidden md:inline font-semibold">
+            <div class="flex text-md mt-1 hidden md:inline font-semibold">
                 <p>Halaman {} dari {} </p>
             </div>
 
             <div class="flex">
                 <button class="bg-blue-950 text-white rounded-lg hover:bg-blue-900 hover:shadow-md
-                    mx-1 w-18 md:w-24 h-6 text-xs ">
+                    mx-1 w-18 md:w-28 h-8 text-md ">
                     Sebelumnya
                 </button>
                 <div class="flex justify-center mx-1 ">
                     {% for i in "1" %}
-                    <button class="bg-gray-200 mx-1 text-blue-950 rounded-full w-6 h-6 text-xs hover:bg-blue-900 hover:text-white hover:shadow-md">
+                    <button class="bg-gray-200 mx-1 text-blue-950 rounded-full w-8 h-8 text-md hover:bg-blue-900
+                    hover:text-white hover:shadow-md">
                         1
                     </button>
                     {% endfor %}
                 </div>
                 <button class="bg-blue-950 text-white rounded-lg hover:bg-blue-900 hover:shadow-md
-                    mx-1 w-18 md:w-24 h-6 text-xs ">
+                    mx-1 w-18 md:w-28 h-8 text-md ">
                     Selanjutnya
                 </button>
             </div>
