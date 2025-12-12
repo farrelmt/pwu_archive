@@ -25,7 +25,10 @@ def update_disposisi(request, pk):
     if form.is_valid():
         form.save()
         return redirect('disposisi:disposisi')
-    return render(request, 'disposisi_edit.html', {'form': form})
+    return render(request, 'disposisi_edit.html', {
+        'form': form,
+        'disposisi': disposisi,
+    })
 
 def hapus_disposisi(request):
     disposisi = get_object_or_404(Disposisi, pk=request.GET.get('pk'))
@@ -41,7 +44,9 @@ def filter_disposisi(request):
 def detail_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
     if request.user.is_authenticated:
-        return render(request, 'disposisi_detail.html', {'disposisi': disposisi})
+        return render(request, 'disposisi_detail.html', {
+            'disposisi': disposisi
+        })
     else:
         messages.success(request, "You must be logged in to view this page.")
         return redirect('homepage')

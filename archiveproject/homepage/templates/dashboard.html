@@ -1,10 +1,10 @@
 {% extends 'home_base.html' %}
 {% block title %}SISTEM ARSIP - BERANDA{% endblock %}
 {% block content %}
-    <div class="grid place-items-center grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-8 gap-2 p-4">
+    <div class="grid place-items-center grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-8 gap-4 my-3">
 
         {% for link in links %}
-        <div class="h-full">
+        <div class="h-full mx-4 ">
             <a href="{{link.url}}"
                class="block bg-blue-900 shadow-md hover:shadow-lg rounded-lg p-4 w-30 h-30
                       border hover:bg-blue-950 transition duration-200

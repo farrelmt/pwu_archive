@@ -7,15 +7,22 @@
     {% csrf_token %}
         <div class="space-y-2">
             <div class="flex items-center justify-between">
-               <div class="flex mt-1">
-                   <p class="text-xs font-semibold w-40">Tanggal Surat Diterima</p>
+               <div class="flex">
+                   <p class="text-md font-semibold w-60 my-1">Tanggal Surat Diterima</p>
                    <input type="date" name="tanggal_surat_diterima" id="date_tsd"
-                            class="border border-black rounded-md shadow-sm pl-1">
+                            class="border border-black rounded-md shadow-sm pl-1"
+                            placeholder="">
                </div>
+                <div>
+                    <button type="submit"
+                            class="bg-red-800 text-white font-semibold rounded w-26 h-8 text-sm hover:bg-red-600">
+                        Hapus
+                    </button>
+                </div>
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Nomor Agenda</p>
+                <p class="text-md font-semibold w-60 my-1">Nomor Agenda</p>
                 <p id = "nomor_agenda"
                         class="mx-1 w-4">--</p>
                 <p class="text-2xl mx-2">/</p>
@@ -28,31 +35,31 @@
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Tanggal Surat</p>
+                <p class="text-md font-semibold w-60 my-1">Tanggal Surat</p>
                 <input type="date" name="tanggal_surat" id="date_ts"
                             class="border border-black rounded-md shadow-sm pl-1">
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Nomor Surat</p>
-                <input name="nomor_surat" required autocomplete="off"
+                <p class="text-md font-semibold w-60 my-1">Nomor Surat</p>
+                <input name="nomor_surat" required autocomplete="off" placeholder="{{ disposisi.nomor_surat }}"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Pengirim</p>
-                <input name="pengirim" required autocomplete="off"
+                <p class="text-md font-semibold w-60 my-1">Pengirim</p>
+                <input name="pengirim" required autocomplete="off" placeholder="{{ disposisi.pengirim }}"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Lampiran</p>
-                <input name="lampiran" required autocomplete="off"
+                <p class="text-md font-semibold w-60 my-1">Lampiran</p>
+                <input name="lampiran" required autocomplete="off" placeholder="{{ disposisi.lampiran }}"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Tujuan</p>
+                <p class="text-md font-semibold w-60 my-1">Tujuan</p>
                 <select name="tujuan" required
                         class="border rounded-sm w-36 p-1 text-xs bg-white">
                     <option value="DIRUT">Direktur Utama</option>
@@ -61,20 +68,20 @@
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Tembusan</p>
-                <input name="tembusan" required autocomplete="off"
+                <p class="text-md font-semibold w-60 my-1">Tembusan</p>
+                <input name="tembusan" required autocomplete="off" placeholder="{{ disposisi.tembusan }}"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Perihal</p>
-                <textarea name="perihal" required autocomplete="off"
+                <p class="text-md font-semibold w-60 my-1">Perihal</p>
+                <textarea name="perihal" required autocomplete="off" placeholder="{{ disposisi.perihal }}"
                     class="border p-1 h-20 text-xs bg-white flex-grow resize-none"
                 ></textarea>
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Diajukan Kepada</p>
+                <p class="text-md font-semibold w-60 my-1">Diajukan Kepada</p>
                 <div class="flex items-center gap-2">
                     <select name="diajukan_kepada" required
                             class="border rounded-sm w-36 p-1 text-xs bg-white">
@@ -85,24 +92,25 @@
             </div>
 
             <div class="flex items-center">
-                <p class="text-xs font-semibold w-40">Dokumen Surat Masuk</p>
-                <input name="dokumen_surat_masuk" required autocomplete="off"
+                <p class="text-md font-semibold w-60 my-1">Dokumen Surat Masuk</p>
+                <input name="dokumen_surat_masuk" required autocomplete="off" placeholder="{{ disposisi.dokumen_surat_masuk }}"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
         </div>
 
         <br/>
-        <div class="flex justify-between bottom-0 mt-8">
-            <a href="{% url 'disposisi:disposisi' %}">
-                <button class="bg-blue-950 text-white font-semibold rounded w-24 h-6 text-xs hover:bg-blue-900">
-                    Kembali
-                </button>
+
+        <div class="fixed bottom-0 left-25 right-0 flex justify-between px-5 py-3 shadow-lg">
+            <a href="{% url 'disposisi:detaildisposisi' disposisi.id %}"
+               class="bg-blue-950 text-white font-semibold rounded w-30 h-10 text-md
+                      hover:bg-blue-900 flex items-center justify-center">
+                Kembali
             </a>
 
             <button type="submit"
-                    class="bg-blue-950 text-white font-semibold rounded w-24 h-6 text-xs hover:bg-blue-900">
-                Buat
+                    class="bg-blue-950 text-white font-semibold rounded w-30 h-10 text-md hover:bg-blue-900">
+                Edit
             </button>
         </div>
     </form>
