@@ -1,7 +1,8 @@
 {% extends 'home_base.html' %}
 {% block title %}SISTEM ARSIP - BERANDA{% endblock %}
 {% block content %}
-    <div class="grid place-items-center grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-8 gap-4 my-3">
+    <div class="grid place-items-center grid-cols-3 sm:grid-cols-4 sm:ml-5 md:grid-cols-6
+    lg:grid-cols-6 lg:bg-white lg:mx-1 xl:grid-cols-8 2xl:grid-cols-8 gap-4 my-3">
 
         {% for link in links %}
         <div class="h-full mx-4 ">
@@ -10,13 +11,7 @@
                       border hover:bg-blue-950 transition duration-200
                       flex flex-col items-center justify-center  text-center">
 
-                {% if link.icon == "beranda" %}
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                         stroke-width="1.5" stroke="currentColor" class="w-10 h-10 text-white">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                    </svg>
-
-                {% elif link.icon == "disposisi" %}
+                {% if link.icon == "disposisi" %}
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none"
                          viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
                          class="w-10 h-10 text-white">

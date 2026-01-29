@@ -9,9 +9,7 @@
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
     --color-red-600: oklch(57.7% 0.245 27.325);
-    --color-red-700: oklch(50.5% 0.213 27.518);
     --color-red-800: oklch(44.4% 0.177 26.899);
-    --color-red-900: oklch(39.6% 0.141 25.723);
     --color-blue-500: oklch(62.3% 0.214 259.815);
     --color-blue-700: oklch(48.8% 0.243 264.376);
     --color-blue-900: oklch(37.9% 0.146 265.522);
@@ -401,8 +399,8 @@
   .mx-5 {
     margin-inline: calc(var(--spacing) * 5);
   }
-  .mx-6 {
-    margin-inline: calc(var(--spacing) * 6);
+  .mx-10 {
+    margin-inline: calc(var(--spacing) * 10);
   }
   .mx-auto {
     margin-inline: auto;
@@ -410,14 +408,8 @@
   .my-1 {
     margin-block: calc(var(--spacing) * 1);
   }
-  .my-2 {
-    margin-block: calc(var(--spacing) * 2);
-  }
   .my-3 {
     margin-block: calc(var(--spacing) * 3);
-  }
-  .my-4 {
-    margin-block: calc(var(--spacing) * 4);
   }
   .mt-1 {
     margin-top: calc(var(--spacing) * 1);
@@ -599,9 +591,6 @@
   .w-18 {
     width: calc(var(--spacing) * 18);
   }
-  .w-24 {
-    width: calc(var(--spacing) * 24);
-  }
   .w-26 {
     width: calc(var(--spacing) * 26);
   }
@@ -715,11 +704,6 @@
     margin-block-start: calc(calc(var(--spacing) * 0) * var(--tw-space-y-reverse));
     margin-block-end: calc(calc(var(--spacing) * 0) * calc(1 - var(--tw-space-y-reverse)));
   }
-  :where(.space-y-1 > :not(:last-child)) {
-    --tw-space-y-reverse: 0;
-    margin-block-start: calc(calc(var(--spacing) * 1) * var(--tw-space-y-reverse));
-    margin-block-end: calc(calc(var(--spacing) * 1) * calc(1 - var(--tw-space-y-reverse)));
-  }
   :where(.space-y-2 > :not(:last-child)) {
     --tw-space-y-reverse: 0;
     margin-block-start: calc(calc(var(--spacing) * 2) * var(--tw-space-y-reverse));
@@ -795,9 +779,6 @@
   .bg-gray-400 {
     background-color: var(--color-gray-400);
   }
-  .bg-red-700 {
-    background-color: var(--color-red-700);
-  }
   .bg-red-800 {
     background-color: var(--color-red-800);
   }
@@ -813,17 +794,11 @@
   .p-2 {
     padding: calc(var(--spacing) * 2);
   }
-  .p-3 {
-    padding: calc(var(--spacing) * 3);
-  }
   .p-4 {
     padding: calc(var(--spacing) * 4);
   }
   .p-8 {
     padding: calc(var(--spacing) * 8);
-  }
-  .px-2 {
-    padding-inline: calc(var(--spacing) * 2);
   }
   .px-3 {
     padding-inline: calc(var(--spacing) * 3);
@@ -833,9 +808,6 @@
   }
   .px-5 {
     padding-inline: calc(var(--spacing) * 5);
-  }
-  .px-6 {
-    padding-inline: calc(var(--spacing) * 6);
   }
   .py-1 {
     padding-block: calc(var(--spacing) * 1);
@@ -941,9 +913,6 @@
   .text-white {
     color: var(--color-white);
   }
-  .placeholder-gray-400::placeholder {
-    color: var(--color-gray-400);
-  }
   .shadow {
     --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
@@ -1004,11 +973,6 @@
     }
   }
   @media (hover: hover) {
-    .hover\:bg-red-900:hover {
-      background-color: var(--color-red-900);
-    }
-  }
-  @media (hover: hover) {
     .hover\:text-white:hover {
       color: var(--color-white);
     }
@@ -1043,13 +1007,38 @@
     outline-style: none;
   }
   @media (width >= 40rem) {
+    .sm\:mx-2 {
+      margin-inline: calc(var(--spacing) * 2);
+    }
+  }
+  @media (width >= 40rem) {
+    .sm\:mx-5 {
+      margin-inline: calc(var(--spacing) * 5);
+    }
+  }
+  @media (width >= 40rem) {
+    .sm\:ml-4 {
+      margin-left: calc(var(--spacing) * 4);
+    }
+  }
+  @media (width >= 40rem) {
+    .sm\:ml-5 {
+      margin-left: calc(var(--spacing) * 5);
+    }
+  }
+  @media (width >= 40rem) {
+    .sm\:ml-6 {
+      margin-left: calc(var(--spacing) * 6);
+    }
+  }
+  @media (width >= 40rem) {
     .sm\:flex {
       display: flex;
     }
   }
   @media (width >= 40rem) {
-    .sm\:max-h-\[100px\] {
-      max-height: 100px;
+    .sm\:max-h-\[700px\] {
+      max-height: 700px;
     }
   }
   @media (width >= 40rem) {
@@ -1063,6 +1052,36 @@
     }
   }
   @media (width >= 48rem) {
+    .md\:mx-2 {
+      margin-inline: calc(var(--spacing) * 2);
+    }
+  }
+  @media (width >= 48rem) {
+    .md\:mx-4 {
+      margin-inline: calc(var(--spacing) * 4);
+    }
+  }
+  @media (width >= 48rem) {
+    .md\:mx-8 {
+      margin-inline: calc(var(--spacing) * 8);
+    }
+  }
+  @media (width >= 48rem) {
+    .md\:ml-1 {
+      margin-left: calc(var(--spacing) * 1);
+    }
+  }
+  @media (width >= 48rem) {
+    .md\:ml-2 {
+      margin-left: calc(var(--spacing) * 2);
+    }
+  }
+  @media (width >= 48rem) {
+    .md\:ml-4 {
+      margin-left: calc(var(--spacing) * 4);
+    }
+  }
+  @media (width >= 48rem) {
     .md\:hidden {
       display: none;
     }
@@ -1073,8 +1092,8 @@
     }
   }
   @media (width >= 48rem) {
-    .md\:max-h-\[300px\] {
-      max-height: 300px;
+    .md\:max-h-\[700px\] {
+      max-height: 700px;
     }
   }
   @media (width >= 48rem) {
@@ -1089,6 +1108,11 @@
     }
   }
   @media (width >= 48rem) {
+    .md\:grid-cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  @media (width >= 48rem) {
     .md\:grid-cols-6 {
       grid-template-columns: repeat(6, minmax(0, 1fr));
     }
@@ -1096,6 +1120,31 @@
   @media (width >= 48rem) {
     .md\:justify-between {
       justify-content: space-between;
+    }
+  }
+  @media (width >= 48rem) {
+    .md\:bg-black {
+      background-color: var(--color-black);
+    }
+  }
+  @media (width >= 48rem) {
+    .md\:px-4 {
+      padding-inline: calc(var(--spacing) * 4);
+    }
+  }
+  @media (width >= 48rem) {
+    .md\:px-9 {
+      padding-inline: calc(var(--spacing) * 9);
+    }
+  }
+  @media (width >= 64rem) {
+    .lg\:mx-1 {
+      margin-inline: calc(var(--spacing) * 1);
+    }
+  }
+  @media (width >= 64rem) {
+    .lg\:ml-1 {
+      margin-left: calc(var(--spacing) * 1);
     }
   }
   @media (width >= 64rem) {
@@ -1106,6 +1155,11 @@
   @media (width >= 64rem) {
     .lg\:grid-cols-6 {
       grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+  @media (width >= 64rem) {
+    .lg\:bg-white {
+      background-color: var(--color-white);
     }
   }
   @media (width >= 80rem) {

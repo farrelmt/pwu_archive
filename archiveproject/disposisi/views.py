@@ -1,11 +1,32 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.core.paginator import Paginator
+from django.http import JsonResponse
 from .models import Disposisi
 from .forms import DisposisiForm
 
-
 def list_disposisi(request):
-    data = Disposisi.objects.all().order_by('-waktu_dibuat')
-    return render(request, 'disposisi.html', {'data': data})
+    data = Disposisi.objects.all().order_by('-id')
+    page_limit = int(request.GET.get('limit', 20))
+    page_number = int(request.GET.get('page', 1))
+    search = request.GET.get('search', '')
+
+    if search:
+        data = data.filter(perihal__icontains=search)
+
+    paginator = Paginator(data, page_limit)
+    page_obj = paginator.get_page(page_number)
+
+
+    context = {
+        'page_obj': page_obj,
+        'page_limit': str(page_limit),
+    }
+
+    if request.headers.get('x-request-with') == 'XMLHttpRequest':
+        return render(request, 'disposisi/list.html', context)
+
+
+    return render(request, 'disposisi.html', context)
 
 def tambah_disposisi(request):
     if request.method == "POST":

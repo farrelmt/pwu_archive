@@ -4,7 +4,6 @@ from django.contrib.auth.decorators import login_required
 @login_required(login_url='accounts:login')
 def dashboard(request):
     links = [
-        {"page": "beranda", "url": "", "title": "Beranda", "icon": "beranda"},
         {"page": "disposisi", "url": "disposisi", "title": "Disposisi", "icon": "disposisi"},
         {"page": "nota_dinas", "url": "notadinas", "title": "Nota Dinas", "icon": "nota_dinas"},
         {"page": "surat_keluar", "url": "suratkeluar", "title": "Surat Keluar", "icon": "surat_keluar"},

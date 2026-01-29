@@ -11,7 +11,7 @@
                    <p class="text-md font-semibold w-60 my-1">Tanggal Surat Diterima</p>
                    <input type="date" name="tanggal_surat_diterima" id="date_tsd"
                             class="border border-black rounded-md shadow-sm pl-1"
-                            placeholder="">
+                            value="{{ disposisi.tanggal_surat_diterima|date:"Y-m-d" }}">
                </div>
                 <div>
                     <button type="submit"
@@ -37,7 +37,9 @@
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Tanggal Surat</p>
                 <input type="date" name="tanggal_surat" id="date_ts"
-                            class="border border-black rounded-md shadow-sm pl-1">
+                            class="border border-black rounded-md shadow-sm pl-1"
+                        value="{{ disposisi.tanggal_surat|date:"Y-m-d" }}">
+
             </div>
 
             <div class="flex items-center">
@@ -62,8 +64,8 @@
                 <p class="text-md font-semibold w-60 my-1">Tujuan</p>
                 <select name="tujuan" required
                         class="border rounded-sm w-36 p-1 text-xs bg-white">
-                    <option value="DIRUT">Direktur Utama</option>
-                    <option value="DIR">Direktur</option>
+                    <option value="DIRUT" {% if disposisi.tujuan == "DIRUT"  %}selected{% endif %} >Direktur Utama</option>
+                    <option value="DIR" {% if disposisi.tujuan == "DIR"  %}selected{% endif %}>Direktur</option>
                 </select>
             </div>
 
