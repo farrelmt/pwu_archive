@@ -6,7 +6,8 @@
             <div class="flex">
                 <p class="font-bold text-md mt-[2px] mx-1">Cari </p>
                 <input id="cariDis" class="mx-2 mt-1 border rounded p-1 h-6 text-md bg-white" type="text">
-                <button id= "cariBut" class="flex items-center justify-center mt-1 bg-blue-950 text-white w-6 h-6 rounded
+                <button id= "cariBut" type="button"
+                        class="flex items-center justify-center mt-1 bg-blue-950 text-white w-6 h-6 rounded
                 hover:bg-blue-900 hover:shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 items-center">
                       <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -37,14 +38,12 @@
                 <p class="flex text-md font-medium mx-1 mt-1">Tampilkan</p>
                 <select id="selectDisNum" class="flex border w-13 h-7 ml-2 mt-px text-md bg-white">
                     <option value="1"
-                            {% if limit == "1" %} selected {% endif %}>20</option>
+                            {% if page_limit == "1" %} selected {% endif %}>20</option>
                     <option value="2"
-                            {% if limit == "2" %} selected {% endif %}>50</option>
+                            {% if page_limit == "2" %} selected {% endif %}>50</option>
                     <option value="3"
-                            {% if limit == "3" %} selected {% endif %}>100</option>
+                            {% if page_limit == "3" %} selected {% endif %}>100</option>
                 </select>
-                <p class="mx-10">INDEX : </p>
-                <p id="indexDisNum" class="mx-10">{{limit}}</p>
             </div>
 
             <div class="overflow-y-auto w-full mt-2 sm:max-h-[700px] md:max-h-[700px] lg:max-h-[700px] xl:max-h-[750px]">
@@ -54,7 +53,7 @@
                             <th class="border px-4 py-2 w-12">No</th>
                             <th class="border px-4 py-2 w-50">Tanggal Surat Diterima</th>
                             <th class="border px-4 py-2 w-50">Nomor Agenda</th>
-                            <th class="border px-4 py-2 w-50">Tanggal Surat</th>
+                            <th class="border px-4 py-2 w-50">Tanggal Surat</th></th>
                             <th class="border px-4 py-2 w-70">Nomor Surat</th>
                             <th class="border px-4 py-2 w-70">Pengirim</th>
                             <th class="border px-4 py-2 w-50">Lampiran</th>
@@ -66,121 +65,60 @@
                     </thead>
 
                     <tbody id="tableBody">
-                    {% for 1 in "123451234512345" %}
                         {% include "partials/disposisi_table.html" %}
-                    {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
-
-
-        <div class="mt-2 flex justify-center md:justify-between">
-            
-            <div class="flex text-md mt-1 hidden md:inline font-semibold">
-                <p id="indTotHal">Halaman {{page_obj.number}} dari {{page_obj.paginator.num_pages}} </p>
-            </div>
-
-            <div class="flex">
-                {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}&limit={{page_limit}}">
-                    <button class="bg-blue-950 text-white rounded-lg hover:bg-blue-900 hover:shadow-md
-                        mx-1 w-18 md:w-28 h-8 text-md ">
-                        Sebelumnya
-                    </button>
-                </a>
-                {% endif %}
-
-                <div class="flex justify-center mx-1 ">
-                    {% for i in page_obj.paginator.page_range %}
-                        {% if i == 1 or i == page_obj.paginator.num_pages or i >= page_obj.number|add:"-1" and i <= page_obj.number|add:"1" %}
-                            {% if i == page_obj.number %}
-                                <button class="bg-blue-900 mx-1 text-white rounded-full w-8 h-8 text-md
-                                hover:bg-blue-900 hover:text-white hover:shadow-md ">
-                                    {{i}}
-                                </button>
-                            {% else %}
-                                <a href="?page={{ i }}&limit={{page_limit}}">
-                                    <button class="bg-gray-200 mx-1 text-blue-950 rounded-full w-8 h-8 text-md
-                                    hover:bg-blue-900 hover:text-white hover:shadow-md ">
-                                        {{i}}
-                                    </button>
-                                </a>
-                            {% endif %}
-
-                        {% elif i == page_obj.number|add:"-2" or i == page_obj.number|add:"2"%}
-                            <span class="mx-3 text-gray-500">...</span>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-
-                {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}&limit={{page_limit}}">
-                    <button class="bg-blue-950 text-white rounded-lg hover:bg-blue-900 hover:shadow-md
-                        mx-1 w-18 md:w-28 h-8 text-md ">
-                        Selanjutnya
-                    </button>
-                </a>
-                {% endif %}
-            </div>
+        <div class="mt-2 flex justify-center bg:black md:justify-between" id="paginationDis">
+            {% include "partials/disposisi_pagination.html" %}
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const tableBody = document.getElementById('tableBody');
             const selectLimitDis = document.getElementById('selectDisNum');
             const searchInputDis = document.getElementById('cariDis');
+            const cariDisBut = document.getElementById('cariBut');
 
-            //Cari Disposisi
-            const cariDis = document.getElementById('cariDis');
-            const cariBut = document.getElementById('cariBut');
-            const rowDis = document.querySelectorAll('.dataDis');
+            const tableBody = document.getElementById('tableBody');
+            const paginationDis = document.getElementById('paginationDis');
 
-            //Display Disposisi
-            const selectDisNum = document.getElementById('selectDisNum');
-            const indexDisplayDisposisi = document.getElementById('indexDisNum');
+            function loadDataDis(page = 1){
+                const params = new URLSearchParams({
+                    page: page,
+                    limit: selectLimitDis.value,
+                    search: searchInputDis.value.trim()
+                });
 
-            //Get Current Limit
-            const urlParams = new URLSearchParams(window.location.search);
-            const currLimitDis = urlParams.get('limit') || selectDisNum.value;
-            selectDisNum.value = currLimitDis;
-
-            //Testing
-            indexDisplayDisposisi.textContent = selectDisNum.value;
-
-            selectDisNum.addEventListener('change', displayDisposisi);
-            cariBut.addEventListener('click', searchDisposisi);
-
-            function searchDisposisi()
-            {
-                //Cari Disposisi
-                const cariKey = cariDis.value.toLowerCase();
-                console.log(cariKey);
-
-                rowDis.forEach(row => {
-                    const text = row.innerText.toLowerCase();
-
-                    if(text.includes(cariKey)) {
-                        row.style.display = '';
-                        console.log("FOUND");
-                    }
-                    else{
-                        row.style.display = 'none';
-                        console.log("EMPTY");
-                    }
+                fetch(`?${params.toString()}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    tableBody.innerHTML = data.table;
+                    paginationDis.innerHTML = data.pagination;
                 });
             }
 
-            function displayDisposisi()
-            {
-                const limit = this.value;
-                const url = new URL(window.location.href);
-                url.searchParams.set('limit', limit);
-                url.searchParams.set('page', 1);
-                window.location.href = url.toString()   ;
-            }
+            // Change limit
+            selectLimitDis.addEventListener('change', () => loadDataDis(1));
 
+            // Search
+            cariDisBut.addEventListener('click', () => loadDataDis(1));
+            searchInputDis.addEventListener('keyup', e => {
+                if(e.key === 'Enter') {
+                    loadDataDis(1);
+                }
+            });
+
+            // Pagination buttons
+            document.addEventListener('click', function (e) {
+                if (e.target.dataset.page) {
+                    e.preventDefault();
+                    loadDataDis(e.target.dataset.page);
+                }
+            });
         });
 
     </script>

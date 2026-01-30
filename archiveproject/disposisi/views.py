@@ -1,30 +1,52 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.paginator import Paginator
 from django.http import JsonResponse
+from django.template.loader import render_to_string
 from .models import Disposisi
+from django.db.models import Q
 from .forms import DisposisiForm
 
 def list_disposisi(request):
-    data = Disposisi.objects.all().order_by('-id')
+    search = request.GET.get('search', '')
     page_limit = int(request.GET.get('limit', 20))
     page_number = int(request.GET.get('page', 1))
-    search = request.GET.get('search', '')
+
+    data = Disposisi.objects.all().order_by('-id')
+
+    SEARCH_FIELDS = [
+        'nomor_agenda',
+        'nomor_surat',
+        'pengirim',
+        'lampiran',
+        'tembusan',
+        'perihal',
+        'tujuan',
+        'diajukan_kepada',
+    ]
 
     if search:
-        data = data.filter(perihal__icontains=search)
+        query = Q()
+        for field in SEARCH_FIELDS:
+            query |= Q(**{f"{field}__icontains": search})
+        data = data.filter(query)
 
     paginator = Paginator(data, page_limit)
     page_obj = paginator.get_page(page_number)
 
-
     context = {
         'page_obj': page_obj,
         'page_limit': str(page_limit),
+        'search': search,
     }
 
-    if request.headers.get('x-request-with') == 'XMLHttpRequest':
-        return render(request, 'disposisi/list.html', context)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        table_html = render_to_string('partials/disposisi_table.html', context, request=request)
+        pagination_html = render_to_string('partials/disposisi_pagination.html', context, request=request)
 
+        return JsonResponse({
+            'table': table_html,
+            'pagination': pagination_html,
+        })
 
     return render(request, 'disposisi.html', context)
 

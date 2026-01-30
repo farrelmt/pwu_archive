@@ -1,0 +1,43 @@
+
+
+    <div class="flex text-md mt-1 hidden md:inline font-semibold">
+        <p id="indTotHal">Halaman {{page_obj.number}} dari {{page_obj.paginator.num_pages}} </p>
+    </div>
+
+    <div class="flex">
+        {% if page_obj.has_previous %}
+        <button data-page="{{ page_obj.previous_page_number }}"
+                class="bg-blue-950 text-white rounded-lg hover:bg-blue-900 hover:shadow-m mx-1 w-18 md:w-28 h-8 text-md ">
+            Sebelumnya
+        </button>
+        {% endif %}
+
+        <div class="flex justify-center mx-1 ">
+            {% for i in page_obj.paginator.page_range %}
+                {% if i == 1 or i == page_obj.paginator.num_pages or i >= page_obj.number|add:"-1" and i <= page_obj.number|add:"1" %}
+                    {% if i == page_obj.number %}
+                        <button class="bg-blue-900 mx-1 text-white rounded-full w-8 h-8 text-md
+                        hover:bg-blue-900 hover:text-white hover:shadow-md " data-page="{{i}}">
+                            {{i}}
+                        </button>
+                    {% else %}
+                        <button class="bg-gray-200 mx-1 text-blue-950 rounded-full w-8 h-8 text-md
+                        hover:bg-blue-900 hover:text-white hover:shadow-md" data-page="{{i}}">
+                            {{i}}
+                        </button>
+
+                    {% endif %}
+
+                {% elif i == page_obj.number|add:"-2" or i == page_obj.number|add:"2"%}
+                    <span class="mx-3 text-gray-500">...</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_next %}
+        <button data-page="{{ page_obj.next_page_number }}"
+                class="bg-blue-950 text-white rounded-lg hover:bg-blue-900 hover:shadow-md mx-1 w-18 md:w-28 h-8 text-md ">
+            Selanjutnya
+        </button>
+        {% endif %}
+    </div>
