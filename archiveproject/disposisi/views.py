@@ -5,6 +5,8 @@ from django.template.loader import render_to_string
 from .models import Disposisi
 from django.db.models import Q
 from .forms import DisposisiForm
+from datetime import datetime
+
 
 def list_disposisi(request):
     search = request.GET.get('search', '')
@@ -14,21 +16,66 @@ def list_disposisi(request):
     data = Disposisi.objects.all().order_by('-id')
 
     SEARCH_FIELDS = [
+        'tanggal_surat_diterima',
         'nomor_agenda',
+        'tanggal_surat',
         'nomor_surat',
         'pengirim',
         'lampiran',
         'tembusan',
         'perihal',
         'tujuan',
-        'diajukan_kepada',
+    ]
+
+    TUJUAN_MAP = {
+        "direktur utama": "DIRUT",
+        "dirut": "DIRUT",
+        "direktur": "DIR",
+        "dir": "DIR",
+    }
+
+    STATUS_MAP = {
+        "belum": "BELUM",
+        "belum diajukan": "BELUM",
+        "sudah": "SUDAH",
+        "sudah diajukan": "SUDAH",
+    }
+
+    DATE_FORMATS = [
+        "%Y-%m-%d",  # 2025-01-30
+        "%d-%m-%Y",  # 30-01-2025
     ]
 
     if search:
         query = Q()
         for field in SEARCH_FIELDS:
             query |= Q(**{f"{field}__icontains": search})
+
+        parsed_date = None
+        for fmt in DATE_FORMATS:
+            try:
+                parsed_date = datetime.strptime(search, fmt)
+                break
+            except ValueError:
+                continue
+
+        # Search date with dd-mm-yy or yy-mm-dd
+        if parsed_date:
+            query |= Q(tanggal_surat_diterima=parsed_date)
+            query |= Q(tanggal_surat=parsed_date)
+
+        search_lower = search.lower()
+        if search_lower in TUJUAN_MAP:
+            query |= Q(tujuan=TUJUAN_MAP[search_lower])
+
+        if search_lower in STATUS_MAP:
+            query |= Q(status=STATUS_MAP[search_lower])
+
         data = data.filter(query)
+
+    search_lower = search.lower()
+    if search_lower in TUJUAN_MAP:
+        data = data.filter(tujuan=TUJUAN_MAP[search_lower])
 
     paginator = Paginator(data, page_limit)
     page_obj = paginator.get_page(page_number)

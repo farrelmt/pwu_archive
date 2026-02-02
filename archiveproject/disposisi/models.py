@@ -7,6 +7,11 @@ class Disposisi(models.Model):
         ("DIR", "Direktur"),
     ]
 
+    STATUS_CHOICES = [
+        ("BELUM", "Belum Selesai"),
+        ("SUDAH", "Sudah Selesai"),
+    ]
+
     tanggal_surat_diterima = models.DateField()
     nomor_agenda = models.CharField(max_length=20)
     tanggal_surat = models.DateField()
@@ -16,7 +21,7 @@ class Disposisi(models.Model):
     tujuan = models.CharField(max_length=20, choices=TUJUAN_CHOICES)
     tembusan = models.CharField(max_length=50)
     perihal = models.TextField()
-    diajukan_kepada = models.CharField(max_length=20, choices=TUJUAN_CHOICES)
+    status_pengajuan = models.CharField(max_length=10, choices=STATUS_CHOICES, default="BELUM")
     dokumen_surat_masuk = models.CharField(max_length=100, default="N/A")
 
     waktu_dibuat = models.DateTimeField(auto_now_add=True)
