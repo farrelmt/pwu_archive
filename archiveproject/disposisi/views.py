@@ -129,6 +129,9 @@ def tambah_disposisi(request):
         if form.is_valid():
             form.save()
             return redirect('disposisi:disposisi')
+        else:
+            print(form.errors)
+
     else:
         form = DisposisiForm()
 

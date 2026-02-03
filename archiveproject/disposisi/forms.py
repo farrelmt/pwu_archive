@@ -6,7 +6,18 @@ class DisposisiForm(forms.ModelForm):
 
     class Meta:
         model = Disposisi
-        fields = "__all__"
+        fields = [
+            "tanggal_surat_diterima",
+            "nomor_agenda",
+            "tanggal_surat",
+            "nomor_surat",
+            "pengirim",
+            "lampiran",
+            "tujuan",
+            "tembusan",
+            "perihal",
+            "dokumen_surat_masuk"
+        ]
 
         widgets = {
             "tanggal_surat_diterima": forms.DateInput(attrs={"type": "date"}),

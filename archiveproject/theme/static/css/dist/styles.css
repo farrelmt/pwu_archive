@@ -959,6 +959,9 @@
   .py-4 {
     padding-block: calc(var(--spacing) * 4);
   }
+  .pr-3 {
+    padding-right: calc(var(--spacing) * 3);
+  }
   .pr-10 {
     padding-right: calc(var(--spacing) * 10);
   }
