@@ -13,6 +13,14 @@ def list_disposisi(request):
     page_limit = int(request.GET.get('limit', 20))
     page_number = int(request.GET.get('page', 1))
 
+    #Get Filter From User
+    tanggal_surat = request.GET.get('tanggal_surat')
+    tanggal_diterima = request.GET.get('tanggal_diterima')
+    pengirim = request.GET.get('pengirim')
+    tujuan = request.GET.get('tujuan')
+    status = request.GET.get('status')
+
+    #Get Disposisi Data
     data = Disposisi.objects.all().order_by('-id')
 
     SEARCH_FIELDS = [
@@ -51,6 +59,8 @@ def list_disposisi(request):
         for field in SEARCH_FIELDS:
             query |= Q(**{f"{field}__icontains": search})
 
+
+
         parsed_date = None
         for fmt in DATE_FORMATS:
             try:
@@ -76,6 +86,22 @@ def list_disposisi(request):
     search_lower = search.lower()
     if search_lower in TUJUAN_MAP:
         data = data.filter(tujuan=TUJUAN_MAP[search_lower])
+
+    #Use Filter
+    if tanggal_surat:
+        data = data.filter(tanggal_surat=tanggal_surat)
+
+    if tanggal_diterima:
+        data = data.filter(tanggal_surat_diterima=tanggal_diterima)
+
+    if pengirim:
+        data = data.filter(pengirim__icontains=pengirim)
+
+    if tujuan:
+        data = data.filter(tujuan=tujuan)
+
+    if status:
+        data = data.filter(status_pengajuan=status)
 
     paginator = Paginator(data, page_limit)
     page_obj = paginator.get_page(page_number)
@@ -127,9 +153,6 @@ def hapus_disposisi(request):
         return redirect('disposisi'
                         ':disposisi')
     return render(request, 'disposisi_hapus.html', {'disposisi': disposisi})
-
-def filter_disposisi(request):
-    return render(request, 'disposisi_tambah.html')
 
 def detail_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)

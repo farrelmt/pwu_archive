@@ -4,29 +4,41 @@
     <div class="bg-gray-50 p-2 select-none w-full">
         <div class="mt-2 flex justify-between">
             <div class="flex">
+                {% include "partials/disposisi_filter.html"%}
+
                 <p class="font-bold text-md mt-[2px] mx-1">Cari </p>
                 <input id="cariDis" class="mx-2 mt-1 border rounded p-1 h-6 text-md bg-white" type="text">
                 <button id= "cariBut" type="button"
                         class="flex items-center justify-center mt-1 bg-blue-950 text-white w-6 h-6 rounded
-                hover:bg-blue-900 hover:shadow-sm">
+                hover:bg-blue-800 hover:shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 items-center">
                       <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                </button>
+
+                <button id= "resetBut" type="button"
+                        class="flex items-center justify-center mt-1 ml-2 bg-blue-950 text-white w-6 h-6 rounded
+                hover:bg-blue-800 hover:shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                     </svg>
                 </button>
             </div>
 
             <div class="flex gap-2">
-                <a href="{% url 'disposisi:filterdisposisi' %}"
+                <button type="button"
+                   id="filterButton"
                    class="hidden sm:flex items-center justify-center
                           bg-blue-950 text-white text-md rounded-lg
-                          w-28 h-8 mx-1 hover:bg-blue-900 hover:shadow-md">
+                          w-28 h-8 mx-1 hover:bg-blue-800 hover:shadow-md">
                     Filter
-                </a>
+                </button>
 
                 <a href="{% url 'disposisi:tambahdisposisi' %}"
+                   id="tambahDisposisi"
                    class="hidden sm:flex items-center justify-center
                           bg-blue-950 text-white text-md rounded-lg
-                          w-28 h-8 mx-1 hover:bg-blue-900 hover:shadow-md">
+                          w-28 h-8 mx-1 hover:bg-blue-800 hover:shadow-md">
                     Tambah
                 </a>
             </div>
@@ -80,6 +92,18 @@
             const selectLimitDis = document.getElementById('selectDisNum');
             const searchInputDis = document.getElementById('cariDis');
             const cariDisBut = document.getElementById('cariBut');
+            const resetDisBut = document.getElementById('resetBut');
+
+            const filterBtn = document.getElementById('filterButton');
+            const filterDisposisi = document.getElementById('filterDisposisi');
+            const closeFilter = document.getElementById('closeFilter');
+            const applyFilter = document.getElementById('applyFilter');
+
+            const filterTanggalDiterima = document.getElementById('filterTanggalDiterima');
+            const filterTanggalSurat = document.getElementById('filterTanggalSurat');
+            const filterPengirim =document.getElementById('filterPengirim');
+            const filterTujuan =document.getElementById('filterTujuan');
+            const filterStatus = document.getElementById('filterStatus');
 
             const tableBody = document.getElementById('tableBody');
             const paginationDis = document.getElementById('paginationDis');
@@ -88,7 +112,14 @@
                 const params = new URLSearchParams({
                     page: page,
                     limit: selectLimitDis.value,
-                    search: searchInputDis.value.trim()
+                    search: searchInputDis.value.trim(),
+
+                    //Filter
+                    tanggal_surat: filterTanggalSurat.value,
+                    tanggal_diterima: filterTanggalDiterima.value,
+                    pengirim: filterPengirim.value,
+                    tujuan: filterTujuan.value,
+                    status: filterStatus.value,
                 });
 
                 fetch(`?${params.toString()}`, {
@@ -99,6 +130,12 @@
                     tableBody.innerHTML = data.table;
                     paginationDis.innerHTML = data.pagination;
                 });
+
+                console.log(filterTanggalDiterima.value);
+                console.log(filterTanggalSurat.value);
+                console.log(filterPengirim.value);
+                console.log(filterTujuan.value);
+                console.log(filterStatus.value);
             }
 
             // Change limit
@@ -110,6 +147,31 @@
                 if(e.key === 'Enter') {
                     loadDataDis(1);
                 }
+            });
+
+            // Filter
+            filterBtn.addEventListener('click', () => {
+                filterDisposisi.classList.remove('hidden')
+            });
+
+            closeFilter.addEventListener('click', () => {
+                filterDisposisi.classList.add('hidden')
+            });
+
+            applyFilter.addEventListener('click', () => {
+                loadDataDis(1);
+                filterDisposisi.classList.add('hidden')
+            });
+
+            resetDisBut.addEventListener('click', () => {
+                searchInputDis.value = '';
+                filterTanggalDiterima.value = '';
+                filterTanggalSurat.value = '';
+                filterPengirim.value = '';
+                filterTujuan.value = '';
+                filterStatus.value = '';
+                filterDisposisi.classList.add('hidden');
+                loadDataDis(1);
             });
 
             // Pagination buttons

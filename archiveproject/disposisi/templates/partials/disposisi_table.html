@@ -1,6 +1,6 @@
 {% for disposisi in page_obj %}
 <tr    onclick="window.location.href='{{ disposisi.id }}';"
-        class="dataDis cursor-pointer hover:bg-gray-100 transition">
+        class="dataDis cursor-pointer hover:bg-yellow-300 transition">
         <td class="border px-4 py-2">{{ forloop.counter }}</td>
         <td class="border px-4 py-2">{{ disposisi.tanggal_surat_diterima|date:"d F Y"}}</td>
         <td class="border px-4 py-2">{{ disposisi.nomor_agenda }}</td>

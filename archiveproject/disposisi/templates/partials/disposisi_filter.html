@@ -1,0 +1,61 @@
+<div id="filterDisposisi" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
+    <div class="bg-blue-950 rounded-lg shadow-md w-[80vw] md:w-[65vw] lg:w-[50vw] p-6 px-8">
+        <h2 class="text-2xl font-bold text-white">FILTER DISPOSISI</h2>
+
+        <br/>
+        <div class="mb-4">
+            <label class="block text-md text-white font-medium mb-2">Tanggal Surat</label>
+            <input id="filterTanggalSurat"
+                   type="date" style="color-scheme: light;"
+                   class="w-full border rounded p-2 bg-gray-100">
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-md text-white font-medium mb-2">Tanggal Diterima</label>
+            <input id="filterTanggalDiterima"
+                   type="date" style="color-scheme: light;"
+                   class="w-full border rounded p-2 bg-gray-100">
+        </div>
+
+        <div class="mb-3">
+            <label class="block text-md text-white font-medium mb-2">Pengirim</label>
+            <input id="filterPengirim"
+                   type="text" style="color-scheme: light;"
+                   class="w-full border rounded p-2 bg-gray-100">
+        </div>
+
+        <div class="mb-3">
+            <label class="block text-md text-white font-medium mb-2">Tujuan</label>
+            <select id="filterTujuan" class="w-full border rounded p-2 bg-gray-100">
+                <option value="">Pilih Tujuan</option>
+                <option value="DIRUT">Direktur Utama</option>
+                <option value="DIR">Direktur</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="block text-md text-white font-medium mb-2">Status</label>
+            <select id="filterStatus" class="w-full border bg-gray-100 rounded p-2 pr-10">
+                <option value="">Pilih Status</option>
+                <option value="BELUM">Belum Selesai</option>
+                <option value="SUDAH">Sudah Selesai</option>
+            </select>
+        </div>
+
+        <br/>
+        <div class="flex justify-between">
+            <button id="closeFilter"
+                    type="button"
+                    class="px-4 py-2 font-semibold w-[150px]
+                    rounded bg-gray-100 hover:bg-yellow-300">
+                KEMBALI
+            </button>
+            <button id="applyFilter"
+                    type="button"
+                    class="px-4 py-2 font-semibold w-[150px]
+                    bg-blue-950 text-black bg-gray-100 rounded hover:bg-yellow-300">
+                FILTER
+            </button>
+        </div>
+    </div>
+</div>
