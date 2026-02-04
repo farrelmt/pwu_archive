@@ -26,7 +26,20 @@ def list_disposisi(request):
     status = request.GET.get('status')
 
     #Get Disposisi Data
-    data = Disposisi.objects.all().order_by('-tanggal_surat_diterima')
+    sortDisposisi = request.GET.get('sort', 'tanggal_surat_diterima')
+    orderDisposisi = request.GET.get('order', 'desc')
+
+    ALLOWED_SORT = {
+        'tsd': 'tanggal_surat_diterima',
+        'ts': 'tanggal_surat',
+    }
+
+    sortTable = ALLOWED_SORT.get(sortDisposisi, 'tanggal_surat_diterima')
+
+    if orderDisposisi == 'asc':
+        data = Disposisi.objects.all().order_by(sortTable)
+    else:
+        data = Disposisi.objects.all().order_by(f'-{sortTable}')
 
     SEARCH_FIELDS = [
         'tanggal_surat_diterima',

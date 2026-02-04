@@ -62,10 +62,12 @@
                 <table class="table-fixed border-collapse mt-1 border border-gray-300 text-md text-center w-full">
                     <thead class="sticky top-0 bg-gray-400 z-2">
                         <tr>
-                            <th class="border px-4 py-2 w-12">No</th>
-                            <th class="border px-4 py-2 w-50">Tanggal Surat Diterima</th>
+                            <th class="border px-4 py-2 w-20" id="headNoDis">No</th>
+                            <th class="border px-4 py-2 w-50 hover:bg-gray-500"
+                                data-sort="tsd" id="sortTsd">Tanggal Surat Diterima</th>
                             <th class="border px-4 py-2 w-50">Nomor Agenda</th>
-                            <th class="border px-4 py-2 w-50">Tanggal Surat</th></th>
+                            <th class="border px-4 py-2 w-50 hover:bg-gray-500"
+                                data-sort="ts" id="sortTs">Tanggal Surat</th></th>
                             <th class="border px-4 py-2 w-70">Nomor Surat</th>
                             <th class="border px-4 py-2 w-70">Pengirim</th>
                             <th class="border px-4 py-2 w-50">Lampiran</th>
@@ -107,10 +109,14 @@
             const diterimaMonth = document.getElementById('filterDiterimaMonth');
             const diterimaYear = document.getElementById('filterDiterimaYear');
 
-
             const filterPengirim =document.getElementById('filterPengirim');
             const filterTujuan =document.getElementById('filterTujuan');
             const filterStatus = document.getElementById('filterStatus');
+
+            let currentSort = 'tsd';
+            let currentOrder = 'desc';
+            const sortClickTsd = document.getElementById('sortTsd');
+            const sortClickTs = document.getElementById('sortTs');
 
             const tableBody = document.getElementById('tableBody');
             const paginationDis = document.getElementById('paginationDis');
@@ -121,7 +127,9 @@
                     limit: selectLimitDis.value,
                     search: searchInputDis.value.trim(),
 
-                    //Filter
+                    sort: currentSort,
+                    order: currentOrder,
+
                     surat_day: suratDay.value,
                     surat_month: suratMonth.value,
                     surat_year: suratYear.value,
@@ -154,6 +162,34 @@
                 if(e.key === 'Enter') {
                     loadDataDis(1);
                 }
+            });
+
+            //Sorting
+            sortClickTsd.addEventListener('click', () => {
+                const sort = sortClickTs.dataset.sort;
+
+                if (currentSort === sort) {
+                    currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort = sort;
+                    currentOrder = 'asc';
+                }
+
+                loadDataDis(1);
+            });
+
+
+            sortClickTs.addEventListener('click', () => {
+                const sort = sortClickTs.dataset.sort;
+
+                if (currentSort === sort) {
+                    currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort = sort;
+                    currentOrder = 'asc';
+                }
+
+                loadDataDis(1);
             });
 
             // Filter
