@@ -14,14 +14,19 @@ def list_disposisi(request):
     page_number = int(request.GET.get('page', 1))
 
     #Get Filter From User
-    tanggal_surat = request.GET.get('tanggal_surat')
-    tanggal_diterima = request.GET.get('tanggal_diterima')
+    surat_day = request.GET.get('surat_day')
+    surat_month = request.GET.get('surat_month')
+    surat_year = request.GET.get('surat_year')
+    diterima_day = request.GET.get('diterima_day')
+    diterima_month = request.GET.get('diterima_month')
+    diterima_year = request.GET.get('diterima_year')
+
     pengirim = request.GET.get('pengirim')
     tujuan = request.GET.get('tujuan')
     status = request.GET.get('status')
 
     #Get Disposisi Data
-    data = Disposisi.objects.all().order_by('-id')
+    data = Disposisi.objects.all().order_by('-tanggal_surat_diterima')
 
     SEARCH_FIELDS = [
         'tanggal_surat_diterima',
@@ -88,11 +93,23 @@ def list_disposisi(request):
         data = data.filter(tujuan=TUJUAN_MAP[search_lower])
 
     #Use Filter
-    if tanggal_surat:
-        data = data.filter(tanggal_surat=tanggal_surat)
+    if surat_year:
+        data = data.filter(tanggal_surat__year=surat_year)
 
-    if tanggal_diterima:
-        data = data.filter(tanggal_surat_diterima=tanggal_diterima)
+    if surat_month:
+        data = data.filter(tanggal_surat__month=surat_month)
+
+    if surat_day:
+        data = data.filter(tanggal_surat__day=surat_day)
+
+    if diterima_year:
+        data = data.filter(tanggal_surat_diterima__year=diterima_year)
+
+    if diterima_month:
+        data = data.filter(tanggal_surat_diterima__month=diterima_month)
+
+    if diterima_day:
+        data = data.filter(tanggal_surat_diterima__day=diterima_day)
 
     if pengirim:
         data = data.filter(pengirim__icontains=pengirim)

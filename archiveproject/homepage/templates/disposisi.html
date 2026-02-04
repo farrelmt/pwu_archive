@@ -99,8 +99,15 @@
             const closeFilter = document.getElementById('closeFilter');
             const applyFilter = document.getElementById('applyFilter');
 
-            const filterTanggalDiterima = document.getElementById('filterTanggalDiterima');
-            const filterTanggalSurat = document.getElementById('filterTanggalSurat');
+            const suratDay = document.getElementById('filterSuratDay');
+            const suratMonth = document.getElementById('filterSuratMonth');
+            const suratYear = document.getElementById('filterSuratYear');
+
+            const diterimaDay = document.getElementById('filterDiterimaDay');
+            const diterimaMonth = document.getElementById('filterDiterimaMonth');
+            const diterimaYear = document.getElementById('filterDiterimaYear');
+
+
             const filterPengirim =document.getElementById('filterPengirim');
             const filterTujuan =document.getElementById('filterTujuan');
             const filterStatus = document.getElementById('filterStatus');
@@ -115,8 +122,14 @@
                     search: searchInputDis.value.trim(),
 
                     //Filter
-                    tanggal_surat: filterTanggalSurat.value,
-                    tanggal_diterima: filterTanggalDiterima.value,
+                    surat_day: suratDay.value,
+                    surat_month: suratMonth.value,
+                    surat_year: suratYear.value,
+
+                    diterima_day: diterimaDay.value,
+                    diterima_month: diterimaMonth.value,
+                    diterima_year: diterimaYear.value,
+
                     pengirim: filterPengirim.value,
                     tujuan: filterTujuan.value,
                     status: filterStatus.value,
@@ -130,12 +143,6 @@
                     tableBody.innerHTML = data.table;
                     paginationDis.innerHTML = data.pagination;
                 });
-
-                console.log(filterTanggalDiterima.value);
-                console.log(filterTanggalSurat.value);
-                console.log(filterPengirim.value);
-                console.log(filterTujuan.value);
-                console.log(filterStatus.value);
             }
 
             // Change limit
@@ -163,10 +170,17 @@
                 filterDisposisi.classList.add('hidden')
             });
 
+            //Reset
             resetDisBut.addEventListener('click', () => {
                 searchInputDis.value = '';
-                filterTanggalDiterima.value = '';
-                filterTanggalSurat.value = '';
+
+                suratDay.value = '';
+                suratMonth.value = '';
+                suratYear.value = '';
+                diterimaDay.value = '';
+                diterimaMonth.value = '';
+                diterimaYear.value = '';
+
                 filterPengirim.value = '';
                 filterTujuan.value = '';
                 filterStatus.value = '';
