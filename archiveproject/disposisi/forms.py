@@ -25,7 +25,19 @@ class DisposisiForm(forms.ModelForm):
             "perihal": forms.Textarea(attrs={"rows": 4}),
         }
 
-    def clean(self):
+    def clean_file(self):
+        file = self.cleaned_data.get('dokumen_surat_masuk')
+
+        if file and not file.name.lower().endswith(
+                ('.pdf', '.jpg', '.jpeg', '.png')
+        ):
+            raise forms.ValidationError(
+                "Format file tidak diizinkan (PDF / JPG / PNG)."
+            )
+
+        return file
+
+    def clean_date(self):
         cleaned_data = super().clean()
         tanggal_diterima = cleaned_data.get("tanggal_surat_diterima")
         tanggal_surat = cleaned_data.get("tanggal_surat")

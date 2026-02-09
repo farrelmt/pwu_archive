@@ -52,22 +52,10 @@
                 <p class="text-md font-semibold w-70">Perihal</p>
                 <p class="text-md my-1">{{ disposisi.perihal }}</p>
             </div>
-
-            <div class="flex items-center">
-                <p class="text-md font-semibold w-70">Diajukan Kepada</p>
-                <div class="flex items-center gap-2">
-                <p class="text-md my-1">{{ disposisi.diajukan_kepada }}</p>
-                </div>
-            </div>
-
-            <div class="flex items-center">
-                <p class="text-md font-semibold w-70">Dokumen Surat Masuk</p>
-                <p class="text-md my-1">{{ disposisi.dokumen_surat_masuk }}</p>
-            </div>
         </div>
 
         <br/>
-        <div class="fixed bottom-0 left-25 right-0 flex justify-between mt-8 px-5 py-3 shadow-lg">
+        <div class="fixed bottom-0 left-0 md:left-25 right-0 flex justify-between mt-8 px-5 py-3 shadow-lg">
             <div class="flex flex-col gap-4">
                 <a href="{% url 'disposisi:editdisposisi' disposisi.id %}"
                    class="inline-flex items-center justify-center

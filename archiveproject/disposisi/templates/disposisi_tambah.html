@@ -3,7 +3,7 @@
 {% block content %}
 
 <div class="bg-gray-50/10 p-4 select-none w-full">
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
         <div class="space-y-2">
             <div class="flex items-center justify-between">
@@ -76,14 +76,43 @@
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Dokumen Surat Masuk</p>
-                <input name="dokumen_surat_masuk" required autocomplete="off"
-                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+
+                <!-- Wrapper -->
+                <div class="flex items-center gap-2 flex-grow">
+
+                    <!-- Hidden file input -->
+                    <input
+                        type="file"
+                        name="dokumen_surat_masuk"
+                        id="dokumenInput"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        required
+                        class="hidden"
+                    >
+
+                    <!-- Custom button -->
+                    <button
+                        type="button"
+                        id="btnFile"
+                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded hover:bg-gray-300"
+                    >
+                        Pilih File
+                    </button>
+
+                    <!-- File name -->
+                    <span
+                        id="fileName"
+                        class="text-xs text-gray-600 truncate max-w-xs"
+                    >
+                        Belum ada file
+                    </span>
+                </div>
             </div>
 
         </div>
 
         <br/>
-        <div class="fixed bottom-0 left-25 right-0 flex justify-between px-4 py-2 shadow-lg">
+        <div class="fixed bottom-0 left-0 md:left-25 right-0 flex justify-between px-4 py-2 shadow-lg">
             <a href="{% url 'disposisi:disposisi' %}"
                class="bg-blue-950 text-white font-semibold rounded w-30 h-10 text-md
                       hover:bg-blue-900 flex items-center justify-center">
@@ -105,6 +134,10 @@
     const nomorAgenda = document.getElementById('nomor_agenda');
     const bulanAgenda = document.getElementById('bulan_agenda');
     const tahunAgenda = document.getElementById('tahun_agenda');
+
+    const fileInput = document.getElementById('dokumenInput');
+    const btnFile = document.getElementById('btnFile');
+    const fileName = document.getElementById('fileName');
 
     const bulanRomawi = [
         '', 'I', 'II', 'III', 'IV', 'V',
@@ -131,6 +164,31 @@
     }
 
     dateInput.addEventListener('change', updateAgenda);
+
+    btnFile.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (!fileInput.files.length) {
+            fileName.textContent = 'Belum ada file';
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const allowed = ['pdf', 'jpg', 'jpeg', 'png'];
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (!allowed.includes(ext)) {
+            alert('Format file tidak diizinkan (PDF / JPG / PNG)');
+            fileInput.value = '';
+            fileName.textContent = 'Belum ada file';
+            return;
+        }
+
+        fileName.textContent = file.name;
+    });
+
 </script>
 
 {% endblock %}

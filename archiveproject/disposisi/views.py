@@ -155,7 +155,7 @@ def list_disposisi(request):
 
 def tambah_disposisi(request):
     if request.method == "POST":
-        form = DisposisiForm(request.POST)
+        form = DisposisiForm(request.POST, request.FILES)
         if form.is_valid():
             form.save()
             return redirect('disposisi:disposisi')
