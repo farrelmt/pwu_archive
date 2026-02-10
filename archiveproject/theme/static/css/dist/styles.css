@@ -11,6 +11,7 @@
     --color-red-600: oklch(57.7% 0.245 27.325);
     --color-red-800: oklch(44.4% 0.177 26.899);
     --color-yellow-300: oklch(90.5% 0.182 98.111);
+    --color-yellow-400: oklch(85.2% 0.199 91.936);
     --color-blue-500: oklch(62.3% 0.214 259.815);
     --color-blue-700: oklch(48.8% 0.243 264.376);
     --color-blue-800: oklch(42.4% 0.199 265.638);
@@ -1037,6 +1038,9 @@
   .bg-white {
     background-color: var(--color-white);
   }
+  .bg-yellow-400 {
+    background-color: var(--color-yellow-400);
+  }
   .p-0 {
     padding: calc(var(--spacing) * 0);
   }
@@ -1210,10 +1214,6 @@
   .select-none {
     -webkit-user-select: none;
     user-select: none;
-  }
-  .select-text {
-    -webkit-user-select: text;
-    user-select: text;
   }
   @media (hover: hover) {
     .hover\:bg-blue-700:hover {

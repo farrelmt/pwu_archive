@@ -17,7 +17,7 @@
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Nomor Agenda</p>
                 <p id = "nomor_agenda"
-                        class="mx-1 w-4">--</p>
+                        class="mx-1 w-4">{{no_id_agenda}}</p>
                 <p class="text-2xl mx-2">/</p>
                 <p id = "bulan_agenda"
                         class="mx-1 w-4">--</p>
@@ -154,7 +154,7 @@
 
         const [year, month, day] = dateInput.value.split('-');
 
-        const nomor = parseInt(day, 10)
+        const nomor = document.getElementById('nomor_agenda').textContent.trim();
         const bulan = bulanRomawi[parseInt(month, 10)];
 
         nomorAgenda.textContent = nomor;

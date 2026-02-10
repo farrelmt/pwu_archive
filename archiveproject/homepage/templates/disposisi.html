@@ -65,7 +65,8 @@
                             <th class="border px-4 py-2 w-20" id="headNoDis">No</th>
                             <th class="border px-4 py-2 w-50 hover:bg-gray-500"
                                 data-sort="tsd" id="sortTsd">Tanggal Surat Diterima</th>
-                            <th class="border px-4 py-2 w-50">Nomor Agenda</th>
+                            <th class="border px-4 py-2 w-50 hover:bg-gray-500"
+                                data-sort="na" id="sortNoAgd">Nomor Agenda</th>
                             <th class="border px-4 py-2 w-50 hover:bg-gray-500"
                                 data-sort="ts" id="sortTs">Tanggal Surat</th></th>
                             <th class="border px-4 py-2 w-70">Nomor Surat</th>
@@ -116,6 +117,7 @@
             let currentSort = 'tsd';
             let currentOrder = 'desc';
             const sortClickTsd = document.getElementById('sortTsd');
+            const sortClickNagd = document.getElementById('sortNoAgd');
             const sortClickTs = document.getElementById('sortTs');
 
             const tableBody = document.getElementById('tableBody');
@@ -166,7 +168,20 @@
 
             //Sorting
             sortClickTsd.addEventListener('click', () => {
-                const sort = sortClickTs.dataset.sort;
+                const sort = sortClickTsd.dataset.sort;
+
+                if (currentSort === sort) {
+                    currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort = sort;
+                    currentOrder = 'asc';
+                }
+
+                loadDataDis(1);
+            });
+
+            sortClickNagd.addEventListener('click', () => {
+                const sort = sortClickNagd.dataset.sort;
 
                 if (currentSort === sort) {
                     currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';

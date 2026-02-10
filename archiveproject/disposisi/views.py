@@ -6,7 +6,7 @@ from .models import Disposisi
 from django.db.models import Q
 from .forms import DisposisiForm
 from datetime import datetime
-
+from django.db.models import Max
 
 def list_disposisi(request):
     search = request.GET.get('search', '')
@@ -154,6 +154,8 @@ def list_disposisi(request):
     return render(request, 'disposisi.html', context)
 
 def tambah_disposisi(request):
+    next_id_agenda = (Disposisi.objects.aggregate(max_id=Max('id_agenda'))['max_id'] or 0) + 1
+
     if request.method == "POST":
         form = DisposisiForm(request.POST, request.FILES)
         if form.is_valid():
@@ -165,7 +167,11 @@ def tambah_disposisi(request):
     else:
         form = DisposisiForm()
 
-    return render(request, 'disposisi_tambah.html', {'form': form})
+    return render(request, 'disposisi_tambah.html',
+                  {
+                      'form': form,
+                      'no_id_agenda': next_id_agenda,
+                  })
 
 
 def update_disposisi(request, pk):

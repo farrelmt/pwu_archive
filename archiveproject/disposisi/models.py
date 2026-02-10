@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Max
 from django.core.validators import FileExtensionValidator
 import os
 from django.utils.text import slugify
@@ -20,8 +21,8 @@ class Disposisi(models.Model):
         tahun = instance.tanggal_surat_diterima.strftime("%Y")
         nomor_surat = instance.nomor_surat
         nomor_agenda = instance.nomor_agenda
-        nomor_surat = nomor_surat.replace("/", "-")
-        nomor_agenda = nomor_agenda.replace("/", "-")
+        nomor_surat = nomor_surat.replace("/", "_")
+        nomor_agenda = nomor_agenda.replace("/", "_")
         return f"Disposisi/{tahun}/{nomor_agenda}/Surat Masuk/{nomor_surat}{extension}"
 
     tanggal_surat_diterima = models.DateField()
@@ -42,5 +43,15 @@ class Disposisi(models.Model):
 
     waktu_dibuat = models.DateTimeField(auto_now_add=True)
     waktu_diedit = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.id_agenda is None:
+            last = Disposisi.objects.aggregate(
+                max_id=Max('id_agenda')
+            )['max_id']
+            self.id_agenda = (last or 0) + 1
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.nomor_surat} - {self.perihal[:30]}"
