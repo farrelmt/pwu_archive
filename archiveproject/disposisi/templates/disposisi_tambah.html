@@ -56,8 +56,8 @@
                 <p class="text-md font-semibold w-60 my-1">Tujuan</p>
                 <select name="tujuan" required
                         class="border rounded-sm w-36 p-1 text-xs bg-white">
-                    <option value="DIRUT">Direktur Utama</option>
-                    <option value="DIR">Direktur</option>
+                    <option value="DIRUT">Direksi Utama</option>
+                    <option value="DIR">Direksi</option>
                 </select>
             </div>
 
@@ -77,10 +77,7 @@
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Dokumen Surat Masuk</p>
 
-                <!-- Wrapper -->
                 <div class="flex items-center gap-2 flex-grow">
-
-                    <!-- Hidden file input -->
                     <input
                         type="file"
                         name="dokumen_surat_masuk"
@@ -90,7 +87,6 @@
                         class="hidden"
                     >
 
-                    <!-- Custom button -->
                     <button
                         type="button"
                         id="btnFile"
@@ -99,7 +95,14 @@
                         Pilih File
                     </button>
 
-                    <!-- File name -->
+                    <button
+                        type="button"
+                        id="btnPreview"
+                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded hover:bg-gray-300 hidden"
+                    >
+                        Preview
+                    </button>
+
                     <span
                         id="fileName"
                         class="text-xs text-gray-600 truncate max-w-xs"
@@ -139,6 +142,9 @@
     const btnFile = document.getElementById('btnFile');
     const fileName = document.getElementById('fileName');
 
+    const btnPreview = document.getElementById('btnPreview');
+    let previewURL = null;
+
     const bulanRomawi = [
         '', 'I', 'II', 'III', 'IV', 'V',
         'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'
@@ -172,6 +178,8 @@
     fileInput.addEventListener('change', () => {
         if (!fileInput.files.length) {
             fileName.textContent = 'Belum ada file';
+            btnPreview.classList.add('hidden');
+            previewURL = null;
             return;
         }
 
@@ -183,10 +191,22 @@
             alert('Format file tidak diizinkan (PDF / JPG / PNG)');
             fileInput.value = '';
             fileName.textContent = 'Belum ada file';
+            btnPreview.classList.add('hidden');
+            previewURL = null;
             return;
         }
 
         fileName.textContent = file.name;
+        previewURL = URL.createObjectURL(file);
+        btnPreview.classList.remove('hidden');
+    });
+
+    btnPreview.addEventListener('click', () => {
+        if(!previewURL) {
+            alert('Belum ada URL');
+            return;
+        }
+        window.open(previewURL);
     });
 
 </script>

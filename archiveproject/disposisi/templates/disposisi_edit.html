@@ -3,19 +3,19 @@
 {% block content %}
 
 <div class="bg-gray-50/10 p-4 select-none w-full">
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
         <div class="space-y-2">
             <div class="flex items-center justify-between">
                <div class="flex">
                    <p class="text-md font-semibold w-60 my-1">Tanggal Surat Diterima</p>
-                   <input type="date" name="tanggal_surat_diterima" id="date_tsd"
+                   <input type="date" name="tanggal_surat_diterima" id="date_tsd" style="color-scheme: light;"
                             class="border border-black rounded-md shadow-sm pl-1"
                             value="{{ disposisi.tanggal_surat_diterima|date:"Y-m-d" }}">
                </div>
                 <div>
                     <button type="submit"
-                            class="bg-red-800 text-white font-semibold rounded w-26 h-8 text-sm hover:bg-red-600">
+                            class="bg-blue-950 text-white font-semibold rounded w-26 h-8 text-sm hover:bg-red-800">
                         Hapus
                     </button>
                 </div>
@@ -24,19 +24,20 @@
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Nomor Agenda</p>
                 <p id = "nomor_agenda"
-                        class="mx-1 w-4">--</p>
+                        class="mx-1 w-4">{{no_id_agenda}}</p>
                 <p class="text-2xl mx-2">/</p>
                 <p id = "bulan_agenda"
                         class="mx-1 w-4">--</p>
                 <p class="mx-2 text-2xl ">/</p>
                 <p id = "tahun_agenda"
                         class="mx-1 w-8">----</p>
-                <input type="hidden" name="nomor_agenda" id="nomor_agenda_input">
+                <input type="hidden" name="nomor_agenda" id="nomor_agenda_input" value="{{ disposisi.nomor_agenda }}">
+
             </div>
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Tanggal Surat</p>
-                <input type="date" name="tanggal_surat" id="date_ts"
+                <input type="date" name="tanggal_surat" id="date_ts" style="color-scheme: light;"
                             class="border border-black rounded-md shadow-sm pl-1"
                         value="{{ disposisi.tanggal_surat|date:"Y-m-d" }}">
 
@@ -45,18 +46,21 @@
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Nomor Surat</p>
                 <input name="nomor_surat" required autocomplete="off" placeholder="{{ disposisi.nomor_surat }}"
+                       value="{{ disposisi.nomor_surat }}"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Pengirim</p>
                 <input name="pengirim" required autocomplete="off" placeholder="{{ disposisi.pengirim }}"
+                       value="{{disposisi.pengirim }}"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Lampiran</p>
                 <input name="lampiran" required autocomplete="off" placeholder="{{ disposisi.lampiran }}"
+                       value="{{ disposisi.lampiran }}"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
@@ -64,14 +68,15 @@
                 <p class="text-md font-semibold w-60 my-1">Tujuan</p>
                 <select name="tujuan" required
                         class="border rounded-sm w-36 p-1 text-xs bg-white">
-                    <option value="DIRUT" {% if disposisi.tujuan == "DIRUT"  %}selected{% endif %} >Direktur Utama</option>
-                    <option value="DIR" {% if disposisi.tujuan == "DIR"  %}selected{% endif %}>Direktur</option>
+                    <option value="DIRUT" {% if disposisi.tujuan == "DIRUT"  %}selected{% endif %} >Direksi Utama</option>
+                    <option value="DIR" {% if disposisi.tujuan == "DIR"  %}selected{% endif %}>Direksi</option>
                 </select>
             </div>
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Tembusan</p>
                 <input name="tembusan" required autocomplete="off" placeholder="{{ disposisi.tembusan }}"
+                       value="{{ disposisi.tembusan }}"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
@@ -79,24 +84,47 @@
                 <p class="text-md font-semibold w-60 my-1">Perihal</p>
                 <textarea name="perihal" required autocomplete="off" placeholder="{{ disposisi.perihal }}"
                     class="border p-1 h-20 text-xs bg-white flex-grow resize-none"
-                ></textarea>
-            </div>
-
-            <div class="flex items-center">
-                <p class="text-md font-semibold w-60 my-1">Diajukan Kepada</p>
-                <div class="flex items-center gap-2">
-                    <select name="diajukan_kepada" required
-                            class="border rounded-sm w-36 p-1 text-xs bg-white">
-                        <option value="DIRUT">Direktur Utama</option>
-                        <option value="DIR">Direktur</option>
-                    </select>
-                </div>
+                >{{disposisi.perihal}}</textarea>
             </div>
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Dokumen Surat Masuk</p>
-                <input name="dokumen_surat_masuk" required autocomplete="off" placeholder="{{ disposisi.dokumen_surat_masuk }}"
-                        class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
+
+                <div class="flex items-center gap-2 flex-grow">
+                    <input
+                        type="file"
+                        name="dokumen_surat_masuk"
+                        id="dokumenInput"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        class="hidden"
+                    >
+
+                    <button
+                        type="button"
+                        id="btnFile"
+                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded hover:bg-gray-300"
+                    >
+                        Pilih File
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btnPreview"
+                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded hover:bg-gray-300"
+                    >
+                        Preview
+                    </button>
+
+                    <span
+                        id="fileName"
+                        class="text-xs text-gray-600 truncate max-w-xs"
+                        data-dokumensurat=" {{disposisi.dokumen_surat_masuk.url}}"
+                   >
+                        {{disposisi.name_dokumen_surat_masuk}}
+                        <br>
+                    </span>
+
+                </div>
             </div>
 
         </div>
@@ -112,7 +140,7 @@
 
             <button type="submit"
                     class="bg-blue-950 text-white font-semibold rounded w-30 h-10 text-md hover:bg-blue-900">
-                Edit
+                Simpan
             </button>
         </div>
     </form>
@@ -126,10 +154,22 @@
     const bulanAgenda = document.getElementById('bulan_agenda');
     const tahunAgenda = document.getElementById('tahun_agenda');
 
+    const fileInput = document.getElementById('dokumenInput');
+    const btnFile = document.getElementById('btnFile');
+    const fileName = document.getElementById('fileName');
+
+    const btnPreview = document.getElementById('btnPreview');
+    let previewURL = document.getElementById('fileName').dataset.dokumensurat;
+
     const bulanRomawi = [
         '', 'I', 'II', 'III', 'IV', 'V',
         'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'
     ];
+
+    const [year, month, day] = dateInput.value.split('-');
+    document.getElementById('bulan_agenda').textContent = bulanRomawi[parseInt(month, 10)];;
+    document.getElementById('tahun_agenda').textContent = year;
+
 
     function updateAgenda() {
         if(!dateInput.value){
@@ -141,7 +181,7 @@
 
         const [year, month, day] = dateInput.value.split('-');
 
-        const nomor = parseInt(day, 10)
+        const nomor = document.getElementById('nomor_agenda').textContent.trim();
         const bulan = bulanRomawi[parseInt(month, 10)];
 
         nomorAgenda.textContent = nomor;
@@ -149,6 +189,45 @@
         tahunAgenda.textContent = year;
         nomorAgendaInput.value = `${nomor}/${bulan}/${year}`;
     }
+    btnFile.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (!fileInput.files.length) {
+            fileName.textContent = 'Belum ada file';
+            btnPreview.classList.add('hidden');
+            previewURL = null;
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const allowed = ['pdf', 'jpg', 'jpeg', 'png'];
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (!allowed.includes(ext)) {
+            alert('Format file tidak diizinkan (PDF / JPG / PNG)');
+            fileInput.value = '';
+            fileName.textContent = 'Belum ada file';
+            btnPreview.classList.add('hidden');
+            previewURL = null;
+            return;
+        }
+
+        fileName.textContent = file.name;
+        previewURL = URL.createObjectURL(file);
+        btnPreview.classList.remove('hidden');
+    });
+
+    btnPreview.addEventListener('click', () => {
+        if(!previewURL) {
+            alert('Belum ada URL');
+            return;
+        }
+        window.open(previewURL);
+    });
+
+
 
     dateInput.addEventListener('change', updateAgenda);
 </script>

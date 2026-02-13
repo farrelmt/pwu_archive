@@ -176,13 +176,22 @@ def tambah_disposisi(request):
 
 def update_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
-    form = DisposisiForm(request.POST or None, instance=disposisi)
-    if form.is_valid():
-        form.save()
-        return redirect('disposisi:disposisi')
+
+    if request.method == "POST":
+        form = DisposisiForm(request.POST, request.FILES, instance=disposisi)
+
+        if form.is_valid():
+            form.save()
+            return redirect('disposisi:detaildisposisi', pk=pk)
+        else:
+            print(form.errors)
+    else:
+        form = DisposisiForm(instance=disposisi)
+
     return render(request, 'disposisi_edit.html', {
         'form': form,
         'disposisi': disposisi,
+        'no_id_agenda': disposisi.id_agenda,
     })
 
 def hapus_disposisi(request):

@@ -25,7 +25,7 @@ class DisposisiForm(forms.ModelForm):
             "perihal": forms.Textarea(attrs={"rows": 4}),
         }
 
-    def clean_file(self):
+    def clean_dokumen_surat_masuk(self):
         file = self.cleaned_data.get('dokumen_surat_masuk')
 
         if file and not file.name.lower().endswith(
@@ -37,7 +37,7 @@ class DisposisiForm(forms.ModelForm):
 
         return file
 
-    def clean_date(self):
+    def clean(self):
         cleaned_data = super().clean()
         tanggal_diterima = cleaned_data.get("tanggal_surat_diterima")
         tanggal_surat = cleaned_data.get("tanggal_surat")

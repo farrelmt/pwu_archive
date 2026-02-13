@@ -22,7 +22,7 @@ class Disposisi(models.Model):
         nomor_surat = instance.nomor_surat
         nomor_agenda = instance.nomor_agenda
         nomor_surat = nomor_surat.replace("/", "_")
-        nomor_agenda = nomor_agenda.replace("/", "_")
+        nomor_agenda = nomor_agenda.replace("/", "-")
         return f"Disposisi/{tahun}/{nomor_agenda}/Surat Masuk/{nomor_surat}{extension}"
 
     tanggal_surat_diterima = models.DateField()
@@ -35,6 +35,7 @@ class Disposisi(models.Model):
     tujuan = models.CharField(max_length=20, choices=TUJUAN_CHOICES)
     tembusan = models.CharField(max_length=50)
     perihal = models.TextField()
+    tujuan_disposisi = models.CharField(max_length=50)
     status_pengajuan = models.CharField(max_length=10, choices=STATUS_CHOICES, default="BELUM")
     dokumen_surat_masuk = models.FileField(
         upload_to= rename_dokumen_surat,
@@ -44,6 +45,10 @@ class Disposisi(models.Model):
     waktu_dibuat = models.DateTimeField(auto_now_add=True)
     waktu_diedit = models.DateTimeField(auto_now=True)
 
+    def name_dokumen_surat_masuk(self):
+        filename = os.path.basename(self.dokumen_surat_masuk.name)
+        return filename.replace("_", "/")
+
     def save(self, *args, **kwargs):
         if self.id_agenda is None:
             last = Disposisi.objects.aggregate(
@@ -51,7 +56,18 @@ class Disposisi(models.Model):
             )['max_id']
             self.id_agenda = (last or 0) + 1
 
+        try:
+            old = Disposisi.objects.get(pk=self.pk)
+        except Disposisi.DoesNotExist:
+            old = None
+
         super().save(*args, **kwargs)
+
+        if old and old.dokumen_surat_masuk != self.dokumen_surat_masuk:
+            if old.dokumen_surat_masuk:
+                if os.path.isfile(old.dokumen_surat_masuk.path):
+                    os.remove(old.dokumen_surat_masuk.path)
+
 
     def __str__(self):
         return f"{self.nomor_surat} - {self.perihal[:30]}"
