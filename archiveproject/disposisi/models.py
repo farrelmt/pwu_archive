@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Max
 from django.core.validators import FileExtensionValidator
 import os
@@ -50,18 +50,29 @@ class Disposisi(models.Model):
         return filename.replace("_", "/")
 
     def save(self, *args, **kwargs):
-        if self.id_agenda is None:
-            last = Disposisi.objects.aggregate(
-                max_id=Max('id_agenda')
-            )['max_id']
-            self.id_agenda = (last or 0) + 1
+        is_create = self.pk is None
 
-        try:
-            old = Disposisi.objects.get(pk=self.pk)
-        except Disposisi.DoesNotExist:
-            old = None
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if not is_create:
+                return
 
-        super().save(*args, **kwargs)
+            disposisi_list = Disposisi.objects.all().order_by(
+                'tanggal_surat_diterima',
+                'waktu_dibuat',
+                'pk'
+            )
+
+            for index, item in enumerate(disposisi_list, start=1):
+                if item.id_agenda != index:
+                    Disposisi.objects.filter(pk=item.pk).update(id_agenda=index)
+
+        old = None
+        if self.pk:
+            try:
+                old = Disposisi.objects.get(pk=self.pk)
+            except Disposisi.DoesNotExist:
+                old = None
 
         if old and old.dokumen_surat_masuk != self.dokumen_surat_masuk:
             if old.dokumen_surat_masuk:

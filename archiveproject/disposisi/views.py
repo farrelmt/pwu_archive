@@ -159,6 +159,10 @@ def tambah_disposisi(request):
     if request.method == "POST":
         form = DisposisiForm(request.POST, request.FILES)
         if form.is_valid():
+            disposisi = form.save(commit=False)
+            disposisi.id_agenda = next_id_agenda
+            disposisi.nomor_agenda = str(next_id_agenda)
+
             form.save()
             return redirect('disposisi:disposisi')
         else:
@@ -201,6 +205,7 @@ def hapus_disposisi(request):
         return redirect('disposisi'
                         ':disposisi')
     return render(request, 'disposisi_hapus.html', {'disposisi': disposisi})
+
 
 def detail_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
