@@ -32,6 +32,7 @@ def list_disposisi(request):
     ALLOWED_SORT = {
         'tsd': 'tanggal_surat_diterima',
         'ts': 'tanggal_surat',
+        'na': 'nomor_agenda',
     }
 
     sortTable = ALLOWED_SORT.get(sortDisposisi, 'tanggal_surat_diterima')
@@ -154,15 +155,9 @@ def list_disposisi(request):
     return render(request, 'disposisi.html', context)
 
 def tambah_disposisi(request):
-    next_id_agenda = (Disposisi.objects.aggregate(max_id=Max('id_agenda'))['max_id'] or 0) + 1
-
     if request.method == "POST":
         form = DisposisiForm(request.POST, request.FILES)
         if form.is_valid():
-            disposisi = form.save(commit=False)
-            disposisi.id_agenda = next_id_agenda
-            disposisi.nomor_agenda = str(next_id_agenda)
-
             form.save()
             return redirect('disposisi:disposisi')
         else:
@@ -171,11 +166,12 @@ def tambah_disposisi(request):
     else:
         form = DisposisiForm()
 
-    return render(request, 'disposisi_tambah.html',
-                  {
-                      'form': form,
-                      'no_id_agenda': next_id_agenda,
-                  })
+    next_id_agenda =  Disposisi.objects.values('tanggal_surat_diterima').distinct().count() + 1
+
+    return render(request, 'disposisi_tambah.html',{
+        'form': form,
+        'no_id_agenda': next_id_agenda,
+    })
 
 
 def update_disposisi(request, pk):

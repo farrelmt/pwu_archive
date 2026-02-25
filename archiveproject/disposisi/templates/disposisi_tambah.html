@@ -4,7 +4,7 @@
 
 <div class="bg-gray-50/10 p-4 select-none w-full">
     <form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
+        {% csrf_token %}
         <div class="space-y-2">
             <div class="flex items-center justify-between">
                <div class="flex">
@@ -14,18 +14,7 @@
                </div>
             </div>
 
-            <div class="flex items-center">
-                <p class="text-md font-semibold w-60 my-1">Nomor Agenda</p>
-                <p id = "nomor_agenda"
-                        class="mx-1 w-4">{{no_id_agenda}}</p>
-                <p class="text-2xl mx-2">/</p>
-                <p id = "bulan_agenda"
-                        class="mx-1 w-4">--</p>
-                <p class="mx-2 text-2xl ">/</p>
-                <p id = "tahun_agenda"
-                        class="mx-1 w-8">----</p>
-                <input type="hidden" name="nomor_agenda" id="nomor_agenda_input">
-            </div>
+            <input type="hidden" name="nomor_agenda" id="nomor_agenda_input">
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Tanggal Surat</p>
@@ -146,8 +135,8 @@
     let previewURL = null;
 
     const bulanRomawi = [
-        '', 'I', 'II', 'III', 'IV', 'V',
-        'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'
+        '', 'I', 'II', 'III', 'IV', 'V','VI',
+        'VII', 'VIII', 'IX', 'X', 'XI', 'XII'
     ];
 
     function updateAgenda() {

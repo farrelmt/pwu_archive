@@ -49,12 +49,12 @@
             <div class="flex mb-2">
                 <p class="flex text-md font-medium mx-1 mt-1">Tampilkan</p>
                 <select id="selectDisNum" class="flex border w-13 h-7 ml-2 mt-px text-md bg-white">
-                    <option value="1"
-                            {% if page_limit == "1" %} selected {% endif %}>20</option>
-                    <option value="2"
-                            {% if page_limit == "2" %} selected {% endif %}>50</option>
-                    <option value="3"
-                            {% if page_limit == "3" %} selected {% endif %}>100</option>
+                    <option value="20"
+                            {% if page_limit == "20" %} selected {% endif %}>20</option>
+                    <option value="50"
+                            {% if page_limit == "50" %} selected {% endif %}>50</option>
+                    <option value="100"
+                            {% if page_limit == "100" %} selected {% endif %}>100</option>
                 </select>
             </div>
 
@@ -66,7 +66,7 @@
                             <th class="border px-4 py-2 w-50 hover:bg-gray-500"
                                 data-sort="tsd" id="sortTsd">Tanggal Surat Diterima</th>
                             <th class="border px-4 py-2 w-50 hover:bg-gray-500"
-                                data-sort="na" id="sortNoAgd">Nomor Agenda</th>
+                                data-sort="tsd" id="sortNoAgd">Nomor Agenda</th>
                             <th class="border px-4 py-2 w-50 hover:bg-gray-500"
                                 data-sort="ts" id="sortTs">Tanggal Surat</th></th>
                             <th class="border px-4 py-2 w-70">Nomor Surat</th>
