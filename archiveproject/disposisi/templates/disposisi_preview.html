@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+{% load static %}
+   <head>
+        <meta charset="UTF-8">
+        <title>Disposisi - {{ disposisi.nomor_agenda }}</title>
+        <link rel="stylesheet" href="{% static 'css/disposisi_file.css' %}">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+        <style>
+            @page {
+                size: A4 portrait;
+                margin: 0;
+            }
+            @media print {
+                .no-print { display: none; }
+                body { background: white; }
+                .page { box-shadow: none; margin: 0; }
+                *{
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <nav class="no-print navbar">
+            <div class="navbar-brand">Lembar Disposisi</div>
+            <div class="navbar-actions">
+                <a onclick="window.print()" class="navbar-btn" title="Cetak">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                         stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
+                    </svg>
+                    <span>Cetak</span>
+                </a>
+                <a href="{% url 'disposisi:disposisi_pdf' disposisi.pk %}" class="navbar-btn" title="Simpan PDF">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                         stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15M9 12l3 3m0 0 3-3m-3 3V2.25" />
+                    </svg>
+                    <span>Simpan</span>
+                </a>
+            </div>
+        </nav>
+
+        <div id="preview-disposisi"
+                class="page"
+             style="width: 210mm; min-height: 297mm; padding: 0mm;">
+
+            <div class="header">
+                <h1 class="">PT. PANCA WIRA USAHA JAWA TIMUR</h1>
+                <h1 class="">LEMBAR DISPOSISI</h1>
+            </div>
+
+            <div class="grid">
+
+                <!-- Row 1 Left -->
+                <div class="cell border-bottom border-right border-top border-left">
+                    <div class="label-row">
+                        <div class="label">Surat Dari</div>
+                        <div class="colon">:</div>
+                        <div class="value">{{ disposisi.pengirim }}</div>
+                    </div>
+                </div>
+
+                <!-- Row 1 Right -->
+                <div class="cell border-bottom border-top border-right">
+                    <div class="label-row">
+                        <div class="label" style="width: 150px;">Diterima tanggal</div>
+                        <div class="colon">:</div>
+                        <div class="value">{{ disposisi.tanggal_surat_diterima|date:"d F Y" }}</div>
+                    </div>
+                </div>
+
+                <!-- Row 2 Left -->
+                <div class="cell border-bottom border-right border-left">
+                    <div class="label-row">
+                        <div class="label">Tanggal Surat</div>
+                        <div class="colon">:</div>
+                        <div class="value">{{ disposisi.tanggal_surat|date:"d F Y" }}</div>
+                    </div>
+                </div>
+
+                <!-- Row 2 Right -->
+                <div class="cell border-bottom border-right">
+                    <div class="label-row">
+                        <div class="label" style="width: 150px;">Nomor Agenda</div>
+                        <div class="colon">:</div>
+                        <div class="value">{{ disposisi.nomor_agenda }}</div>
+                    </div>
+                </div>
+
+                <!-- Row 3 Left -->
+                <div class="cell perihal border-right border-bottom border-left">
+                    <div class="label-row">
+                        <div class="label" >Perihal</div>
+                        <div class="colon">:</div>
+                        <div class="value">
+                            {{ disposisi.perihal }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3 Right -->
+                <div class="tujuan-container border-bottom border-right">
+                    <div class="tujuan-title">
+                        <div class="label" style="width: 150px;">Diteruskan Kepada</div>
+                        <div class="colon">:</div>
+                    </div>
+
+                    <div class="checkbox-row">
+                        <div class="checkbox checkbox-text"></div>
+                        <span class="checkbox-text" >Direktur Utama</span>
+                    </div>
+                    <div class="checkbox-row">
+                        <div class="checkbox"></div>
+                        <span class="checkbox-text" >Direktur Umum</span>
+                    </div>
+                    <div class="checkbox-row"><div class="checkbox"></div>
+                        <span class="checkbox-text" >Kepala Divisi Akuntansi</span>
+                    </div>
+                    <div class="checkbox-row"><div class="checkbox"></div>
+                        <span class="checkbox-text" >Kepala Divisi Manajemen Risiko</span>
+                    </div>
+                    <div class="checkbox-row"><div class="checkbox"></div>
+                        <span class="checkbox-text" >Kepala Divisi Keuangan</span>
+                    </div>
+                    <div class="checkbox-row"><div class="checkbox"></div>
+                        <span class="checkbox-text" >Kepala Divisi Legal & Umum / Sekretaris Perusahaan</span>
+                    </div>
+                    <div class="checkbox-row"><div class="checkbox"></div>
+                        <span class="checkbox-text" >Kepala Divisi Aset</span>
+                    </div>
+                    <div class="checkbox-row"><div class="checkbox"></div>
+                        <span class="checkbox-text" >Kepala SPI</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="section-title">
+                Isi Disposisi
+            </div>
+        </div>
+    </body>
+</html>

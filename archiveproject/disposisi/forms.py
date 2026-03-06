@@ -8,7 +8,7 @@ class DisposisiForm(forms.ModelForm):
         model = Disposisi
         fields = [
             "tanggal_surat_diterima",
-            "nomor_agenda",
+            #"nomor_agenda",
             "tanggal_surat",
             "nomor_surat",
             "pengirim",

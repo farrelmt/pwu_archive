@@ -30,7 +30,7 @@ class Disposisi(models.Model):
 
     tanggal_surat_diterima = models.DateField()
     id_agenda = models.CharField(max_length=20, blank=True, null=True)
-    nomor_agenda = models.CharField(max_length=20)
+    nomor_agenda = models.CharField(max_length=20, blank=True, default='')
     tanggal_surat = models.DateField()
     nomor_surat = models.CharField(max_length=50)
     pengirim = models.CharField(max_length=50)

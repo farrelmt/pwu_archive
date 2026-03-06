@@ -48,9 +48,9 @@
                 <p class="text-md my-1">{{ disposisi.tembusan }}</p>
             </div>
 
-            <div class="flex items-center">
+            <div class="flex items-center shrink-0">
                 <p class="text-md font-semibold w-70">Perihal</p>
-                <p class="text-md my-1">{{ disposisi.perihal }}</p>
+                <p class="text-md my-1 flex-1">{{ disposisi.perihal }}</p>
             </div>
         </div>
 
@@ -83,7 +83,7 @@
                           w-40 h-10 text-md hover:bg-blue-900">
                     Dokumen Surat
                 </a>
-                <a href="{% url 'disposisi:disposisi' %}"
+                <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
                    class="inline-flex items-center justify-center mx-5
                           bg-blue-950 text-white font-semibold rounded
                           w-40 h-10 text-md hover:bg-blue-900">

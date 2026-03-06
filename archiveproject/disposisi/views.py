@@ -1,12 +1,14 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.paginator import Paginator
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.conf import settings
 from django.template.loader import render_to_string
+from django.db.models import Q, Max
 from .models import Disposisi
-from django.db.models import Q
 from .forms import DisposisiForm
 from datetime import datetime
-from django.db.models import Max
+from weasyprint import HTML
+import os
 
 def list_disposisi(request):
     search = request.GET.get('search', '')
@@ -173,7 +175,6 @@ def tambah_disposisi(request):
         'no_id_agenda': next_id_agenda,
     })
 
-
 def update_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
 
@@ -202,7 +203,6 @@ def hapus_disposisi(request):
                         ':disposisi')
     return render(request, 'disposisi_hapus.html', {'disposisi': disposisi})
 
-
 def detail_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
     if request.user.is_authenticated:
@@ -212,3 +212,26 @@ def detail_disposisi(request, pk):
     else:
         messages.success(request, "You must be logged in to view this page.")
         return redirect('homepage')
+
+def preview_disposisi(request, pk):
+    disposisi = get_object_or_404(Disposisi, pk=pk)
+    return render(request, 'disposisi_preview.html', {'disposisi': disposisi})
+
+def download_disposisi_pdf(request, pk):
+    disposisi = get_object_or_404(Disposisi, pk=pk)
+
+    html_string = render_to_string(
+        'disposisi_pdf.html',
+        {'disposisi': disposisi}
+    )
+
+    response = HttpResponse(content_type='application/pdf')
+    filename = f'Disposisi-{disposisi.nomor_agenda}.pdf'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    HTML(
+        string=html_string,
+        base_url=request.build_absolute_uri('/')
+    ).write_pdf(response)
+
+    return response
