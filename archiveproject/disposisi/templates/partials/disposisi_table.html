@@ -1,22 +1,27 @@
+{% load disposisi_extras %}
 {% for disposisi in page_obj %}
-<tr    onclick="window.location.href='{{ disposisi.id }}';"
-        class="dataDis cursor-pointer hover:bg-yellow-300 transition">
-        <td class="border px-4 py-2">{{ page_obj.start_index |add:forloop.counter0 }}</td>
-        <td class="border px-4 py-2">{{ disposisi.tanggal_surat_diterima|date:"d F Y"}}</td>
-        <td class="border px-4 py-2">{{ disposisi.nomor_agenda }}</td>
-        <td class="border px-4 py-2">{{ disposisi.tanggal_surat|date:"d F Y" }}</td>
-        <td class="border px-4 py-2">{{ disposisi.nomor_surat }}</td>
-        <td class="border px-4 py-2">{{ disposisi.pengirim }}</td>
-        <td class="border px-4 py-2">{{ disposisi.lampiran }}</td>
-        <td class="border px-4 py-2">{{ disposisi.get_tujuan_display }}</td>
-        <td class="border px-4 py-2">{{ disposisi.tembusan }}</td>
-        <td class="border px-4 py-2 text-left">{{ disposisi.perihal|truncatechars:60 }}</td>
-        <td class="border px-4 py-2">Belum Diajukan</td>
-    </tr>
+
+<tr onclick="window.location.href='{{ disposisi.id }}';"
+    class="dataDis cursor-pointer hover:bg-gray-100 transition">
+    <td class="border px-4 py-2">{{ forloop.counter }}</td>
+    <td class="border px-4 py-2">{{ disposisi.tanggal_surat_diterima|tanggal_id }}</td>
+    <td class="border px-4 py-2">{{ disposisi.nomor_agenda }}</td>
+    <td class="border px-4 py-2">{{ disposisi.tanggal_surat|tanggal_id }}</td>
+    <td class="border px-4 py-2">{{ disposisi.nomor_surat }}</td>
+    <td class="border px-4 py-2">{{ disposisi.pengirim }}</td>
+    <td class="border px-4 py-2">{{ disposisi.lampiran }}</td>
+    <td class="border px-4 py-2">{{ disposisi.get_tujuan_display }}</td>
+    <td class="border px-4 py-2">{{ disposisi.tembusan }}</td>
+    <td class="border px-4 py-2 text-left">{{ disposisi.perihal|truncatechars:60 }}</td>
+    <td class="border px-4 py-2">Belum Diajukan</td>
+</tr>
+
 {% empty %}
+
 <tr>
     <td colspan="11" class="py-4 text-center text-gray-500">
         Tidak ada data
     </td>
 </tr>
+
 {% endfor %}

@@ -1,6 +1,7 @@
 {% extends 'home_base.html' %}
 {% block title %}Disposisi - Detail Disposisi{% endblock %}
 {% block content %}
+{% load disposisi_extras %}
 
 <div class="bg-gray-50/10 px-4 py-3 select-none w-full">
     <form method="post">
@@ -10,7 +11,7 @@
                 <div class="flex items-center justify-between">
                     <div class="flex mt-1">
                         <p class="text-md font-semibold w-70">Tanggal Surat Diterima</p>
-                        <p class="text-md my-1">{{ disposisi.tanggal_surat_diterima |date:"j F Y" }}</p>
+                        <p class="text-md my-1">{{ disposisi.tanggal_surat_diterima |tanggal_id }}</p>
                     </div>
                 </div>
             </div>
@@ -53,7 +54,7 @@
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-70">Tanggal Surat</p>
-                <p class="text-md my-1">{{ disposisi.tanggal_surat |date:"j F Y" }}</p>
+                <p class="text-md my-1">{{ disposisi.tanggal_surat |tanggal_id }}</p>
             </div>
 
             <div class="flex items-center">
