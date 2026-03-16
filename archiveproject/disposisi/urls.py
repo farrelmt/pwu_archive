@@ -13,4 +13,5 @@ urlpatterns = [
     path('hapus/<int:pk>/', views.hapus_disposisi, name='hapusdisposisi'),
     path('preview/<int:pk>/', views.preview_disposisi, name='previewdisposisi'),
     path('preview/<int:pk>/pdf/', views.download_disposisi_pdf, name='disposisi_pdf'),
+    path('<int:pk>/upload/', views.upload_disposisi, name='uploaddisposisi'),
 ]

@@ -7,6 +7,7 @@ from django.db.models import Q, Max
 from .models import Disposisi
 from .forms import DisposisiForm
 from datetime import datetime
+from django.contrib import messages
 from weasyprint import HTML
 import os
 
@@ -79,8 +80,6 @@ def list_disposisi(request):
         query = Q()
         for field in SEARCH_FIELDS:
             query |= Q(**{f"{field}__icontains": search})
-
-
 
         parsed_date = None
         for fmt in DATE_FORMATS:
@@ -195,13 +194,15 @@ def update_disposisi(request, pk):
         'no_id_agenda': disposisi.id_agenda,
     })
 
-def hapus_disposisi(request):
-    disposisi = get_object_or_404(Disposisi, pk=request.GET.get('pk'))
-    if request.method == 'POST':
-        disposisi.delete()
-        return redirect('disposisi'
-                        ':disposisi')
-    return render(request, 'disposisi_hapus.html', {'disposisi': disposisi})
+def hapus_disposisi(request, pk):
+    disposisi = get_object_or_404(Disposisi, pk=pk)
+    if disposisi.dokumen_surat_masuk and os.path.isfile(disposisi.dokumen_surat_masuk.path):
+        os.remove(disposisi.dokumen_surat_masuk.path)
+    if disposisi.dokumen_disposisi and os.path.isfile(disposisi.dokumen_disposisi.path):
+        os.remove(disposisi.dokumen_disposisi.path)
+    disposisi.delete()
+    return redirect('disposisi:disposisi')
+
 
 def detail_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
@@ -211,11 +212,47 @@ def detail_disposisi(request, pk):
         })
     else:
         messages.success(request, "You must be logged in to view this page.")
-        return redirect('homepage')
+        return redirect('accounts:login')
 
 def preview_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
     return render(request, 'disposisi_preview.html', {'disposisi': disposisi})
+
+def upload_disposisi(request, pk):
+    disposisi = get_object_or_404(Disposisi, pk=pk)
+
+    if request.method == "POST":
+        file = request.FILES.get('dokumen_disposisi')
+
+        if file:
+            disposisi.dokumen_disposisi = file
+            disposisi.status_pengajuan = 'DIISI'
+            disposisi.save()
+            return redirect('disposisi:detaildisposisi', pk=pk)
+        else:
+            messages.error(request, "File not found.")
+
+    return render(request, 'disposisi_upload.html', {
+        'disposisi': disposisi
+    })
+
+def edit_file_disposisi(request, pk):
+    disposisi = get_object_or_404(Disposisi, pk=pk)
+
+    if request.method == "POST":
+        file = request.FILES.get('dokumen_disposisi')
+
+        if file:
+            if disposisi.dokumen_disposisi and os.path.isfile(disposisi.dokumen_disposisi.path):
+                os.remove(disposisi.dokumen_disposisi.path)
+
+            disposisi.dokumen_disposisi = file
+            disposisi.save()
+            return redirect('disposisi:detaildisposisi', pk=pk)
+        else:
+            messages.error(request, "Tidak ada file yang dipilih.")
+
+        return render(request, 'disposisi_edit_file.html', {'disposisi': disposisi})
 
 def download_disposisi_pdf(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)

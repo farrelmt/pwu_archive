@@ -7,40 +7,41 @@
     {% csrf_token %}
         <div class="space-y-2">
             <div class="flex items-center justify-between">
-               <div class="flex">
+                <div class="flex">
                    <p class="text-md font-semibold w-60 my-1">Tanggal Surat Diterima</p>
                    <input type="date" name="tanggal_surat_diterima" id="date_tsd" style="color-scheme: light;"
                             class="border border-black rounded-md shadow-sm pl-1"
-                            value="{{ disposisi.tanggal_surat_diterima|date:"Y-m-d" }}">
-               </div>
+                            value="{{ disposisi.tanggal_surat_diterima|date:'Y-m-d' }}">
+                </div>
                 <div>
-                    <button type="submit"
-                            class="bg-blue-950 text-white font-semibold rounded w-26 h-8 text-sm hover:bg-red-800">
+                    <a href="{% url 'disposisi:hapusdisposisi' disposisi.id %}"
+                       onclick="return confirm('Yakin Ingin Menghapus Disposisi Ini?')"
+                        class="inline-flex bg-blue-950 text-white items-center justify-center font-semibold
+                        rounded w-20 h-8 text-sm font-bold hover:bg-red-800 cursor-pointer">
                         Hapus
-                    </button>
+                    </a>
                 </div>
             </div>
 
-            <div class="flex items-center">
-                <p class="text-md font-semibold w-60 my-1">Nomor Agenda</p>
-                <p id = "nomor_agenda"
-                        class="mx-1 w-4">{{no_id_agenda}}</p>
-                <p class="text-2xl mx-2">/</p>
-                <p id = "bulan_agenda"
-                        class="mx-1 w-4">--</p>
-                <p class="mx-2 text-2xl ">/</p>
-                <p id = "tahun_agenda"
-                        class="mx-1 w-8">----</p>
-                <input type="hidden" name="nomor_agenda" id="nomor_agenda_input" value="{{ disposisi.nomor_agenda }}">
+<!--            <div class="flex items-center">-->
+<!--                <p class="text-md font-semibold w-60 my-1">Nomor Agenda</p>-->
+<!--                <p id = "nomor_agenda"-->
+<!--                        class="mx-1 w-4">{{no_id_agenda}}</p>-->
+<!--                <p class="text-2xl mx-2">/</p>-->
+<!--                <p id = "bulan_agenda"-->
+<!--                        class="mx-1 w-4">&#45;&#45;</p>-->
+<!--                <p class="mx-2 text-2xl ">/</p>-->
+<!--                <p id = "tahun_agenda"-->
+<!--                        class="mx-1 w-8">&#45;&#45;&#45;&#45;</p>-->
+<!--                <input type="hidden" name="nomor_agenda" id="nomor_agenda_input" value="{{ disposisi.nomor_agenda }}">-->
 
-            </div>
+<!--            </div>-->
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Tanggal Surat</p>
                 <input type="date" name="tanggal_surat" id="date_ts" style="color-scheme: light;"
                             class="border border-black rounded-md shadow-sm pl-1"
-                        value="{{ disposisi.tanggal_surat|date:"Y-m-d" }}">
-
+                            value="{{ disposisi.tanggal_surat|date:'Y-m-d' }}">
             </div>
 
             <div class="flex items-center">
@@ -68,8 +69,18 @@
                 <p class="text-md font-semibold w-60 my-1">Tujuan</p>
                 <select name="tujuan" required
                         class="border rounded-sm w-36 p-1 text-xs bg-white">
-                    <option value="DIRUT" {% if disposisi.tujuan == "DIRUT"  %}selected{% endif %} >Direksi Utama</option>
-                    <option value="DIR" {% if disposisi.tujuan == "DIR"  %}selected{% endif %}>Direksi</option>
+                    <option value="DIRUT"
+                            {% if disposisi.tujuan == 'DIRUT' %}
+                                selected
+                            {% endif %}>
+                        Direksi Utama
+                    </option>
+                    <option value="DIR"
+                            {% if disposisi.tujuan == 'DIR' %}
+                                selected
+                            {% endif %}>
+                        Direksi
+                    </option>
                 </select>
             </div>
 
@@ -94,29 +105,31 @@
                     <input
                         type="file"
                         name="dokumen_surat_masuk"
-                        id="dokumenInput"
+                        id="fileSuratInput"
                         accept=".pdf,.jpg,.jpeg,.png"
                         class="hidden"
                     >
 
                     <button
                         type="button"
-                        id="btnFile"
-                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded hover:bg-gray-300"
+                        id="fileSuratPilih"
+                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded
+                        hover:bg-gray-300 cursor-pointer"
                     >
                         Pilih File
                     </button>
 
                     <button
                         type="button"
-                        id="btnPreview"
-                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded hover:bg-gray-300"
+                        id="fileSuratPreview"
+                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded
+                        hover:bg-gray-300 cursor-pointer"
                     >
                         Preview
                     </button>
 
                     <span
-                        id="fileName"
+                        id="fileNameSurat"
                         class="text-xs text-gray-600 truncate max-w-xs"
                         data-dokumensurat=" {{disposisi.dokumen_surat_masuk.url}}"
                    >
@@ -127,6 +140,49 @@
                 </div>
             </div>
 
+            {% if disposisi.status_pengajuan == 'DIISI' %}
+            <div class="flex items-center" id="editFileDisposisi">
+                <p class="text-md font-semibold w-60 my-1">Disposisi</p>
+
+                <div class="flex items-center gap-2 flex-grow">
+                    <input
+                        type="file"
+                        name="dokumen_disposisi"
+                        id="fileDisposisiInput"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        class="hidden"
+                    >
+
+                    <button
+                        type="button"
+                        id="fileDisposisiPilih"
+                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded
+                        hover:bg-gray-300 cursor-pointer"
+                    >
+                        Pilih File
+                    </button>
+
+                    <button
+                        type="button"
+                        id="fileDisposisiPreview"
+                        class="bg-gray-200 border border-gray-400 px-3 py-1 text-xs rounded
+                        hover:bg-gray-300 cursor-pointer"
+                    >
+                        Preview
+                    </button>
+
+                    <span
+                        id="fileNameDisposisi"
+                        class="text-xs text-gray-600 truncate max-w-xs"
+                        data-dokumendisposisi=" {{disposisi.dokumen_disposisi.url}}"
+                   >
+                        {{disposisi.dokumen_disposisi.name|slice:"30:"}}
+                        <br>
+                    </span>
+
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <br/>
@@ -139,7 +195,8 @@
             </a>
 
             <button type="submit"
-                    class="bg-blue-950 text-white font-semibold rounded w-30 h-10 text-md hover:bg-blue-900">
+                    class="bg-blue-950 text-white font-semibold rounded w-30 h-10 text-md
+                    hover:bg-blue-900 cursor-pointer">
                 Simpan
             </button>
         </div>
@@ -154,82 +211,130 @@
     const bulanAgenda = document.getElementById('bulan_agenda');
     const tahunAgenda = document.getElementById('tahun_agenda');
 
-    const fileInput = document.getElementById('dokumenInput');
-    const btnFile = document.getElementById('btnFile');
-    const fileName = document.getElementById('fileName');
+    const fileInputSurat = document.getElementById('fileSuratInput');
+    const fileSuratPilih = document.getElementById('fileSuratPilih');
+    const fileNameSurat = document.getElementById('fileNameSurat');
+    const fileSuratPreview = document.getElementById('fileSuratPreview');
+    let previewURLSurat = document.getElementById('fileNameSurat').dataset.dokumensurat;
 
-    const btnPreview = document.getElementById('btnPreview');
-    let previewURL = document.getElementById('fileName').dataset.dokumensurat;
+    const fileInputDisposisi = document.getElementById('fileDisposisiInput');
+    const fileDisposisiPilih = document.getElementById('fileDisposisiPilih');
+    const fileNameDisposisi = document.getElementById('fileNameDisposisi');
+    const fileDisposisiPreview = document.getElementById('fileDisposisiPreview');
 
     const bulanRomawi = [
         '', 'I', 'II', 'III', 'IV', 'V',
         'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'
     ];
 
-    const [year, month, day] = dateInput.value.split('-');
-    document.getElementById('bulan_agenda').textContent = bulanRomawi[parseInt(month, 10)];;
-    document.getElementById('tahun_agenda').textContent = year;
+<!--    const [year, month, day] = dateInput.value.split('-');-->
+<!--    document.getElementById('bulan_agenda').textContent = bulanRomawi[parseInt(month, 10)];;-->
+<!--    document.getElementById('tahun_agenda').textContent = year;-->
 
 
-    function updateAgenda() {
-        if(!dateInput.value){
-            nomorAgenda.textContent = '--';
-            bulanAgenda.textContent = '--';
-            tahunAgenda.textContent = '----';
-            return;
-        }
+<!--    function updateAgenda() {-->
+<!--        if(!dateInput.value){-->
+<!--            nomorAgenda.textContent = '&#45;&#45;';-->
+<!--            bulanAgenda.textContent = '&#45;&#45;';-->
+<!--            tahunAgenda.textContent = '&#45;&#45;&#45;&#45;';-->
+<!--            return;-->
+<!--        }-->
 
-        const [year, month, day] = dateInput.value.split('-');
+<!--        const [year, month, day] = dateInput.value.split('-');-->
 
-        const nomor = document.getElementById('nomor_agenda').textContent.trim();
-        const bulan = bulanRomawi[parseInt(month, 10)];
+<!--        const nomor = document.getElementById('nomor_agenda').textContent.trim();-->
+<!--        const bulan = bulanRomawi[parseInt(month, 10)];-->
 
-        nomorAgenda.textContent = nomor;
-        bulanAgenda.textContent = bulan;
-        tahunAgenda.textContent = year;
-        nomorAgendaInput.value = `${nomor}/${bulan}/${year}`;
-    }
-    btnFile.addEventListener('click', () => {
-        fileInput.click();
+<!--        nomorAgenda.textContent = nomor;-->
+<!--        bulanAgenda.textContent = bulan;-->
+<!--        tahunAgenda.textContent = year;-->
+<!--        nomorAgendaInput.value = `${nomor}/${bulan}/${year}`;-->
+<!--    }-->
+
+<!--    dateInput.addEventListener('change', updateAgenda);-->
+
+    //Edit Dokumen Surat Masuk
+    fileSuratPilih.addEventListener('click', () => {
+        fileInputSurat.click();
     });
 
-    fileInput.addEventListener('change', () => {
-        if (!fileInput.files.length) {
-            fileName.textContent = 'Belum ada file';
-            btnPreview.classList.add('hidden');
-            previewURL = null;
+    fileInputSurat.addEventListener('change', () => {
+        if (!fileInputSurat.files.length) {
+            fileNameSurat.textContent = 'Belum ada file';
+            fileSuratPreview.classList.add('hidden');
+            previewURLSurat = null;
             return;
         }
 
-        const file = fileInput.files[0];
+        const file = fileInputSurat.files[0];
         const allowed = ['pdf', 'jpg', 'jpeg', 'png'];
         const ext = file.name.split('.').pop().toLowerCase();
 
         if (!allowed.includes(ext)) {
             alert('Format file tidak diizinkan (PDF / JPG / PNG)');
-            fileInput.value = '';
-            fileName.textContent = 'Belum ada file';
-            btnPreview.classList.add('hidden');
-            previewURL = null;
+            fileInputSurat.value = '';
+            fileNameSurat.textContent = 'Belum ada file';
+            fileSuratPreview.classList.add('hidden');
+            previewURLSurat = null;
             return;
         }
 
-        fileName.textContent = file.name;
-        previewURL = URL.createObjectURL(file);
-        btnPreview.classList.remove('hidden');
+        fileNameSurat.textContent = file.name;
+        previewURLSurat = URL.createObjectURL(file);
+        fileSuratPreview.classList.remove('hidden');
     });
 
-    btnPreview.addEventListener('click', () => {
-        if(!previewURL) {
+    fileSuratPreview.addEventListener('click', () => {
+        if(!previewURLSurat) {
             alert('Belum ada URL');
             return;
         }
-        window.open(previewURL);
+        window.open(previewURLSurat);
     });
 
+    if (fileInputDisposisi) {
+        let previewURLDisposisi = fileNameDisposisi.dataset.dokumendisposisi || null;
+
+        fileDisposisiPilih.addEventListener('click', () => {
+            fileInputDisposisi.click();
+        });
+
+        fileInputDisposisi.addEventListener('change', () => {
+            if (!fileInputDisposisi.files.length) {
+                fileNameDisposisi.textContent = 'Belum ada file';
+                fileDisposisiPreview.classList.add('hidden');
+                previewURLDisposisi = null;
+                return;
+            }
+
+            const file = fileInputDisposisi.files[0];
+            const allowed = ['pdf', 'jpg', 'jpeg', 'png'];
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            if (!allowed.includes(ext)) {
+                alert('Format file tidak diizinkan (PDF / JPG / PNG)');
+                fileInputDisposisi.value = '';
+                fileNameDisposisi.textContent = 'Belum ada file';
+                fileDisposisiPreview.classList.add('hidden');
+                previewURLDisposisi = null;
+                return;
+            }
+
+            fileNameDisposisi.textContent = file.name;
+            previewURLDisposisi = URL.createObjectURL(file);
+            fileDisposisiPreview.classList.remove('hidden');
+        });
+
+        fileDisposisiPreview.addEventListener('click', () => {
+            if (!previewURLDisposisi) {
+                alert('Belum ada URL');
+                return;
+            }
+            window.open(previewURLDisposisi);
+        });
+    }
 
 
-    dateInput.addEventListener('change', updateAgenda);
 </script>
 
 {% endblock %}

@@ -16,7 +16,8 @@ class DisposisiForm(forms.ModelForm):
             "tujuan",
             "tembusan",
             "perihal",
-            "dokumen_surat_masuk"
+            "dokumen_surat_masuk",
+            "dokumen_disposisi"
         ]
 
         widgets = {
@@ -49,3 +50,4 @@ class DisposisiForm(forms.ModelForm):
                 )
 
         return cleaned_data
+

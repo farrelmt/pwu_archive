@@ -1,0 +1,201 @@
+{% extends 'home_base.html' %}
+{% block title %}Disposisi - Buat Disposisi{% endblock %}
+{% block content %}
+
+<div class="bg-gray-50/10 p-4 select-none w-full">
+    <form method="post" enctype="multipart/form-data"
+        action="{% url 'disposisi:uploaddisposisi' disposisi.id %}">
+        {% csrf_token %}
+        <div class="flex flex-col items-center justify-center h-[calc(100vh-2rem)] -mt-20">
+            <div class="flex items-center justify-center text-2xl text-blue-950 font-bold mb-6">
+                <p>Bagaimana Disposisi Ingin Di Proses?</p>
+            </div>
+
+            <div class="flex items-center justify-center">
+                <div class="block bg-white shadow-[0_0_10px_0_rgba(0,0,0,0.1)] rounded-lg px-10 pt-4 pb-2 w-60 h-80 mx-4
+                          transition duration-200 text-center text-blue-950
+                          flex flex-col items-center justify-center  ">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                         class="w-20 h-20 text-blue-900 pt-4">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" />
+                    </svg>
+
+                    <p class="text-xl font-semibold my-1 mt-5">Offline</p>
+                    <p class="text-md font-normal my-1">Unggah disposisi secara manual</p>
+
+                    <div class="flex flex-col items-center mt-2">
+                        <input
+                            type="file"
+                            name="dokumen_disposisi"
+                            id="dokumenInput"
+                            accept=".pdf,.jpg,.jpeg,.png"
+
+                            class="hidden"
+                        >
+
+                        <button
+                            type="button"
+                            id="btnFile"
+                            class="block bg-blue-950 shadow-sm hover:shadow-lg rounded-lg p-4 w-40 h-10
+                                  border hover:bg-blue-900 transition duration-200 mt-2 cursor-pointer
+                                  flex flex-col items-center justify-center text-center text-white"
+                        >
+                            Upload Disposisi
+                        </button>
+
+                        <button
+                            type="button"
+                            id="btnPreview"
+                            class="bg-white border border-gray-400 px-3 w-40 h-6 text-xs font-semibold rounded
+                            hover:bg-yellow-300 invisible cursor-pointer"
+                        >
+                            Preview
+                        </button>
+
+                        <span
+                            id="fileName"
+                            class="text-xs text-gray-600 mt-1 truncate max-w-xs invisible"
+                        >
+                            Belum ada File
+                        </span>
+                    </div>
+                </div>
+
+                <div class="block bg-white shadow-[0_0_10px_0_rgba(0,0,0,0.1)] rounded-lg px-10 pt-4 pb-2 w-60 h-80 mx-4
+                          transition duration-200 text-center text-blue-950
+                          flex flex-col items-center justify-center  ">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                         class="w-20 h-20 text-blue-900 pt-4">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
+                    </svg>
+
+
+                    <p class="text-xl font-semibold my-1 mt-5">Online</p>
+                    <p class="text-md font-normal my-1">Ajukan disposisi kepada Direksi</p>
+
+                    <div class="flex flex-col items-center mt-2">
+                        <input
+                            type="file"
+                            name="dokumen_disposisi"
+                            id=""
+                            accept=".pdf,.jpg,.jpeg,.png"
+
+                            class="hidden"
+                        >
+
+                        <button
+                            type="button"
+                            id=""
+                            onclick="alert('Fitur ini belum tersedia. Silakan gunakan metode Offline terlebih dahulu.');"
+                            class="block bg-blue-950 shadow-sm hover:shadow-lg rounded-lg p-4 w-40 h-10
+                                  border hover:bg-blue-900 transition duration-200 mt-2 cursor-pointer
+                                  flex flex-col items-center justify-center text-center text-white"
+                        >
+                            Ajukan Ke Direksi
+                        </button>
+
+                        <button
+                            type="button"
+                            id=""
+                            class="bg-white border border-gray-400 mt-1 px-3 w-40 h-6 text-xs rounded hover:bg-yellow-300 invisible"
+                        >
+                            Preview
+                        </button>
+
+                        <span
+                            id=""
+                            class="text-xs text-gray-600 mt-2 truncate max-w-xs invisible"
+                        >
+                            Belum ada File
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <br/>
+        <div class="fixed bottom-0 left-0 md:left-25 right-0 flex justify-between px-4 py-2 shadow-lg">
+            <a href="{% url 'disposisi:detaildisposisi' disposisi.id%}"
+               class="bg-blue-950 text-white font-semibold rounded ml-1 mb-1 w-30 h-10 text-md
+                      hover:bg-blue-900 flex items-center justify-center">
+                Kembali
+            </a>
+
+            <button type="submit"
+               class="inline-flex items-center justify-center mr-1
+                      bg-blue-950 text-white font-semibold rounded cursor-pointer
+                      w-40 h-10 text-md hover:bg-blue-900 invisible"
+                id="lanjutDisposisi">
+                Upload
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const fileInput = document.getElementById('dokumenInput');
+    const btnFile = document.getElementById('btnFile');
+    const fileName = document.getElementById('fileName');
+    const btnPreview = document.getElementById('btnPreview');
+    let previewURL = null;
+
+    const lanjutDis = document.getElementById('lanjutDisposisi');
+
+    btnFile.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (!fileInput.files.length) {
+            fileName.textContent = 'Belum ada file';
+            btnPreview.classList.add('invisible');
+            btnPreview.classList.remove('visible');
+            fileName.classList.add('invisible');
+            fileName.classList.remove('visible');
+            lanjutDis.classList.add('invisible');
+            lanjutDis.classList.remove('visible');
+
+            previewURL = null;
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const allowed = ['pdf', 'jpg', 'jpeg', 'png'];
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (!allowed.includes(ext)) {
+            alert('Format file tidak diizinkan (PDF / JPG / PNG)');
+            fileInput.value = '';
+            fileName.textContent = 'Belum ada file';
+            btnPreview.classList.add('invisible');
+            btnPreview.classList.remove('visible');
+            fileName.classList.add('invisible');
+            fileName.classList.remove('visible');
+            lanjutDis.classList.add('invisible');
+            lanjutDis.classList.remove('visible');
+            previewURL = null;
+            return;
+        }
+
+        fileName.textContent = file.name;
+        previewURL = URL.createObjectURL(file);
+        btnPreview.classList.remove('invisible');
+        btnPreview.classList.add('visible');
+        fileName.classList.remove('invisible');
+        fileName.classList.add('visible');
+        lanjutDis.classList.remove('invisible');
+        lanjutDis.classList.add('visible');
+    });
+
+    btnPreview.addEventListener('click', () => {
+        if(!previewURL) {
+            alert('Belum ada URL');
+            return;
+        }
+        window.open(previewURL);
+    });
+
+</script>
+
+{% endblock %}
