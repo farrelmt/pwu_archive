@@ -2,6 +2,7 @@
 {% block title %}Disposisi - Detail Disposisi{% endblock %}
 {% block content %}
 {% load disposisi_extras %}
+{% include "partials/disposisi_history.html" %}
 
 <div class="bg-gray-50/10 px-4 py-3 select-none w-full">
     <form method="post">
@@ -26,12 +27,20 @@
                     Dibuat
                 </div>
                 <div class="step font-semibold text-white
+                    {% if disposisi.status_pengajuan == 'DIAJUKAN' %}
+                        bg-yellow-300
+                    {% else %}
+                        bg-gray-300
+                    {% endif %}">
+                    Diajukan
+                </div>
+                <div class="step font-semibold text-white
                     {% if disposisi.status_pengajuan == 'DIISI' %}
                         bg-yellow-300
                     {% else %}
                         bg-gray-300
                     {% endif %}">
-                    Diisi
+                    Selesai
                 </div>
 <!--                <div class="step font-semibold text-white-->
 <!--                    {% if disposisi.status_pengajuan == 'SELESAI' %}-->
@@ -97,12 +106,12 @@
                           w-30 h-10 text-md hover:bg-blue-900">
                     Edit
                 </a>
-               <a href="{% url 'disposisi:disposisi' %}"
-                   class="inline-flex items-center justify-center
+               <button type="button" id="historyButton"
+                   class="inline-flex items-center justify-center cursor-pointer
                           bg-blue-950 text-white font-semibold rounded
                           w-30 h-10 text-md hover:bg-blue-900">
                     History
-                </a>
+                </button>
                 <a href="{% url 'disposisi:disposisi' %}"
                    class="inline-flex items-center justify-center
                           bg-blue-950 text-white font-semibold rounded
@@ -160,4 +169,19 @@
         );
     }
 </style>
+
+<script>
+    const historyBtn = document.getElementById('historyButton');
+    const historyDisposisi = document.getElementById('historyDisposisi');
+    const closeHistoryBtn = document.getElementById('closeHistory');
+
+    historyBtn.addEventListener('click', () => {
+        historyDisposisi.classList.remove('hidden');
+    });
+
+    closeHistoryBtn.addEventListener('click', () => {
+        historyDisposisi.classList.add('hidden');
+    });
+
+</script>
 {% endblock %}

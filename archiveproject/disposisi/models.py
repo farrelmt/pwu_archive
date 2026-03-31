@@ -1,8 +1,9 @@
 from django.db import models, transaction
 from django.db.models import Max
 from django.core.validators import FileExtensionValidator
-import os
+from django.conf import settings
 from django.utils.text import slugify
+import os
 
 class Disposisi(models.Model):
 
@@ -13,6 +14,7 @@ class Disposisi(models.Model):
 
     STATUS_CHOICES = [
         ("DIBUAT", "Disposisi Telah Dibuat"),
+        ("DIAJUKAN", "Disposisi Telah Diajukan"),
         ("DIISI", "Disposisi Telah Diisi"),
         ("SELESAI", "Disposisi Telah Selesai"),
     ]
@@ -137,7 +139,11 @@ class Disposisi(models.Model):
             if old and old.dokumen_surat_masuk != self.dokumen_surat_masuk:
                 if old.dokumen_surat_masuk:
                     if os.path.isfile(old.dokumen_surat_masuk.path):
-                        os.remove(old.dokumen_surat_masuk.path)
+                        try:
+                            os.remove(old.dokumen_surat_masuk.path)
+                        except Exception as e:
+                            print(f"Error while deleting {old.dokumen_surat_masuk.path}")
+                            print(e)
 
             if old and old.dokumen_disposisi != self.dokumen_disposisi:
                 if old.dokumen_disposisi:
@@ -147,5 +153,28 @@ class Disposisi(models.Model):
         self.reassign_agenda_number()
 
     def __str__(self):
-        return f"{self.nomor_surat} - {self.perihal[:30]}"
+        return f"{self.nomor_surat} ({self.nomor_agenda})"
+
+
+class DisposisiLog(models.Model):
+    ACTION_CHOICES = [
+        ('DIBUAT', 'Disposisi Dibuat'),
+        ('DIEDIT', 'Disposisi Diedit'),
+        ('UPLOAD_DISPOSISI', 'File Disposisi Diupload'),
+        ('AJUKAN_DISPOSISI', 'File Disposisi Diajukan'),
+        ('ISI_DISPOSISI', 'File Disposisi Telah Diisi'),
+        ('SELESAI', 'File Disposisi Telah Selesai'),
+    ]
+
+    disposisi = models.ForeignKey(Disposisi, on_delete=models.CASCADE, related_name='logs')
+    user_log = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='userlog' )
+    action_log = models.CharField(max_length=20, choices=ACTION_CHOICES, default='DIBUAT')
+    keterangan_log = models.TextField(blank=True)
+    waktu = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-waktu']
+
+    def __str__(self):
+        return f"{self.disposisi.nomor_surat} - {self.action_log}"
 

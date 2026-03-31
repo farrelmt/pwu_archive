@@ -1,0 +1,41 @@
+<div id="historyDisposisi" class="fixed inset-0 bg-black/50 z-50 pt-[36px] select-none h-full
+    flex items-start justify-end hidden">
+    <div class="flex items-center justify-between h-full -mr-0 z-40">
+        <button id="closeHistory"
+                type="button"
+                class="font-semibold w-5 h-15 text-gray-400 cursor-pointer
+                rounded-l-md bg-white hover:text-black items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="bg-white shadow-md w-[60vw] md:w-[50vw] lg:w-[30vw] p-6 pl-8 overflow-y-auto h-[calc(100vh-36px)] ">
+        <h2 class="text-2xl font-bold text-black">History</h2>
+
+        <div class="text-sm mt-4 space-y-4">
+            {% for date, logs in grouped_logs.items %}
+                <div>
+                    <p class="font-semibold text-gray-700">{{ date }}</p>
+
+                    <div class="mt-1 space-y-1">
+                        {% for log in logs %}
+                            <div class="flex gap-2">
+                                <span class="w-12 text-gray-500">{{ log.time }}</span>
+                                <span>
+                                    {{ log.user }} {{ log.action }}
+                                    {% if log.desc %}
+                                        - {{ log.desc }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-gray-500">No history available</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>

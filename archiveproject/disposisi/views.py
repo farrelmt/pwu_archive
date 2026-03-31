@@ -5,8 +5,11 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.db.models import Q, Max
 from .models import Disposisi
+from .models import DisposisiLog
 from .forms import DisposisiForm
 from datetime import datetime
+from collections import defaultdict
+
 from django.contrib import messages
 from weasyprint import HTML
 import os
@@ -159,7 +162,13 @@ def tambah_disposisi(request):
     if request.method == "POST":
         form = DisposisiForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save()
+            disposisi = form.save()
+
+            DisposisiLog.objects.create(
+                disposisi=disposisi,
+                user_log=request.user,
+                action_log='DIBUAT'
+            )
             return redirect('disposisi:disposisi')
         else:
             print(form.errors)
@@ -181,7 +190,13 @@ def update_disposisi(request, pk):
         form = DisposisiForm(request.POST, request.FILES, instance=disposisi)
 
         if form.is_valid():
-            form.save()
+            disposisi = form.save()
+
+            DisposisiLog.objects.create(
+                disposisi=disposisi,
+                user_log=request.user,
+                action_log='DIEDIT'
+            )
             return redirect('disposisi:detaildisposisi', pk=pk)
         else:
             print(form.errors)
@@ -206,9 +221,26 @@ def hapus_disposisi(request, pk):
 
 def detail_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
+
+    logs = disposisi.logs.select_related('user_log').all()
+
+    grouped_logs = defaultdict(list)
+
+    for log in logs:
+        local_time = localtime(log.waktu)
+        date_key = local_time.strftime ('%A, %d/%m/%Y')
+        grouped_logs[date_key].append({
+            'time': local_time.strftime('%H:%M'),
+            'user': log.user_log.username,
+            'action': log.get_action_log_display(),
+            'desc': log.keterangan_log
+        })
+
+
     if request.user.is_authenticated:
         return render(request, 'disposisi_detail.html', {
-            'disposisi': disposisi
+            'disposisi': disposisi,
+            'grouped_logs': dict(grouped_logs),
         })
     else:
         messages.success(request, "You must be logged in to view this page.")
@@ -228,6 +260,13 @@ def upload_disposisi(request, pk):
             disposisi.dokumen_disposisi = file
             disposisi.status_pengajuan = 'DIISI'
             disposisi.save()
+
+            DisposisiLog.objects.create(
+                disposisi=disposisi,
+                user_log=request.user,
+                action_log='UPLOAD_DISPOSISI'
+            )
+
             return redirect('disposisi:detaildisposisi', pk=pk)
         else:
             messages.error(request, "File not found.")
@@ -248,6 +287,13 @@ def edit_file_disposisi(request, pk):
 
             disposisi.dokumen_disposisi = file
             disposisi.save()
+
+            DisposisiLog.objects.create(
+                disposisi=disposisi,
+                user_log=request.user,
+                action_log='DIEDIT'
+            )
+
             return redirect('disposisi:detaildisposisi', pk=pk)
         else:
             messages.error(request, "Tidak ada file yang dipilih.")
