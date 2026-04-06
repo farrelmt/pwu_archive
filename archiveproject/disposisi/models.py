@@ -158,12 +158,12 @@ class Disposisi(models.Model):
 
 class DisposisiLog(models.Model):
     ACTION_CHOICES = [
-        ('DIBUAT', 'Disposisi Dibuat'),
-        ('DIEDIT', 'Disposisi Diedit'),
-        ('UPLOAD_DISPOSISI', 'File Disposisi Diupload'),
-        ('AJUKAN_DISPOSISI', 'File Disposisi Diajukan'),
-        ('ISI_DISPOSISI', 'File Disposisi Telah Diisi'),
-        ('SELESAI', 'File Disposisi Telah Selesai'),
+        ('DIBUAT', 'Telah Dibuat'),
+        ('DIEDIT', 'Telah Diedit'),
+        ('UPLOAD_DISPOSISI', 'File Telah Di Upload'),
+        ('AJUKAN_DISPOSISI', 'Diajukan'),
+        ('ISI_DISPOSISI', 'Diisi'),
+        ('SELESAI', 'Selesai'),
     ]
 
     disposisi = models.ForeignKey(Disposisi, on_delete=models.CASCADE, related_name='logs')
