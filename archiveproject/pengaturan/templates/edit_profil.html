@@ -1,0 +1,67 @@
+{% extends 'home_base.html' %}
+{% block title %}SISTEM ARSIP - EDIT PROFIL{% endblock %}
+{% block content %}
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="bg-gray-50 p-2 select-none w-full">
+            <div class="mt-0 mx-2 text-black">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-2xl font-bold mt-2 text-gray-900">Edit Profil</p>
+                    </div>
+                </div>
+
+                <div class="bg-white mt-2 p-4 text-black border border-gray-200
+                rounded-sm shadow-sm">
+                    <div class="flex items-center text-md my-2">
+                        <p class="font-medium w-30 my-1">Username</p>
+                        <p class="">{{ user.username|default:"-" }}</p>
+                    </div>
+                    <div class="flex items-center text-md my-2">
+                        <p class="font-medium w-30 my-1">Password</p>
+                        <input class="border border-black rounded-sm shadow-sm pl-1" type="password"
+                               name="new-password" value="" placeholder="new password">
+                        <input class="border border-black rounded-sm shadow-sm pl-1 ml-3" type="password"
+                               name="confirm-password" value="" placeholder="re-enter new password">
+                    </div>
+                    <div class="flex items-center text-md my-2">
+                        <p class="font-medium w-30 my-1">First Name</p>
+                        <input class="w-96 border border-black rounded-sm shadow-sm pl-1" type="text" name="first_name"
+                        value="{{ user.first_name}}" placeholder="{{ user.first_name}}" required>
+                    </div>
+                    <div class="flex items-center text-md my-2">
+                        <p class="font-medium w-30 my-1">Last Name</p>
+                        <input class="w-96 border border-black rounded-sm shadow-sm pl-1" type="text" name="last_name"
+                        value="{{ user.last_name}}" placeholder="{{ user.last_name}}" required>
+                    </div>
+                    <div class="flex items-center text-md my-2">
+                        <p class="font-medium w-30 my-1">Email</p>
+                        <input class="w-96 border border-black rounded-sm shadow-sm pl-1" type="text" name="user_email"
+                        value="{{ user.email}}" placeholder="{{ user.email}}" required>
+                    </div>
+
+                    <div class="fixed bottom-0 py-3 left-0 md:left-24 right-0
+                    flex justify-between items-center shadow-lg">
+                        <div class="flex flex-row items-start">
+                            <a href="{% url 'pengaturan:main' %}"
+                               class="inline-flex items-center justify-center
+                                      bg-blue-950 text-white font-semibold rounded
+                                      w-30 h-10 text-md hover:bg-blue-900 ml-3">
+                                Kembali
+                            </a>
+                        </div>
+                        <div class="flex flex-row items-end">
+                            <button type="submit"
+                               class="inline-flex items-center justify-center
+                                      bg-blue-950 text-white font-semibold rounded
+                                      w-30 h-10 text-md hover:bg-blue-900 mr-3">
+                                Simpan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+{% endblock %}

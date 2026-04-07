@@ -27,8 +27,5 @@ def monitoring(request):
 def divisi(request):
     return render(request, 'divisi.html')
 
-def pengaturan(request):
-    return render(request, 'pengaturan.html')
-
 def notifikasi(request):
     pass

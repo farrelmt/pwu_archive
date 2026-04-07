@@ -1,9 +1,49 @@
 {% extends 'home_base.html' %}
 {% block title %}SISTEM ARSIP - PENGATURAN{% endblock %}
 {% block content %}
-    <h1>Pengaturan</h1>
+    <div class="bg-gray-50 p-2 select-none w-full">
+        <div class="mt-0 mx-2 text-black">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-2xl font-bold mt-2 text-gray-900">Profil</p>
+                </div>
+                <div>
+                    <a href="{% url 'pengaturan:edit-profil' user.id %}"
+                            id="edit_profil" class="inline-flex items-center justify-center
+                              bg-blue-600 text-white text-xs font-semibold rounded
+                              w-28 h-8 text-md hover:bg-blue-900">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                        </svg>
+                        Edit Profile
+                    </a>
+                </div>
+            </div>
 
-    
-
+            <div class="bg-white mt-2 p-4 text-black border border-gray-200
+            rounded-sm shadow-sm">
+                <div class="flex items-center text-md my-2">
+                    <p class="font-medium w-30 my-1">Username</p>
+                    <p class="">{{ user.username|default:"-" }}</p>
+                </div>
+                <div class="flex items-center text-md my-2">
+                    <p class="font-medium w-30 my-1">Password</p>
+                    <p class="w-96">********</p>
+                </div>
+                <div class="flex items-center text-md my-2">
+                    <p class="font-medium w-30 my-1">First Name</p>
+                    <p class="w-96">{{ user.first_name|default:"-" }}</p>
+                </div>
+                <div class="flex items-center text-md my-2">
+                    <p class="font-medium w-30 my-1">Last Name</p>
+                    <p class="w-96">{{ user.last_name|default:"-" }}</p>
+                </div>
+                <div class="flex items-center text-md my-2">
+                    <p class="font-medium w-30 my-1">Email</p>
+                    <p class="w-96">{{ user.email|default:"-" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
 {% endblock %}

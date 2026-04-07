@@ -48,34 +48,69 @@
 
                 <div class="">
                     <a href="{% url 'homepage:dashboard' %}"
-                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if request.path == '/' %}
+                            bg-blue-600
+                        {% endif %}">
                         Beranda
                     </a>
                     <a href="{% url 'disposisi:disposisi' %}"
-                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if 'disposisi' in request.path %}
+                            bg-blue-600
+                        {% endif %}
+                        ">
                         Disposisi
                     </a>
                     <a href="{% url 'homepage:notadinas' %}"
-                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if 'nota-dinas' in request.path %}
+                            bg-blue-600
+                        {% endif %}">
                         Nota Dinas
                     </a>
                     <a href="{% url 'homepage:suratkeluar' %}"
-                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if 'surat-keluar' in request.path %}
+                            bg-blue-600
+                        {% endif %}">
                         Surat Keluar
                     </a>
                     <a href="{% url 'homepage:monitor' %}"
-                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if 'monitor' in request.path %}
+                            bg-blue-600
+                        {% endif %}">
                         Monitor
                     </a>
                     <a href="{% url 'homepage:divisi' %}"
-                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if 'divisi' in request.path %}
+                            bg-blue-600
+                        {% endif %}">
                         Divisi
                     </a>
                 </div>
 
                 <div class="mb-2">
-                    <a href="{% url 'homepage:pengaturan' %}" class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">Pengaturan</a>
-                    <a href="{% url 'accounts:logout' %}" class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">Keluar</a>
+                    <a href="{% url 'pengaturan:main' %}"
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if 'report' in request.path %}
+                            bg-blue-600
+                        {% endif %}">
+                        Report
+                    </a>
+                    <a href="{% url 'pengaturan:main' %}"
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if 'pengaturan' in request.path %}
+                            bg-blue-600
+                        {% endif %}">
+                        Pengaturan
+                    </a>
+                    <a href="{% url 'accounts:logout' %}"
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">
+                        Keluar
+                    </a>
                 </div>
             </aside>
 
