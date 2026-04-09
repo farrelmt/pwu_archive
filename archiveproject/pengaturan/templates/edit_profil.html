@@ -1,9 +1,9 @@
 {% extends 'home_base.html' %}
 {% block title %}SISTEM ARSIP - EDIT PROFIL{% endblock %}
 {% block content %}
-    <form method="POST" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="bg-gray-50 p-2 select-none w-full">
+    <div class="bg-gray-50 p-2 select-none w-full">
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
             <div class="mt-0 mx-2 text-black">
                 <div class="flex items-center justify-between">
                     <div>
@@ -13,16 +13,31 @@
 
                 <div class="bg-white mt-2 p-4 text-black border border-gray-200
                 rounded-sm shadow-sm">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="p-2 mb-2 text-white rounded
+                                {% if message.tags == 'error' %} bg-red-500
+                                {% else %} bg-green-500 {% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
                     <div class="flex items-center text-md my-2">
                         <p class="font-medium w-30 my-1">Username</p>
                         <p class="">{{ user.username|default:"-" }}</p>
                     </div>
                     <div class="flex items-center text-md my-2">
                         <p class="font-medium w-30 my-1">Password</p>
-                        <input class="border border-black rounded-sm shadow-sm pl-1" type="password"
+                        <input id= "password" class="border border-black rounded-sm shadow-sm pl-1" type="password"
                                name="new-password" value="" placeholder="new password">
                         <input class="border border-black rounded-sm shadow-sm pl-1 ml-3" type="password"
                                name="confirm-password" value="" placeholder="re-enter new password">
+
+                        <label id= "repassword" class="flex items-center text-xs font-medium w-40 ml-3">
+                            <input type="checkbox" onClick="togglePassword()" name="show-password"
+                                   class="w-3 h-3 accent-blue-500 mr-1">
+                            Show Password
+                        </label>
                     </div>
                     <div class="flex items-center text-md my-2">
                         <p class="font-medium w-30 my-1">First Name</p>
@@ -61,7 +76,16 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </form>
+        </form>
+    </div>
 
+    <script>
+    function togglePassword() {
+        const passwordFields = document.querySelectorAll('input[name="new-password"], input[name="confirm-password"]');
+
+        passwordFields.forEach(field => {
+            field.type = field.type === "password" ? "text" : "password";
+        });
+    }
+        </script>
 {% endblock %}

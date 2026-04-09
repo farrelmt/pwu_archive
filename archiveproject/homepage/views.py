@@ -29,3 +29,6 @@ def divisi(request):
 
 def notifikasi(request):
     pass
+
+def report(request):
+    return render(request, 'report.html')

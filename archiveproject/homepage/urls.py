@@ -12,6 +12,7 @@ urlpatterns = [
     path('monitor/', views.monitoring, name='monitor'),
     path('divisi/', views.divisi, name='divisi'),
     path('notif/', views.notifikasi, name='notif'),
+    path('report/', views.report, name='report'),
 
 ]
 
