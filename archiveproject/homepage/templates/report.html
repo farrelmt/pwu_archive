@@ -2,60 +2,63 @@
 {% block title %}SISTEM ARSIP - REPORT BUG{% endblock %}
 
 {% block content %}
-<div class="bg-gray-50 p-4 w-full pb-24">
+<div class="bg-gray-50 pt-3 p-2 w-full pb-24">
     <div class="mx-2 overflow-hidden">
 
-        <p class="text-2xl font-bold text-gray-900 mb-4">Report Bug</p>
+        <p class="text-2xl font-bold text-gray-900 mb-2">Report Bug</p>
 
-        <form method="POST" enctype="multipart/form-data"
-              class="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+        <form method="POST" enctype="multipart/form-data">
+            <div class="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
             {% csrf_token %}
+                <div class="mb-4">
+                    <label class="block font-medium mb-1">Judul Bug</label>
+                    <input type="text" name="title"
+                           placeholder="Contoh: Tidak bisa login"
+                           class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                           required>
+                </div>
 
-            <div class="mb-4">
-                <label class="block font-medium mb-1">Judul Bug</label>
-                <input type="text" name="title"
-                       placeholder="Contoh: Tidak bisa login"
-                       class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                       required>
+                <div class="mb-4">
+                    <label class="block font-medium mb-1">Deskripsi</label>
+                    <textarea name="description" rows="4"
+                              placeholder="Jelaskan bug yang terjadi..."
+                              class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500
+                                     h-150px resize-none"
+                              required></textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block font-medium mb-1">Langkah Reproduksi</label>
+                    <textarea name="steps" rows="3"
+                              placeholder="1. Klik ... 2. Masukkan ... 3. Error muncul"
+                              class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500
+                                     h-150px resize-none" required
+                    ></textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block font-medium mb-1">Upload Screenshot (optional)</label>
+                    <input type="file" name="screenshot"
+                           class="w-full border border-gray-300 rounded px-3 py-2">
+                </div>
+
+
+                <div class="fixed bottom-0 left-0 md:left-24 right-0
+                            flex justify-between items-center shadow-lg bg-transparent px-4 py-3">
+
+                    <a href="{% url 'pengaturan:main' %}"
+                       class="bg-blue-950 text-white rounded w-32 h-10 flex items-center justify-center hover:bg-gray-900">
+                        Kembali
+                    </a>
+
+                    <button type="submit"
+                       class="bg-blue-950 text-white rounded w-32 h-10 flex items-center justify-center hover:bg-blue-900">
+                        Kirim
+                    </button>
+
+                </div>
             </div>
-
-            <div class="mb-4">
-                <label class="block font-medium mb-1">Deskripsi</label>
-                <textarea name="description" rows="4"
-                          placeholder="Jelaskan bug yang terjadi..."
-                          class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                          required></textarea>
-            </div>
-
-            <div class="mb-4">
-                <label class="block font-medium mb-1">Langkah Reproduksi</label>
-                <textarea name="steps" rows="3"
-                          placeholder="1. Klik ... 2. Masukkan ... 3. Error muncul"
-                          class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"></textarea>
-            </div>
-
-            <div class="mb-4">
-                <label class="block font-medium mb-1">Upload Screenshot (optional)</label>
-                <input type="file" name="screenshot"
-                       class="w-full border border-gray-300 rounded px-3 py-2">
-            </div>
-
         </form>
     </div>
-</div>
-
-<div class="fixed bottom-0 left-0 md:left-24 right-0
-            flex justify-between items-center shadow-lg bg-white px-4 py-3">
-
-    <a href="{% url 'pengaturan:main' %}"
-       class="bg-gray-500 text-white rounded w-32 h-10 flex items-center justify-center hover:bg-gray-700">
-        Kembali
-    </a>
-
-    <button type="submit"
-       class="bg-blue-900 text-white rounded w-32 h-10 flex items-center justify-center hover:bg-blue-950">
-        Kirim
-    </button>
-
 </div>
 {% endblock %}

@@ -1,9 +1,22 @@
 {% extends 'home_base.html' %}
 {% block title %}SISTEM ARSIP - BERANDA{% endblock %}
 {% block content %}
+
+    {% if messages %}
+      {% for message in messages %}
+        {% if forloop.last %}
+          <div id="message"
+               class="fixed top-1/2 left-1/2 -translate-x-1/2 z-50
+                    alert bg-blue-900 text-white text-center w-auto px-8 py-6 shadow-lg
+                    transition-opacity duration-1000 opacity-100 font-semibold">
+            {{ message }}
+          </div>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
     <div class="grid place-items-center grid-cols-3 sm:grid-cols-4 sm:ml-5 md:grid-cols-6
     lg:grid-cols-6 lg:bg-white lg:mx-1 xl:grid-cols-8 2xl:grid-cols-8 gap-4 my-3">
-
         {% for link in links %}
         <div class="h-full mx-4 ">
             <a href="{{link.url}}"
@@ -56,8 +69,17 @@
         function updateWidth() {
             document.getElementById("screenWidth").textContent = window.innerWidth;
         }
+        setTimeout(() => {
+            const el = document.getElementById("message");
+            if (el) {
+                el.classList.remove("opacity-100");
+                el.classList.add("opacity-0");
 
-        updateWidth();
+                setTimeout(() => {
+                    el.remove();
+                }, 1000);
+            }
+        }, 2000);
 
         window.addEventListener("resize", updateWidth);
     </script>

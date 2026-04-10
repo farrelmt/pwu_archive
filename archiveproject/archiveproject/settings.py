@@ -1,5 +1,8 @@
 import environ
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -118,3 +121,12 @@ APPEND_SLASH = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 NPM_BIN_PATH = "C:\\Program Files\\nodejs\\npm.cmd"
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+EMAIL_TO_REPORT = os.getenv('EMAIL_HOST_USER')
