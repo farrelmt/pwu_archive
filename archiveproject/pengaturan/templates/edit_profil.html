@@ -28,9 +28,9 @@
                     </div>
                     <div class="flex items-center text-md my-2">
                         <p class="font-medium w-30 my-1">Password</p>
-                        <input id= "password" class="border border-black rounded-sm shadow-sm pl-1" type="password"
+                        <input id= "password" class="border border-black rounded-sm shadow-sm pl-1 py-1" type="password"
                                name="new-password" value="" placeholder="new password">
-                        <input class="border border-black rounded-sm shadow-sm pl-1 ml-3" type="password"
+                        <input class="border border-black rounded-sm shadow-sm pl-1 ml-3 py-1" type="password"
                                name="confirm-password" value="" placeholder="re-enter new password">
 
                         <label id= "repassword" class="flex items-center text-xs font-medium w-40 ml-3">
@@ -41,23 +41,23 @@
                     </div>
                     <div class="flex items-center text-md my-2">
                         <p class="font-medium w-30 my-1">First Name</p>
-                        <input class="w-96 border border-black rounded-sm shadow-sm pl-1" type="text" name="first_name"
+                        <input class="w-96 border border-black rounded-sm shadow-sm pl-1 py-1" type="text" name="first_name"
                         value="{{ user.first_name}}" placeholder="{{ user.first_name}}" required>
                     </div>
                     <div class="flex items-center text-md my-2">
                         <p class="font-medium w-30 my-1">Last Name</p>
-                        <input class="w-96 border border-black rounded-sm shadow-sm pl-1" type="text" name="last_name"
+                        <input class="w-96 border border-black rounded-sm shadow-sm pl-1 py-1" type="text" name="last_name"
                         value="{{ user.last_name}}" placeholder="{{ user.last_name}}" required>
                     </div>
                     <div class="flex items-center text-md my-2">
                         <p class="font-medium w-30 my-1">Email</p>
-                        <input class="w-96 border border-black rounded-sm shadow-sm pl-1" type="text" name="user_email"
+                        <input class="w-96 border border-black rounded-sm shadow-sm pl-1 py-1" type="text" name="user_email"
                         value="{{ user.email}}" placeholder="{{ user.email}}" required>
                     </div>
 
                     <div class="fixed bottom-0 py-3 left-0 md:left-24 right-0
                     flex justify-between items-center shadow-lg">
-                        <div class="flex flex-row items-start">
+                        <div class="flex flex-row items-start ml-3">
                             <a href="{% url 'pengaturan:main' %}"
                                class="inline-flex items-center justify-center
                                       bg-blue-950 text-white font-semibold rounded
@@ -65,7 +65,7 @@
                                 Kembali
                             </a>
                         </div>
-                        <div class="flex flex-row items-end">
+                        <div class="flex flex-row items-end mr-2">
                             <button type="submit"
                                class="inline-flex items-center justify-center
                                       bg-blue-950 text-white font-semibold rounded
