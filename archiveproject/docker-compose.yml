@@ -1,17 +1,13 @@
+version: "3.9"
+
 services:
   db:
     image: postgres:17-alpine
     restart: always
     env_file:
       - .env
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      - db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
@@ -25,8 +21,9 @@ services:
       - .env
     volumes:
       - .:/app
-      - media_files:/app/media
-      - static_files:/app/staticfiles
+      - /app/venv
+      - ./media:/app/media
+      - ./staticfiles:/app/staticfiles
     ports:
       - "8000:8000"
     depends_on:
@@ -34,9 +31,8 @@ services:
         condition: service_healthy
     command: >
       sh -c "python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+             python manage.py collectstatic --noinput &&
+             gunicorn archiveproject.wsgi:application --bind 0.0.0.0:8000"
 
 volumes:
-  postgres_data:
-  media_files:
-  static_files:
+  db_data:
