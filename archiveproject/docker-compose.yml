@@ -6,6 +6,8 @@ services:
     restart: always
     env_file:
       - .env
+    ports:
+      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -32,7 +34,7 @@ services:
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             gunicorn archiveproject.wsgi:application --bind 0.0.0.0:8000"
+             gunicorn archiveproject.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 3"
 
 volumes:
   db_data:
