@@ -6,6 +6,11 @@ from django.utils.text import slugify
 import os
 
 class Disposisi(models.Model):
+    TIPE_CHOICES = [
+        ('ONLINE', 'Disposisi Online'),
+        ('OFFLINE', 'Upload Disposisi Fisik (Offline)'),
+    ]
+    tipe_disposisi = models.CharField(max_length=10, choices=TIPE_CHOICES, default='ONLINE')
 
     TUJUAN_CHOICES = [
         ("DIRUT", "Direktur Utama"),
@@ -16,12 +21,12 @@ class Disposisi(models.Model):
         ("DIBUAT", "Disposisi Telah Dibuat"),
         ("DIAJUKAN", "Disposisi Telah Diajukan"),
         ("DIISI", "Disposisi Telah Diisi"),
+        ("DIBAGIKAN", "Disposisi Telah Dibagikan"),
         ("SELESAI", "Disposisi Telah Selesai"),
     ]
 
     BULAN_ROMAWI = ['', 'I', 'II', 'III', 'IV', 'V', 'VI',
                     'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
-
 
     def rename_dokumen_surat(instance, filename):
         extension = os.path.splitext(filename)[1]
@@ -53,6 +58,7 @@ class Disposisi(models.Model):
     perihal = models.TextField()
     tujuan_disposisi = models.CharField(max_length=50)
     status_pengajuan = models.CharField(max_length=10, choices=STATUS_CHOICES, default="DIBUAT")
+
     dokumen_surat_masuk = models.FileField(
         upload_to= rename_dokumen_surat,
         validators = [FileExtensionValidator(allowed_extensions=['pdf', 'jpg', 'jpeg', 'png'])]
@@ -163,6 +169,7 @@ class DisposisiLog(models.Model):
         ('UPLOAD_DISPOSISI', 'File Telah Di Upload'),
         ('AJUKAN_DISPOSISI', 'Diajukan'),
         ('ISI_DISPOSISI', 'Diisi'),
+        ('BAGI_DISPOSISI', 'Dibagi'),
         ('SELESAI', 'Selesai'),
     ]
 

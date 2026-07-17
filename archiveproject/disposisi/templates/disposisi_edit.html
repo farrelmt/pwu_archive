@@ -194,7 +194,7 @@
                 Kembali
             </a>
 
-            <button type="submit"
+            <button type="submit" id="submitBtn"
                     class="bg-blue-950 text-white font-semibold rounded w-30 h-10 text-md
                     hover:bg-blue-900 cursor-pointer">
                 Simpan
@@ -334,6 +334,38 @@
         });
     }
 
+    const submitBtn = document.getElementById('submitBtn');
+    const formInputs = document.querySelectorAll('form input:not([type="hidden"]), form select, form textarea');
+    const initialState = {};
+
+    formInputs.forEach(input => {
+        initialState[input.name] = input.value;
+
+        input.addEventListener('input', checkFormChanges);
+        input.addEventListener('change', checkFormChanges);
+    });
+
+    function checkFormChanges() {
+        let hasChanged = false;
+
+        formInputs.forEach(input => {
+            if (input.value !== initialState[input.name]) {
+                hasChanged = true;
+            }
+        });
+
+        if (hasChanged) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+            submitBtn.classList.add('bg-blue-950', 'hover:bg-blue-900', 'cursor-pointer');
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.classList.remove('bg-blue-950', 'hover:bg-blue-900', 'cursor-pointer');
+            submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        }
+    }
+
+    checkFormChanges();
 
 </script>
 

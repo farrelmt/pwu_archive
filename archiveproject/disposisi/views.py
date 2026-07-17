@@ -211,6 +211,7 @@ def update_disposisi(request, pk):
                     os.remove(disposisi.dokumen_disposisi.path)
                 disposisi.dokumen_disposisi = "EMPTY"
 
+            disposisi.status_pengajuan = 'DIBUAT'
             disposisi.save()
 
             create_log(disposisi, request.user, 'DIEDIT')
@@ -298,7 +299,7 @@ def upload_disposisi(request, pk):
 
         if file:
             disposisi.dokumen_disposisi = file
-            disposisi.status_pengajuan = 'DIISI'
+            disposisi.status_pengajuan = 'SELESAI'
             disposisi.save()
 
             create_log(disposisi, request.user, 'UPLOAD_DISPOSISI')
