@@ -1,0 +1,721 @@
+{% extends 'home_base.html' %}
+
+{% block title %}{% if read_only %}Isi Disposisi{% else %}Isi Disposisi Direktur{% endif %}{% endblock %}
+
+{% block content %}
+<form method="post" id="isiDisposisiForm" class="flex min-h-[calc(100vh-36px)] w-full flex-col bg-blue-950 lg:flex-row">
+    {% csrf_token %}
+    {{ form.isi_disposisi }}
+
+    <section class="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-10">
+        <div class="document-stage mx-auto">
+            {% if form.isi_disposisi.errors %}
+            <div role="alert" class="mb-3 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {{ form.isi_disposisi.errors|striptags }}
+            </div>
+            {% endif %}
+
+            <article id="disposisiDocument" class="disposisi-sheet text-gray-950 shadow-2xl">
+                <header class="online-document-header">
+                    <p>PT. PANCA WIRA USAHA JAWA TIMUR</p>
+                    <p>LEMBAR DISPOSISI</p>
+                </header>
+
+                <div class="document-grid">
+                    <div class="document-cell cell-top cell-left cell-right cell-bottom">
+                        <span class="document-label">Surat Dari</span>
+                        <span>:</span>
+                        <span>{{ disposisi.pengirim }}</span>
+                    </div>
+                    <div class="document-cell cell-top cell-right cell-bottom">
+                        <span class="document-label">Diterima Tanggal</span>
+                        <span>:</span>
+                        <span>{{ disposisi.tanggal_surat_diterima|date:"d F Y" }}</span>
+                    </div>
+                    <div class="document-cell cell-left cell-right cell-bottom">
+                        <span class="document-label">Tanggal Surat</span>
+                        <span>:</span>
+                        <span>{{ disposisi.tanggal_surat|date:"d F Y" }}</span>
+                    </div>
+                    <div class="document-cell cell-right cell-bottom">
+                        <span class="document-label">Nomor Agenda</span>
+                        <span>:</span>
+                        <span>{{ disposisi.nomor_agenda }}</span>
+                    </div>
+                    <div class="document-cell document-summary cell-left cell-right cell-bottom">
+                        <span class="document-label">Perihal</span>
+                        <span>:</span>
+                        <span class="whitespace-pre-line">{{ disposisi.perihal }}</span>
+                    </div>
+                    <div class="destination-cell cell-right cell-bottom">
+                        <div class="destination-title">
+                            <span class="document-label">Diteruskan Kepada</span>
+                            <span>:</span>
+                        </div>
+                        <div class="destination-option"><span></span>Direktur Utama</div>
+                        <div class="destination-option"><span></span>Direktur Umum</div>
+                        <div class="destination-option"><span></span>Kepala Divisi Akuntansi</div>
+                        <div class="destination-option"><span></span>Kepala Divisi Manajemen Risiko</div>
+                        <div class="destination-option"><span></span>Kepala Divisi Keuangan</div>
+                        <div class="destination-option"><span></span>Kepala Divisi Legal &amp; Umum / Sekretaris Perusahaan</div>
+                        <div class="destination-option"><span></span>Kepala Divisi Aset</div>
+                        <div class="destination-option"><span></span>Kepala SPI</div>
+                    </div>
+                </div>
+
+                <div class="isi-section">
+                    <div class="isi-title">
+                        Isi Disposisi
+                    </div>
+
+                    {% if not read_only %}
+                    <div id="editorToolbar" class="editor-toolbar border-b border-gray-500 bg-gray-100 text-gray-900"
+                         aria-label="Format isi disposisi">
+                        <div class="editor-toolbar-row">
+                            <button type="button" data-command="bold" title="Tebal" aria-label="Tebal"><strong>B</strong></button>
+                            <button type="button" data-command="italic" title="Miring" aria-label="Miring"><em>I</em></button>
+                            <button type="button" data-command="underline" title="Garis bawah" aria-label="Garis bawah"><u>U</u></button>
+                            <span class="toolbar-separator" aria-hidden="true"></span>
+                            <button type="button" data-command="insertUnorderedList" title="Daftar poin" aria-label="Daftar poin">&#8226; List</button>
+                            <button type="button" data-command="insertOrderedList" title="Daftar nomor" aria-label="Daftar nomor">1. List</button>
+                            <span class="toolbar-separator" aria-hidden="true"></span>
+                            <button type="button" data-command="justifyLeft" title="Rata kiri" aria-label="Rata kiri">&#8676;</button>
+                            <button type="button" data-command="justifyCenter" title="Rata tengah" aria-label="Rata tengah">&#8596;</button>
+                            <button type="button" data-command="justifyRight" title="Rata kanan" aria-label="Rata kanan">&#8677;</button>
+                            <span class="toolbar-separator" aria-hidden="true"></span>
+                            <button type="button" data-command="undo" title="Urungkan" aria-label="Urungkan">&#8630;</button>
+                            <button type="button" data-command="redo" title="Ulangi" aria-label="Ulangi">&#8631;</button>
+                            <button type="button" data-command="removeFormat" title="Hapus format" aria-label="Hapus format">Tx</button>
+                            <span class="toolbar-separator" aria-hidden="true"></span>
+                            <button type="button" id="signatureButton" title="Gambar langsung pada dokumen" aria-label="Aktifkan pena">&#9998; Pen</button>
+                            <button type="button" id="clearDrawingButton" class="hidden" title="Hapus semua coretan">Hapus Coretan</button>
+                            <button type="button" id="cancelDrawingButton" class="hidden" title="Batalkan perubahan coretan">Batal</button>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div id="isiEditor"
+                         class="isi-editor"
+                         {% if not read_only %}contenteditable="true" role="textbox" aria-multiline="true" aria-label="Isi disposisi"{% endif %}
+                         data-placeholder="Tulis isi disposisi di sini...">{% if disposisi.isi_disposisi %}{{ disposisi.isi_disposisi|safe }}{% endif %}</div>
+                    {% if not read_only %}
+                    <p id="contentLimitWarning" class="content-limit-warning hidden" role="alert">
+                        Batas satu halaman A4 tercapai. Kurangi isi sebelum menambah teks.
+                    </p>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <aside class="flex shrink-0 items-center justify-between gap-3 bg-white p-4 lg:w-48 lg:flex-col lg:items-stretch lg:justify-end lg:p-5">
+        <a href="{% url 'disposisi:detaildisposisi' disposisi.pk %}"
+           class="inline-flex h-10 items-center justify-center rounded border border-blue-950 px-5 text-sm font-semibold text-blue-950 hover:bg-blue-50">
+            Kembali
+        </a>
+        <div class="flex gap-3 lg:flex-col">
+            <button type="button" id="previewButton"
+                    class="inline-flex h-10 items-center justify-center rounded bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900 cursor-pointer">
+                Preview
+            </button>
+            {% if not read_only %}
+            <button type="submit" id="sendButton"
+                    class="inline-flex h-10 items-center justify-center rounded bg-green-700 px-5 text-sm font-semibold text-white hover:bg-green-800 cursor-pointer">
+                Kirim
+            </button>
+            {% endif %}
+        </div>
+    </aside>
+</form>
+
+<div id="previewModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+    <div class="flex max-h-[95vh] w-full max-w-4xl flex-col overflow-hidden rounded bg-blue-950 shadow-2xl">
+        <div class="flex items-center justify-between border-b bg-white px-4 py-3">
+            <h2 id="previewTitle" class="font-semibold text-blue-950">Preview Isi Disposisi</h2>
+            <button type="button" id="closePreview" class="rounded px-3 py-1 text-xl text-gray-600 hover:bg-gray-100" aria-label="Tutup preview">&times;</button>
+        </div>
+        <div class="overflow-y-auto bg-blue-950 p-4 sm:p-7">
+            <div id="previewDocumentMount" class="preview-stage mx-auto"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    html,
+    body {
+        height: 100%;
+        overflow: hidden !important;
+    }
+
+    body > div:first-of-type {
+        display: flex;
+        height: 100%;
+        min-height: 0;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    body > div:first-of-type > nav {
+        flex: 0 0 auto;
+    }
+
+    body > div:first-of-type > div.flex {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    #sidebar,
+    body main,
+    #isiDisposisiForm {
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .disposisi-sheet {
+        display: flex;
+        flex: 0 0 auto;
+        flex-shrink: 0;
+        flex-direction: column;
+        width: 210mm !important;
+        height: 297mm !important;
+        min-width: 210mm !important;
+        min-height: 297mm !important;
+        max-width: 210mm !important;
+        max-height: 297mm !important;
+        inline-size: 210mm !important;
+        block-size: 297mm !important;
+        aspect-ratio: 210 / 297;
+        padding: 0;
+        background: #b9ffcc;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    .document-stage,
+    .preview-stage {
+        width: 210mm;
+        min-width: 210mm;
+        max-width: 210mm;
+        flex: 0 0 auto;
+    }
+
+    .online-document-header {
+        padding-top: 30px;
+        padding-bottom: 10px;
+        text-align: center;
+    }
+
+    .online-document-header p {
+        padding: 10px;
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: 2px;
+    }
+
+    .document-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        font-size: 15px;
+    }
+
+    .document-cell {
+        display: grid;
+        grid-template-columns: 100px 16px minmax(0, 1fr);
+        padding: 10px;
+    }
+
+    .document-cell:nth-child(even) {
+        grid-template-columns: 150px 16px minmax(0, 1fr);
+    }
+
+    .document-label {
+        font-weight: 500;
+    }
+
+    .cell-top { border-top: 2px solid #000; }
+    .cell-right { border-right: 2px solid #000; }
+    .cell-bottom { border-bottom: 2px solid #000; }
+    .cell-left { border-left: 2px solid #000; }
+
+    .document-summary {
+        min-height: 180px;
+    }
+
+    .destination-cell {
+        min-height: 180px;
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    .destination-title {
+        display: grid;
+        grid-template-columns: 150px 16px;
+        margin-bottom: 10px;
+        font-weight: 700;
+    }
+
+    .destination-option {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .destination-option > span {
+        width: 16px;
+        height: 16px;
+        margin-right: 8px;
+        border: 1px solid #000;
+    }
+
+    .isi-section {
+        position: relative;
+        display: flex;
+        min-height: 0;
+        flex: 1;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .isi-title {
+        margin-top: 30px;
+        text-align: center;
+        font-size: 20px;
+        font-weight: 400;
+        text-decoration: underline;
+        text-underline-offset: .3em;
+    }
+
+    .editor-toolbar button {
+        min-width: 30px;
+        height: 28px;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        padding: 0 7px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .editor-toolbar-row {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 4px;
+        overflow-x: auto;
+        padding: 4px 8px;
+    }
+
+    .editor-toolbar-row > * {
+        flex: 0 0 auto;
+    }
+
+    .editor-toolbar button:hover,
+    .editor-toolbar button:focus-visible {
+        border-color: #9ca3af;
+        background: #e5e7eb;
+        outline: none;
+    }
+
+    .toolbar-separator {
+        width: 1px;
+        height: 20px;
+        margin: 0 2px;
+        background: #9ca3af;
+    }
+
+    .isi-editor {
+        position: relative;
+        min-height: 0;
+        flex: 1;
+        margin: 12px 24px 24px;
+        padding: 14px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.55;
+        background: transparent !important;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overflow-wrap: anywhere;
+    }
+
+    .isi-editor[contenteditable="true"]:focus {
+        outline: 3px solid rgba(30, 64, 175, 0.28);
+        outline-offset: -3px;
+    }
+
+    .isi-editor[contenteditable="true"]:empty::before {
+        color: #6b7280;
+        content: attr(data-placeholder);
+        pointer-events: none;
+    }
+
+    .isi-editor ul { list-style: disc; padding-left: 1.5rem; }
+    .isi-editor ol { list-style: decimal; padding-left: 1.5rem; }
+    .isi-editor blockquote { border-left: 3px solid #9ca3af; margin: .5rem 0; padding-left: .75rem; }
+    .isi-editor h2 { font-size: 1.35em; font-weight: 700; }
+    .isi-editor h3 { font-size: 1.15em; font-weight: 700; }
+    .isi-editor > svg[data-signature-overlay="true"] {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        display: block;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .preview-document .editor-toolbar { display: none; }
+    .preview-document .isi-editor {
+        background: transparent !important;
+        overflow: hidden;
+    }
+
+    .content-limit-warning {
+        position: absolute;
+        right: 10px;
+        bottom: 8px;
+        z-index: 20;
+        max-width: 360px;
+        border: 1px solid #b91c1c;
+        border-radius: 4px;
+        background: #fef2f2;
+        padding: 6px 10px;
+        color: #991b1b;
+        font-size: 12px;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+    }
+
+    .direct-drawing-canvas {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 2px dashed #2563eb;
+        background: rgba(255, 255, 255, 0.08);
+        cursor: crosshair;
+        touch-action: none;
+    }
+
+    #signatureButton.pen-active {
+        border-color: #1d4ed8;
+        background: #dbeafe;
+        color: #1e3a8a;
+        font-weight: 700;
+    }
+
+    @media (max-width: 639px) {
+        .disposisi-sheet { padding: 10mm; }
+    }
+</style>
+
+<script>
+    (() => {
+        const form = document.getElementById('isiDisposisiForm');
+        const editor = document.getElementById('isiEditor');
+        const hiddenInput = document.getElementById('id_isi_disposisi');
+        const toolbar = document.getElementById('editorToolbar');
+        const documentSource = document.getElementById('disposisiDocument');
+        const previewModal = document.getElementById('previewModal');
+        const previewDocumentMount = document.getElementById('previewDocumentMount');
+        const previewButton = document.getElementById('previewButton');
+        const closePreview = document.getElementById('closePreview');
+        const signatureButton = document.getElementById('signatureButton');
+        const clearDrawingButton = document.getElementById('clearDrawingButton');
+        const cancelDrawingButton = document.getElementById('cancelDrawingButton');
+        const contentLimitWarning = document.getElementById('contentLimitWarning');
+        let drawingCanvas = null;
+        let drawingContext = null;
+        let strokes = [];
+        let currentStroke = null;
+        let originalOverlays = [];
+        let lastValidEditorHtml = editor.innerHTML;
+
+        const editorOverflowsA4 = () => (
+            editor.scrollHeight > editor.clientHeight + 1
+        );
+
+        const showContentLimitWarning = () => {
+            contentLimitWarning?.classList.remove('hidden');
+        };
+
+        const hideContentLimitWarning = () => {
+            contentLimitWarning?.classList.add('hidden');
+        };
+
+        const moveCaretToEditorEnd = () => {
+            if (!editor.hasAttribute('contenteditable')) return;
+            const range = document.createRange();
+            range.selectNodeContents(editor);
+            range.collapse(false);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        };
+
+        if (toolbar) {
+            toolbar.addEventListener('mousedown', (event) => event.preventDefault());
+            toolbar.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-command]');
+                if (!button || drawingCanvas) return;
+                document.execCommand(button.dataset.command, false, null);
+                editor.focus();
+            });
+
+            editor.addEventListener('paste', (event) => {
+                event.preventDefault();
+                const plainText = event.clipboardData.getData('text/plain');
+                document.execCommand('insertText', false, plainText);
+            });
+
+            editor.addEventListener('input', (event) => {
+                const isDeletion = (event.inputType || '').startsWith('delete');
+                if (editorOverflowsA4() && !isDeletion) {
+                    editor.innerHTML = lastValidEditorHtml;
+                    showContentLimitWarning();
+                    moveCaretToEditorEnd();
+                    return;
+                }
+                lastValidEditorHtml = editor.innerHTML;
+                if (editorOverflowsA4()) {
+                    showContentLimitWarning();
+                } else {
+                    hideContentLimitWarning();
+                }
+            });
+
+            if (editorOverflowsA4()) showContentLimitWarning();
+        }
+
+        const canvasPoint = (event) => {
+            const bounds = drawingCanvas.getBoundingClientRect();
+            return {
+                x: (event.clientX - bounds.left) * (drawingCanvas.width / bounds.width),
+                y: (event.clientY - bounds.top) * (drawingCanvas.height / bounds.height),
+            };
+        };
+
+        const redrawDrawing = () => {
+            if (!drawingContext) return;
+            drawingContext.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            drawingContext.strokeStyle = '#111827';
+            drawingContext.lineWidth = 3;
+            drawingContext.lineCap = 'round';
+            drawingContext.lineJoin = 'round';
+            strokes.forEach((stroke) => {
+                if (stroke.length < 2) return;
+                drawingContext.beginPath();
+                drawingContext.moveTo(stroke[0].x, stroke[0].y);
+                stroke.slice(1).forEach((point) => drawingContext.lineTo(point.x, point.y));
+                drawingContext.stroke();
+            });
+        };
+
+        const parseOverlayStrokes = (overlay, targetWidth, targetHeight) => {
+            const viewBox = (overlay.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
+            if (viewBox.length !== 4 || !viewBox[2] || !viewBox[3]) return [];
+            const proportionalScale = Math.min(
+                targetWidth / viewBox[2],
+                targetHeight / viewBox[3]
+            );
+            const horizontalOffset = (
+                targetWidth - (viewBox[2] * proportionalScale)
+            ) / 2;
+            const verticalOffset = (
+                targetHeight - (viewBox[3] * proportionalScale)
+            );
+            return Array.from(overlay.querySelectorAll('path')).map((path) => {
+                const tokens = (path.getAttribute('d') || '').match(/[MLml]|-?\d+(?:\.\d+)?/g) || [];
+                const points = [];
+                for (let index = 0; index + 2 < tokens.length; index += 3) {
+                    const x = Number(tokens[index + 1]);
+                    const y = Number(tokens[index + 2]);
+                    if (Number.isFinite(x) && Number.isFinite(y)) {
+                        points.push({
+                            x: (x * proportionalScale) + horizontalOffset,
+                            y: (y * proportionalScale) + verticalOffset,
+                        });
+                    }
+                }
+                return points;
+            }).filter((stroke) => stroke.length > 1);
+        };
+
+        const leaveDrawingMode = () => {
+            drawingCanvas?.remove();
+            drawingCanvas = null;
+            drawingContext = null;
+            currentStroke = null;
+            editor.setAttribute('contenteditable', 'true');
+            signatureButton.classList.remove('pen-active');
+            signatureButton.innerHTML = '&#9998; Pen';
+            signatureButton.setAttribute('aria-label', 'Aktifkan pena');
+            clearDrawingButton.classList.add('hidden');
+            cancelDrawingButton.classList.add('hidden');
+        };
+
+        const finishDrawing = () => {
+            if (!drawingCanvas) return;
+            const usableStrokes = strokes.filter((stroke) => stroke.length > 1);
+            if (usableStrokes.length) {
+                const svgNamespace = 'http://www.w3.org/2000/svg';
+                const overlay = document.createElementNS(svgNamespace, 'svg');
+                overlay.setAttribute('viewBox', `0 0 ${drawingCanvas.width} ${drawingCanvas.height}`);
+                overlay.setAttribute('data-signature-overlay', 'true');
+                overlay.setAttribute('preserveAspectRatio', 'xMidYMax meet');
+                overlay.setAttribute('role', 'img');
+                overlay.setAttribute('aria-label', 'Tanda tangan digital');
+
+                usableStrokes.forEach((stroke) => {
+                    const path = document.createElementNS(svgNamespace, 'path');
+                    const pathData = stroke.map((point, index) => {
+                        const command = index === 0 ? 'M' : 'L';
+                        return `${command} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+                    }).join(' ');
+                    path.setAttribute('d', pathData);
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('stroke', '#111827');
+                    path.setAttribute('stroke-width', '3');
+                    path.setAttribute('stroke-linecap', 'round');
+                    path.setAttribute('stroke-linejoin', 'round');
+                    overlay.appendChild(path);
+                });
+                editor.prepend(overlay);
+            }
+            originalOverlays = [];
+            leaveDrawingMode();
+            editor.dispatchEvent(new Event('input', {bubbles: true}));
+        };
+
+        const cancelDrawing = () => {
+            if (!drawingCanvas) return;
+            originalOverlays.forEach((overlay) => editor.prepend(overlay));
+            originalOverlays = [];
+            leaveDrawingMode();
+        };
+
+        const startDrawing = () => {
+            if (drawingCanvas) {
+                finishDrawing();
+                return;
+            }
+
+            if (editorOverflowsA4()) {
+                showContentLimitWarning();
+                return;
+            }
+
+            signatureButton.classList.add('pen-active');
+            signatureButton.textContent = 'Selesai';
+            signatureButton.setAttribute('aria-label', 'Selesai');
+            clearDrawingButton.classList.remove('hidden');
+            cancelDrawingButton.classList.remove('hidden');
+
+            const width = Math.max(1, Math.round(editor.clientWidth));
+            const height = Math.max(1, Math.round(editor.clientHeight));
+            originalOverlays = Array.from(
+                editor.querySelectorAll(':scope > svg[data-signature-overlay="true"]')
+            ).map((overlay) => overlay.cloneNode(true));
+            strokes = Array.from(
+                editor.querySelectorAll(':scope > svg[data-signature-overlay="true"]')
+            ).flatMap((overlay) => parseOverlayStrokes(overlay, width, height));
+            editor.querySelectorAll(':scope > svg[data-signature-overlay="true"]').forEach((overlay) => overlay.remove());
+
+            drawingCanvas = document.createElement('canvas');
+            drawingCanvas.width = width;
+            drawingCanvas.height = height;
+            drawingCanvas.className = 'direct-drawing-canvas';
+            drawingCanvas.setAttribute('aria-label', 'Gambar langsung pada isi disposisi');
+            editor.setAttribute('contenteditable', 'false');
+            editor.appendChild(drawingCanvas);
+            drawingContext = drawingCanvas.getContext('2d');
+            redrawDrawing();
+
+            drawingCanvas.addEventListener('pointerdown', (event) => {
+                event.preventDefault();
+                drawingCanvas.setPointerCapture(event.pointerId);
+                currentStroke = [canvasPoint(event)];
+                strokes.push(currentStroke);
+            });
+            drawingCanvas.addEventListener('pointermove', (event) => {
+                if (!currentStroke) return;
+                event.preventDefault();
+                currentStroke.push(canvasPoint(event));
+                redrawDrawing();
+            });
+            const finishStroke = () => { currentStroke = null; };
+            drawingCanvas.addEventListener('pointerup', finishStroke);
+            drawingCanvas.addEventListener('pointercancel', finishStroke);
+        };
+
+        if (signatureButton) {
+            signatureButton.addEventListener('click', startDrawing);
+            clearDrawingButton.addEventListener('click', () => {
+                strokes = [];
+                currentStroke = null;
+                redrawDrawing();
+            });
+            cancelDrawingButton.addEventListener('click', cancelDrawing);
+        }
+
+        if (form && hiddenInput) {
+            form.addEventListener('submit', (event) => {
+                if (drawingCanvas) finishDrawing();
+                hiddenInput.value = editor.innerHTML.trim();
+                if (editorOverflowsA4()) {
+                    event.preventDefault();
+                    showContentLimitWarning();
+                    return;
+                }
+                if (!editor.innerText.trim() && !editor.querySelector('svg')) {
+                    event.preventDefault();
+                    editor.focus();
+                    window.alert('Isi disposisi wajib diisi sebelum dikirim.');
+                    return;
+                }
+                if (!window.confirm('Kirim isi disposisi dan setujui pengajuan ini?')) {
+                    event.preventDefault();
+                }
+            });
+        }
+
+        const openPreview = () => {
+            if (drawingCanvas) finishDrawing();
+            const documentClone = documentSource.cloneNode(true);
+            documentClone.removeAttribute('id');
+            documentClone.classList.add('preview-document');
+            documentClone.querySelector('#editorToolbar')?.remove();
+            const previewEditor = documentClone.querySelector('#isiEditor');
+            previewEditor.removeAttribute('id');
+            previewEditor.removeAttribute('contenteditable');
+            previewEditor.removeAttribute('role');
+            previewEditor.removeAttribute('aria-multiline');
+            previewEditor.removeAttribute('data-placeholder');
+            previewEditor.classList.remove('bg-white');
+            previewDocumentMount.replaceChildren(documentClone);
+            previewModal.classList.remove('hidden');
+            previewModal.classList.add('flex');
+        };
+
+        const hidePreview = () => {
+            previewModal.classList.add('hidden');
+            previewModal.classList.remove('flex');
+        };
+
+        previewButton.addEventListener('click', openPreview);
+        closePreview.addEventListener('click', hidePreview);
+        previewModal.addEventListener('click', (event) => {
+            if (event.target === previewModal) hidePreview();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                hidePreview();
+                cancelDrawing();
+            }
+        });
+    })();
+</script>
+{% endblock %}
