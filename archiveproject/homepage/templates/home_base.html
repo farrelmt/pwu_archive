@@ -24,7 +24,10 @@
             </div>
 
             <div class="flex items-center space-x-4">
-                <a href="#">
+                <a href="{% url 'homepage:monitor' %}"
+                   class="relative inline-flex h-8 w-8 items-center justify-center rounded hover:bg-blue-800"
+                   aria-label="Notifikasi tugas{% if action_notification_count %}: {{ action_notification_count }} tugas{% endif %}"
+                   title="{% if action_notification_count %}{{ action_notification_count }} tugas perlu diproses{% else %}Tidak ada tugas baru{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
                         <path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0
                         2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297
@@ -36,13 +39,19 @@
                         0 4.496 0 25.057 25.057 0 0
                         1-4.496 0Z" clip-rule="evenodd" />
                     </svg>
+                    {% if action_notification_count %}
+                    <span id="notificationBadge"
+                          class="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
+                        {{ action_notification_count }}
+                    </span>
+                    {% endif %}
                 </a>
             </div>
         </nav>
 
         <div class="flex">
             <aside id="sidebar"
-               class="fixed flex flex-col bg-blue-950 text-white w-28 min-h-[calc(100vh-36px)]
+               class="fixed flex w-28 shrink-0 flex-col bg-blue-950 text-white min-h-[calc(100vh-36px)]
                p-0 space-y-0 transform transition-transform -translate-x-full md:translate-x-0
                md:relative justify-between min z-10">
 
@@ -107,10 +116,13 @@
                         {% endif %}">
                         Pengaturan
                     </a>
-                    <a href="{% url 'accounts:logout' %}"
-                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm">
-                        Keluar
-                    </a>
+                    <form method="post" action="{% url 'accounts:logout' %}">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="block w-full py-2 px-3 hover:bg-blue-700 text-center text-sm cursor-pointer">
+                            Keluar
+                        </button>
+                    </form>
                 </div>
             </aside>
 

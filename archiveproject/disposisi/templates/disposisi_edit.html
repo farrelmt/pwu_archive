@@ -14,12 +14,14 @@
                             value="{{ disposisi.tanggal_surat_diterima|date:'Y-m-d' }}">
                 </div>
                 <div>
-                    <a href="{% url 'disposisi:hapusdisposisi' disposisi.id %}"
+                    <button type="submit"
+                       formaction="{% url 'disposisi:hapusdisposisi' disposisi.id %}"
+                       formmethod="post"
                        onclick="return confirm('Yakin Ingin Menghapus Disposisi Ini?')"
                         class="inline-flex bg-blue-950 text-white items-center justify-center font-semibold
                         rounded w-20 h-8 text-sm font-bold hover:bg-red-800 cursor-pointer">
                         Hapus
-                    </a>
+                    </button>
                 </div>
             </div>
 
@@ -140,7 +142,7 @@
                 </div>
             </div>
 
-            {% if disposisi.status_pengajuan == 'DIISI' %}
+            {% if disposisi.status_pengajuan == 'NOTDIISI' %}
             <div class="flex items-center" id="editFileDisposisi">
                 <p class="text-md font-semibold w-60 my-1">Disposisi</p>
 
@@ -174,9 +176,13 @@
                     <span
                         id="fileNameDisposisi"
                         class="text-xs text-gray-600 truncate max-w-xs"
-                        data-dokumendisposisi=" {{disposisi.dokumen_disposisi.url}}"
+                        data-dokumendisposisi="{% if disposisi.dokumen_disposisi %}{{ disposisi.dokumen_disposisi.url }}{% endif %}"
                    >
-                        {{disposisi.dokumen_disposisi.name|slice:"30:"}}
+                        {% if disposisi.dokumen_disposisi %}
+                            {{ disposisi.dokumen_disposisi.name|slice:"30:" }}
+                        {% else %}
+                            Belum ada file
+                        {% endif %}
                         <br>
                     </span>
 

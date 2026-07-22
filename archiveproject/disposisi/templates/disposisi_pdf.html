@@ -10,102 +10,48 @@
 <body>
 
 <div class="page">
-
     <div class="header">
-        <h1 class="">PT. PANCA WIRA USAHA JAWA TIMUR</h1>
-        <h1 class="">LEMBAR DISPOSISI</h1>
+        <h1>PT. PANCA WIRA USAHA JAWA TIMUR</h1>
+        <h1>LEMBAR DISPOSISI</h1>
     </div>
 
     <div class="grid">
-
-        <!-- Row 1 Left -->
         <div class="cell border-bottom border-right border-top border-left">
-            <div class="label-row">
-                <div class="label">Surat Dari</div>
-                <div class="colon">:</div>
-                <div class="value">{{ disposisi.pengirim }}</div>
-            </div>
+            <div class="label-row"><div class="label">Surat Dari</div><div class="colon">:</div><div class="value">{{ disposisi.pengirim }}</div></div>
         </div>
-
-        <!-- Row 1 Right -->
         <div class="cell border-bottom border-top border-right">
-            <div class="label-row">
-                <div class="label" style="width: 150px;">Diterima tanggal</div>
-                <div class="colon">:</div>
-                <div class="value">{{ disposisi.tanggal_surat_diterima|date:"d F Y" }}</div>
-            </div>
+            <div class="label-row"><div class="label" style="width: 150px;">Diterima tanggal</div><div class="colon">:</div><div class="value">{{ disposisi.tanggal_surat_diterima|date:"d F Y" }}</div></div>
         </div>
-
-        <!-- Row 2 Left -->
         <div class="cell border-bottom border-right border-left">
-            <div class="label-row">
-                <div class="label">Tanggal Surat</div>
-                <div class="colon">:</div>
-                <div class="value">{{ disposisi.tanggal_surat|date:"d F Y" }}</div>
-            </div>
+            <div class="label-row"><div class="label">Tanggal Surat</div><div class="colon">:</div><div class="value">{{ disposisi.tanggal_surat|date:"d F Y" }}</div></div>
         </div>
-
-        <!-- Row 2 Right -->
         <div class="cell border-bottom border-right">
-            <div class="label-row">
-                <div class="label" style="width: 150px;">Nomor Agenda</div>
-                <div class="colon">:</div>
-                <div class="value">{{ disposisi.nomor_agenda }}</div>
-            </div>
+            <div class="label-row"><div class="label" style="width: 150px;">Nomor Agenda</div><div class="colon">:</div><div class="value">{{ disposisi.nomor_agenda }}</div></div>
         </div>
-
-        <!-- Row 3 Left -->
         <div class="cell perihal border-right border-bottom border-left">
-            <div class="label-row">
-                <div class="label" >Perihal</div>
-                <div class="colon">:</div>
-                <div class="value">
-                    {{ disposisi.perihal }}
-                </div>
-            </div>
+            <div class="label-row"><div class="label">Perihal</div><div class="colon">:</div><div class="value">{{ disposisi.perihal }}</div></div>
         </div>
-
-        <!-- Row 3 Right -->
         <div class="tujuan-container border-bottom border-right">
-            <div class="tujuan-title">
-                <div class="label" style="width: 150px;">Diteruskan Kepada</div>
-                <div class="colon">:</div>
-            </div>
-
-            <div class="checkbox-row">
-                <div class="checkbox checkbox-text"></div>
-                <span class="checkbox-text" >Direktur Utama</span>
-            </div>
-            <div class="checkbox-row">
-                <div class="checkbox"></div>
-                <span class="checkbox-text" >Direktur Umum</span>
-            </div>
-            <div class="checkbox-row"><div class="checkbox"></div>
-                <span class="checkbox-text" >Kepala Divisi Akuntansi</span>
-            </div>
-            <div class="checkbox-row"><div class="checkbox"></div>
-                <span class="checkbox-text" >Kepala Divisi Manajemen Risiko</span>
-            </div>
-            <div class="checkbox-row"><div class="checkbox"></div>
-                <span class="checkbox-text" >Kepala Divisi Keuangan</span>
-            </div>
-            <div class="checkbox-row"><div class="checkbox"></div>
-                <span class="checkbox-text" >Kepala Divisi Legal & Umum / Sekretaris Perusahaan</span>
-            </div>
-            <div class="checkbox-row"><div class="checkbox"></div>
-                <span class="checkbox-text" >Kepala Divisi Aset</span>
-            </div>
-            <div class="checkbox-row"><div class="checkbox"></div>
-                <span class="checkbox-text" >Kepala SPI</span>
-            </div>
+            <div class="tujuan-title"><div class="label" style="width: 150px;">Diteruskan Kepada</div><div class="colon">:</div></div>
+            <div class="checkbox-row"><div class="checkbox checkbox-text"></div><span class="checkbox-text">Direktur Utama</span></div>
+            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Direktur Umum</span></div>
+            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Akuntansi</span></div>
+            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Manajemen Risiko</span></div>
+            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Keuangan</span></div>
+            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Legal & Umum / Sekretaris Perusahaan</span></div>
+            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Aset</span></div>
+            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala SPI</span></div>
         </div>
-
     </div>
 
-    <div class="section-title">
-        Isi Disposisi
+    <div class="section-title">Isi Disposisi</div>
+    <div class="disposisi-content">
+        {% if disposisi.isi_disposisi %}
+            {{ disposisi.isi_disposisi|safe }}
+        {% else %}
+            <span class="empty-content">Belum ada isi disposisi.</span>
+        {% endif %}
     </div>
-
 </div>
 
 </body>

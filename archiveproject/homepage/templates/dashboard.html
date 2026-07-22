@@ -55,6 +55,11 @@
 
 
                 <p class="text-white font-medium">{{link.title}}</p>
+                {% if link.icon == "monitor" and pending_online_count %}
+                    <span class="mt-1 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                        {{ pending_online_count }} baru
+                    </span>
+                {% endif %}
             </a>
         </div>
 

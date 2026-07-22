@@ -13,9 +13,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DB_HOST = env('DB_HOST', default='db')
 SECRET_KEY = env('SECRET_KEY')
-DEBUG = env.bool('DEBUG', default='False')
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -26,8 +26,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'tailwind',
     'theme',
-    'django_browser_reload',
-
     'accounts',
     'homepage',
     'disposisi',
@@ -46,8 +44,11 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    'django_browser_reload.middleware.BrowserReloadMiddleware',
 ]
+
+if DEBUG:
+    INSTALLED_APPS.append('django_browser_reload')
+    MIDDLEWARE.append('django_browser_reload.middleware.BrowserReloadMiddleware')
 
 ROOT_URLCONF = 'archiveproject.urls'
 
@@ -61,6 +62,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'homepage.context_processors.action_notifications',
             ],
         },
     },
@@ -68,16 +70,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'archiveproject.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME'),
-        'USER': env('DB_USER'),
-        'PASSWORD': env('DB_PASSWORD'),
-        'HOST': env('DB_HOST'),
-        'PORT': env('DB_PORT'),
+if env('DB_ENGINE', default='postgresql') == 'sqlite':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': env('DB_NAME', default=str(BASE_DIR / 'db.sqlite3')),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('DB_NAME'),
+            'USER': env('DB_USER'),
+            'PASSWORD': env('DB_PASSWORD'),
+            'HOST': env('DB_HOST'),
+            'PORT': env('DB_PORT'),
+        }
+    }
 
 AUTH_USER_MODEL = 'accounts.SystemUser'
 
@@ -143,3 +153,13 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 EMAIL_TO_REPORT = os.getenv('EMAIL_HOST_USER')
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=True)
+    CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=True)
+    SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
+    SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=31536000)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
+        'SECURE_HSTS_INCLUDE_SUBDOMAINS', default=True
+    )
+    SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=True)

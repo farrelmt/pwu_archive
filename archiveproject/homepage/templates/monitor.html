@@ -1,9 +1,129 @@
 {% extends 'home_base.html' %}
+{% load disposisi_extras %}
 {% block title %}SISTEM ARSIP - MONITOR{% endblock %}
 {% block content %}
-    <h1>Monitor</h1>
+<div class="w-full select-none bg-gray-50 p-2">
+    <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-blue-950">Monitor Surat</h1>
+        </div>
 
-    
+        <form method="get" class="flex flex-wrap items-center gap-2">
+            <label for="monitorSearch" class="font-semibold">Cari</label>
+            <input id="monitorSearch" name="search" value="{{ search }}"
+                   placeholder="Agenda, surat, pengirim, perihal"
+                   class="h-8 w-64 rounded border border-gray-300 bg-white px-2 text-sm">
+            <input type="hidden" name="limit" value="{{ page_limit }}">
+            <button type="submit"
+                    class="h-8 rounded bg-blue-950 px-4 text-sm font-semibold text-white hover:bg-blue-900">
+                Cari
+            </button>
+            {% if search %}
+            <a href="{% url 'homepage:monitor' %}"
+               class="inline-flex h-8 items-center rounded border border-gray-300 bg-white px-4 text-sm font-semibold">
+                Reset
+            </a>
+            {% endif %}
+        </form>
+    </div>
 
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mt-3 rounded bg-blue-100 p-3 text-blue-900">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
 
+    <div class="mt-3 w-full border border-gray-200 bg-white p-2 shadow">
+        <form method="get" class="mb-2 flex items-center gap-2">
+            <input type="hidden" name="search" value="{{ search }}">
+            <label for="monitorLimit" class="font-medium">Tampilkan</label>
+            <select id="monitorLimit" name="limit" onchange="this.form.submit()"
+                    class="h-7 w-16 border bg-white text-sm">
+                <option value="20" {% if page_limit == '20' %}selected{% endif %}>20</option>
+                <option value="50" {% if page_limit == '50' %}selected{% endif %}>50</option>
+                <option value="100" {% if page_limit == '100' %}selected{% endif %}>100</option>
+            </select>
+        </form>
+
+        <div class="w-full overflow-auto sm:max-h-[700px] xl:max-h-[750px]">
+            <table class="mt-1 w-full table-fixed border-collapse border border-gray-300 text-center text-sm">
+                <thead class="sticky top-0 z-2 bg-gray-400">
+                    <tr>
+                        <th class="w-16 border px-3 py-2">No</th>
+                        <th class="w-48 border px-3 py-2">Tanggal Diterima</th>
+                        <th class="w-44 border px-3 py-2">Nomor Agenda</th>
+                        <th class="w-64 border px-3 py-2">Nomor Surat</th>
+                        <th class="w-64 border px-3 py-2">Pengirim</th>
+                        <th class="w-32 border px-3 py-2">Tujuan</th>
+                        <th class="w-96 border px-3 py-2">Perihal</th>
+                        <th class="w-48 border px-3 py-2">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for disposisi in page_obj %}
+                    <tr onclick="window.location.href='{% url 'disposisi:detaildisposisi' disposisi.pk %}';"
+                        class="cursor-pointer transition hover:bg-yellow-300">
+                        <td class="border px-3 py-2">
+                            {{ page_obj.start_index|add:forloop.counter0 }}
+                        </td>
+                        <td class="border px-3 py-2">{{ disposisi.tanggal_surat_diterima|tanggal_id }}</td>
+                        <td class="border px-3 py-2 font-semibold">{{ disposisi.nomor_agenda }}</td>
+                        <td class="border px-3 py-2">{{ disposisi.nomor_surat }}</td>
+                        <td class="border px-3 py-2">{{ disposisi.pengirim }}</td>
+                        <td class="border px-3 py-2">{{ disposisi.get_tujuan_display }}</td>
+                        <td class="border px-3 py-2 text-left">{{ disposisi.perihal|truncatechars:80 }}</td>
+                        <td class="border px-3 py-2">
+                            {% if disposisi.status_pengajuan == 'DIAJUKAN' %}
+                                Menunggu Direktur
+                            {% elif disposisi.status_pengajuan == 'DIISI' %}
+                                Menunggu Dibagikan
+                            {% else %}
+                                Disposisi Dibagikan
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="py-6 text-center text-gray-500">
+                            Tidak ada disposisi untuk dimonitor.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p class="font-semibold">
+            Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}
+        </p>
+        <div class="flex items-center gap-1">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&limit={{ page_limit }}&search={{ search|urlencode }}"
+               class="inline-flex h-8 items-center rounded bg-blue-950 px-4 text-white hover:bg-blue-900">
+                Sebelumnya
+            </a>
+            {% endif %}
+            {% for page_number in page_obj.paginator.page_range %}
+                {% if page_number == page_obj.number %}
+                <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-900 text-white">
+                    {{ page_number }}
+                </span>
+                {% elif page_number == 1 or page_number == page_obj.paginator.num_pages or page_number >= page_obj.number|add:'-1' and page_number <= page_obj.number|add:'1' %}
+                <a href="?page={{ page_number }}&limit={{ page_limit }}&search={{ search|urlencode }}"
+                   class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-blue-950 hover:bg-yellow-300">
+                    {{ page_number }}
+                </a>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&limit={{ page_limit }}&search={{ search|urlencode }}"
+               class="inline-flex h-8 items-center rounded bg-blue-950 px-4 text-white hover:bg-blue-900">
+                Selanjutnya
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}

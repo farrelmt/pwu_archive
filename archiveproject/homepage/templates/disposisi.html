@@ -1,4 +1,5 @@
 {% extends 'home_base.html' %}
+{% load auth_extras %}
 {% block title %}SISTEM ARSIP - DISPOSISI{% endblock %}
 {% block content %}
     <div class="bg-gray-50 p-2 select-none w-full">
@@ -34,6 +35,7 @@
                     Filter
                 </button>
 
+                {% if request.user|can_edit_disposisi %}
                 <a href="{% url 'disposisi:tambahdisposisi' %}"
                    id="tambahDisposisi"
                    class="hidden sm:flex items-center justify-center
@@ -41,6 +43,7 @@
                           w-28 h-8 mx-1 hover:bg-blue-800 hover:shadow-md">
                     Tambah
                 </a>
+                {% endif %}
             </div>
 
         </div>

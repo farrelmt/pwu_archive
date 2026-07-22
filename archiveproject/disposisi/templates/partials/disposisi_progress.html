@@ -23,7 +23,7 @@
         {% else %}
             bg-gray-300
         {% endif %}">
-        Diisi
+        {% if disposisi.tipe_disposisi == 'ONLINE' %}Disetujui{% else %}Diisi{% endif %}
     </div>
 
     <div class="step font-semibold text-white

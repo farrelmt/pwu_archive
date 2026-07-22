@@ -1,16 +1,18 @@
 from django.db import models, transaction
 from django.db.models import Max
 from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.utils.text import slugify
 import os
 
 class Disposisi(models.Model):
     TIPE_CHOICES = [
+        ('BELUM', 'Metode Belum Dipilih'),
         ('ONLINE', 'Disposisi Online'),
         ('OFFLINE', 'Upload Disposisi Fisik (Offline)'),
     ]
-    tipe_disposisi = models.CharField(max_length=10, choices=TIPE_CHOICES, default='ONLINE')
+    tipe_disposisi = models.CharField(max_length=10, choices=TIPE_CHOICES, default='BELUM')
 
     TUJUAN_CHOICES = [
         ("DIRUT", "Direktur Utama"),
@@ -23,6 +25,17 @@ class Disposisi(models.Model):
         ("DIISI", "Disposisi Telah Diisi"),
         ("DIBAGIKAN", "Disposisi Telah Dibagikan"),
         ("SELESAI", "Disposisi Telah Selesai"),
+    ]
+
+    SHARE_ROLE_CHOICES = [
+        ('direktur_utama', 'Direktur Utama'),
+        ('direktur_umum', 'Direktur Umum'),
+        ('kadiv_akuntansi', 'Kepala Divisi Akuntansi'),
+        ('kadiv_keuangan', 'Kepala Divisi Keuangan'),
+        ('kadiv_risiko', 'Kepala Divisi Manajemen Risiko'),
+        ('kadiv_legal_umum', 'Kepala Divisi Legal dan Umum'),
+        ('kadiv_aset', 'Kepala Divisi Aset'),
+        ('kadiv_spi', 'Kepala Divisi SPI'),
     ]
 
     BULAN_ROMAWI = ['', 'I', 'II', 'III', 'IV', 'V', 'VI',
@@ -57,6 +70,7 @@ class Disposisi(models.Model):
     tembusan = models.CharField(max_length=50)
     perihal = models.TextField()
     tujuan_disposisi = models.CharField(max_length=50)
+    isi_disposisi = models.TextField(blank=True, default='')
     status_pengajuan = models.CharField(max_length=10, choices=STATUS_CHOICES, default="DIBUAT")
 
     dokumen_surat_masuk = models.FileField(
@@ -76,6 +90,19 @@ class Disposisi(models.Model):
     def name_dokumen_surat_masuk(self):
         filename = os.path.basename(self.dokumen_surat_masuk.name)
         return filename.replace("_", "/")
+
+    def clean(self):
+        super().clean()
+        if (
+            self.tanggal_surat_diterima
+            and self.tanggal_surat
+            and self.tanggal_surat_diterima < self.tanggal_surat
+        ):
+            raise ValidationError({
+                'tanggal_surat_diterima': (
+                    'Tanggal surat diterima tidak boleh lebih lama dari tanggal surat.'
+                )
+            })
 
     def reassign_agenda_number(self):
         all_disposisi = Disposisi.objects.all().order_by('tanggal_surat_diterima', 'pk')
@@ -133,10 +160,10 @@ class Disposisi(models.Model):
             with transaction.atomic():
                 super().save(*args, **kwargs)  # pk assigned here
 
-            # Now save with file using the correct pk path
-            self.dokumen_surat_masuk = file_surat
-            self.dokumen_disposisi = file_disposisi
-            super().save(update_fields=['dokumen_surat_masuk', 'dokumen_disposisi'])
+                # Now save with file using the correct pk path
+                self.dokumen_surat_masuk = file_surat
+                self.dokumen_disposisi = file_disposisi
+                super().save(update_fields=['dokumen_surat_masuk', 'dokumen_disposisi'])
 
         else:
             with transaction.atomic():
@@ -144,22 +171,53 @@ class Disposisi(models.Model):
 
             if old and old.dokumen_surat_masuk != self.dokumen_surat_masuk:
                 if old.dokumen_surat_masuk:
-                    if os.path.isfile(old.dokumen_surat_masuk.path):
-                        try:
-                            os.remove(old.dokumen_surat_masuk.path)
-                        except Exception as e:
-                            print(f"Error while deleting {old.dokumen_surat_masuk.path}")
-                            print(e)
+                    old.dokumen_surat_masuk.storage.delete(
+                        old.dokumen_surat_masuk.name
+                    )
 
             if old and old.dokumen_disposisi != self.dokumen_disposisi:
                 if old.dokumen_disposisi:
-                    if os.path.isfile(old.dokumen_disposisi.path):
-                        os.remove(old.dokumen_disposisi.path)
+                    old.dokumen_disposisi.storage.delete(
+                        old.dokumen_disposisi.name
+                    )
 
         self.reassign_agenda_number()
 
     def __str__(self):
         return f"{self.nomor_surat} ({self.nomor_agenda})"
+
+    def can_be_approved_by(self, user):
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        if self.tujuan == 'DIRUT':
+            return user.role == 'direktur_utama'
+        if self.tujuan == 'DIR':
+            return user.role in {'direktur', 'direktur_umum'}
+        return False
+
+
+class DisposisiRecipient(models.Model):
+    disposisi = models.ForeignKey(
+        Disposisi,
+        on_delete=models.CASCADE,
+        related_name='shared_recipients',
+    )
+    role = models.CharField(max_length=30, choices=Disposisi.SHARE_ROLE_CHOICES)
+    agreed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['role']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['disposisi', 'role'],
+                name='unique_disposisi_recipient_role',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.disposisi.nomor_agenda} - {self.get_role_display()}"
 
 
 class DisposisiLog(models.Model):
@@ -168,8 +226,12 @@ class DisposisiLog(models.Model):
         ('DIEDIT', 'Telah Diedit'),
         ('UPLOAD_DISPOSISI', 'File Telah Di Upload'),
         ('AJUKAN_DISPOSISI', 'Diajukan'),
+        ('BATAL_PENGAJUAN', 'Pengajuan Dibatalkan'),
+        ('TOLAK_DISPOSISI', 'Pengajuan Ditolak'),
+        ('SETUJUI_DISPOSISI', 'Pengajuan Disetujui'),
         ('ISI_DISPOSISI', 'Diisi'),
         ('BAGI_DISPOSISI', 'Dibagi'),
+        ('TERIMA_DISPOSISI', 'Penerima Menyetujui'),
         ('SELESAI', 'Selesai'),
     ]
 

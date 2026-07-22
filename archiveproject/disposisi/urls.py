@@ -14,4 +14,9 @@ urlpatterns = [
     path('preview/<int:pk>/', views.preview_disposisi, name='previewdisposisi'),
     path('preview/<int:pk>/pdf/', views.download_disposisi_pdf, name='disposisi_pdf'),
     path('<int:pk>/upload/', views.upload_disposisi, name='uploaddisposisi'),
+    path('<int:pk>/online/cancel/', views.cancel_online_disposisi, name='cancelonline'),
+    path('<int:pk>/online/decision/', views.decide_online_disposisi, name='decisiononline'),
+    path('<int:pk>/online/isi/', views.isi_online_disposisi, name='isionline'),
+    path('<int:pk>/online/share/', views.share_online_disposisi, name='shareonline'),
+    path('<int:pk>/online/complete/', views.complete_shared_disposisi, name='completeonline'),
 ]

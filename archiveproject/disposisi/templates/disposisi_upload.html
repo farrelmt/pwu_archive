@@ -6,6 +6,11 @@
     <form method="post" enctype="multipart/form-data"
         action="{% url 'disposisi:uploaddisposisi' disposisi.id %}">
         {% csrf_token %}
+        {% if form.errors %}
+            <div class="mx-auto mt-4 max-w-xl rounded bg-red-100 p-3 text-red-800">
+                {{ form.dokumen_disposisi.errors }}
+            </div>
+        {% endif %}
         <div class="flex flex-col items-center justify-center h-[calc(100vh-2rem)] -mt-20">
             <div class="flex items-center justify-center text-2xl text-blue-950 font-bold mb-6">
                 <p>Bagaimana Disposisi Ingin Di Proses?</p>
@@ -61,7 +66,7 @@
                     </div>
                 </div>
 
-                <div class="block bg-white shadow-[0_0_10px_0_rgba(0,0,0,0.1)] rounded-lg px-10 pt-4 pb-2 w-60 h-80 mx-4
+                <div class="block shadow-[0_0_10px_0_rgba(0,0,0,0.1)] rounded-lg px-10 pb-2 w-60 h-80 mx-4
                           transition duration-200 text-center text-blue-950
                           flex flex-col items-center justify-center  ">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
@@ -74,19 +79,11 @@
                     <p class="text-md font-normal my-1">Ajukan disposisi kepada Direksi</p>
 
                     <div class="flex flex-col items-center mt-2">
-                        <input
-                            type="file"
-                            name="dokumen_disposisi"
-                            id=""
-                            accept=".pdf,.jpg,.jpeg,.png"
-
-                            class="hidden"
-                        >
-
                         <button
-                            type="button"
-                            id=""
-                            onclick="alert('Fitur ini belum tersedia. Silakan gunakan metode Offline terlebih dahulu.');"
+                            type="submit"
+                            name="metode"
+                            value="ONLINE"
+                            onclick="return confirm('Ajukan disposisi online kepada Direktur?');"
                             class="block bg-blue-950 shadow-sm hover:shadow-lg rounded-lg p-4 w-40 h-10
                                   border hover:bg-blue-900 transition duration-200 mt-2 cursor-pointer
                                   flex flex-col items-center justify-center text-center text-white"
@@ -94,20 +91,6 @@
                             Ajukan Ke Direksi
                         </button>
 
-                        <button
-                            type="button"
-                            id=""
-                            class="bg-white border border-gray-400 mt-1 px-3 w-40 h-6 text-xs rounded hover:bg-yellow-300 invisible"
-                        >
-                            Preview
-                        </button>
-
-                        <span
-                            id=""
-                            class="text-xs text-gray-600 mt-2 truncate max-w-xs invisible"
-                        >
-                            Belum ada File
-                        </span>
                     </div>
                 </div>
             </div>
@@ -126,7 +109,9 @@
                class="inline-flex items-center justify-center mr-1
                       bg-blue-950 text-white font-semibold rounded cursor-pointer
                       w-40 h-10 text-md hover:bg-blue-900 invisible"
-                id="lanjutDisposisi">
+                id="lanjutDisposisi"
+                name="metode"
+                value="OFFLINE">
                 Upload
             </button>
         </div>

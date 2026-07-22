@@ -2,9 +2,19 @@
 {% block title %}Disposisi - Detail Disposisi{% endblock %}
 {% block content %}
 {% load disposisi_extras %}
+{% load auth_extras %}
 {% include "partials/disposisi_history.html" %}
 
-<div class="bg-gray-50/10 px-4 py-3 select-none w-full">
+<div class="w-full bg-gray-50/10 px-4 py-3 pb-52 select-none sm:pb-40 lg:pb-24">
+<!--    {% if messages %}-->
+<!--        {% for message in messages %}-->
+<!--        <div role="alert"-->
+<!--             class="mb-3 rounded border px-4 py-3 text-sm font-medium-->
+<!--                    {% if message.tags == 'error' %}border-red-300 bg-red-50 text-red-700{% else %}border-green-300 bg-green-50 text-green-800{% endif %}">-->
+<!--            {{ message }}-->
+<!--        </div>-->
+<!--        {% endfor %}-->
+<!--    {% endif %}-->
     <form method="post">
     {% csrf_token %}
         <div class="flex justify-end items-start">
@@ -54,6 +64,38 @@
             </div>
 
             <div class="flex items-center">
+                <p class="text-md font-semibold w-70">Metode Disposisi</p>
+                <p class="text-md my-1">
+                    {% if disposisi.tipe_disposisi == 'ONLINE' %}
+                        Online
+                    {% elif disposisi.tipe_disposisi == 'OFFLINE' %}
+                        Offline
+                    {% else %}
+                        Belum Dipilih
+                    {% endif %}
+                </p>
+            </div>
+
+            {% if disposisi.status_pengajuan == 'DIBAGIKAN' or disposisi.status_pengajuan == 'SELESAI' %}
+            <div id="sharedRecipientDescription" class="flex items-start">
+                <p class="text-md font-semibold w-70 pt-2">Dibagikan Kepada</p>
+                <div class="my-1 flex flex-1 flex-wrap gap-2">
+                    {% for recipient in disposisi.shared_recipients.all %}
+                    <span class="rounded px-3 py-1 text-sm font-medium
+                                 {% if recipient.agreed_at %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ recipient.get_role_display }}
+                        <span class="ml-1 text-xs font-semibold">
+                            {% if recipient.agreed_at %}(Sudah Disetujui){% else %}(Belum Disetujui){% endif %}
+                        </span>
+                    </span>
+                    {% empty %}
+                    <span class="text-sm text-gray-500">Belum ada penerima.</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="flex items-center">
                 <p class="text-md font-semibold w-70">Tembusan</p>
                 <p class="text-md my-1">{{ disposisi.tembusan }}</p>
             </div>
@@ -64,65 +106,244 @@
             </div>
         </div>
 
-        <br/>
-        <div class="fixed bottom-0 left-0 md:left-25 right-0 flex justify-between mt-8 px-5 py-3 shadow-lg">
-            <div class="flex flex-col gap-4">
+        <div class="detail-action-bar fixed bottom-0 left-0 right-0 z-20
+                    px-4 py-3 backdrop-blur">
+          <div class="mx-auto flex w-full flex-col gap-3
+                      lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="{% if can_approve_this_disposisi and disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIAJUKAN' %}{% url 'homepage:monitor' %}{% else %}{% url 'disposisi:disposisi' %}{% endif %}"
+                   class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                          border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                          hover:bg-gray-100">
+                    Kembali
+                </a>
+                <button type="button" id="historyButton"
+                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                               hover:bg-blue-50 cursor-pointer">
+                    History
+                </button>
+                {% if request.user|can_edit_disposisi %}
+                {% if disposisi.tipe_disposisi != 'ONLINE' or disposisi.status_pengajuan != 'DIAJUKAN' %}
                 <a href="{% url 'disposisi:editdisposisi' disposisi.id %}"
                    {% if disposisi.status_pengajuan != 'DIBUAT' %}
                         onclick="return confirm('Peringatan: Mengedit atau mengubah data disposisi akan mereset progress disposisi kembali ke awal. Apakah Anda yakin ingin melanjutkan?')"
                    {% endif %}
-                   class="inline-flex items-center justify-center
-                          bg-blue-950 text-white font-semibold rounded
-                          w-30 h-10 text-md hover:bg-blue-900">
+                   class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                          bg-blue-950 px-4 text-sm font-semibold text-white hover:bg-blue-900">
                     Edit
                 </a>
-               <button type="button" id="historyButton"
-                   class="inline-flex items-center justify-center cursor-pointer
-                          bg-blue-950 text-white font-semibold rounded
-                          w-30 h-10 text-md hover:bg-blue-900">
-                    History
-                </button>
-                <a href="{% url 'disposisi:disposisi' %}"
-                   class="inline-flex items-center justify-center
-                          bg-blue-950 text-white font-semibold rounded
-                          w-30 h-10 text-md hover:bg-blue-900">
-                    Kembali
-                </a>
+                {% endif %}
+                {% endif %}
             </div>
-            <div class="flex flex-row items-end">
+            <div class="flex max-w-full flex-wrap items-center gap-2 lg:justify-end">
                 <a href="{{ disposisi.dokumen_surat_masuk.url }}" id="btnPreview"  target="_blank"
-                   class="inline-flex items-center justify-center
-                          bg-blue-950 text-white font-semibold rounded
-                          w-40 h-10 text-md hover:bg-blue-900">
+                   class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                          border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                          hover:bg-blue-50">
                     Dokumen Surat
                 </a>
-                {% if disposisi.status_pengajuan == 'DIISI' %}
+                {% if disposisi.status_pengajuan == 'DIBUAT' %}
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Preview
+                    </a>
+                    {% if request.user|can_edit_disposisi %}
+                    <a href="{% url 'disposisi:uploaddisposisi' disposisi.id %}"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              bg-blue-950 px-4 text-sm font-semibold text-white hover:bg-blue-900">
+                        Lanjutkan
+                    </a>
+                    {% endif %}
+                {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIAJUKAN' %}
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Preview
+                    </a>
+                    {% if can_approve_this_disposisi %}
+                    <a href="{% url 'disposisi:isionline' disposisi.id %}"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              bg-green-700 px-4 text-sm font-semibold text-white hover:bg-green-800">
+                        Isi Disposisi
+                    </a>
+                    <button type="submit"
+                            formaction="{% url 'disposisi:decisiononline' disposisi.id %}"
+                            formmethod="post"
+                            name="keputusan"
+                            value="TOLAK"
+                            onclick="return confirm('Tolak pengajuan disposisi online ini?');"
+                            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                   bg-red-700 px-4 text-sm font-semibold text-white
+                                   hover:bg-red-800 cursor-pointer">
+                        Tolak
+                    </button>
+                    {% else %}
+                    <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                 bg-yellow-100 px-4 text-sm font-semibold text-yellow-800">
+                        Menunggu Persetujuan
+                    </span>
+                    {% if request.user|can_edit_disposisi %}
+                    <button type="submit"
+                            formaction="{% url 'disposisi:cancelonline' disposisi.id %}"
+                            formmethod="post"
+                            onclick="return confirm('Batalkan pengajuan online ini?');"
+                            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                   bg-red-700 px-4 text-sm font-semibold text-white
+                                   hover:bg-red-800 cursor-pointer">
+                        Batalkan Disposisi Online
+                    </button>
+                    {% endif %}
+                    {% endif %}
+                {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIISI' %}
+                    <a href="{% url 'disposisi:isionline' disposisi.id %}"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Lihat Isi Disposisi
+                    </a>
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Preview
+                    </a>
+                    {% if request.user.can_share_disposisi %}
+                    <button type="button" id="openShareModal"
+                            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                   bg-blue-950 px-5 text-sm font-semibold text-white
+                                   hover:bg-blue-900 cursor-pointer">
+                        Bagikan
+                    </button>
+                    {% else %}
+                    <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                 bg-green-100 px-4 text-sm font-semibold text-green-800">
+                        Disetujui Direktur
+                    </span>
+                    {% endif %}
+                {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIBAGIKAN' %}
+                    <a href="{% url 'disposisi:isionline' disposisi.id %}"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Lihat Isi Disposisi
+                    </a>
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Preview
+                    </a>
+                    {% if is_share_recipient %}
+                    {% if share_recipient.agreed_at %}
+                    <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                 bg-green-100 px-4 text-sm font-semibold text-green-800">
+                        Sudah Menyetujui
+                    </span>
+                    {% else %}
+                    <button type="submit"
+                            formaction="{% url 'disposisi:completeonline' disposisi.id %}"
+                            formmethod="post"
+                            onclick="return confirm('Setujui disposisi ini?');"
+                            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                   bg-green-700 px-5 text-sm font-semibold text-white
+                                   hover:bg-green-800 cursor-pointer">
+                        Setujui
+                    </button>
+                    {% endif %}
+                    {% else %}
+                    <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                 bg-blue-100 px-4 text-sm font-semibold text-blue-900">
+                        Telah Dibagikan
+                    </span>
+                    {% endif %}
+                {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'SELESAI' %}
+                    <a href="{% url 'disposisi:isionline' disposisi.id %}"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Lihat Isi Disposisi
+                    </a>
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Preview
+                    </a>
+                    <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                 bg-green-100 px-4 text-sm font-semibold text-green-800">
+                        Selesai
+                    </span>
+                {% elif disposisi.dokumen_disposisi %}
                     <a href="{{ disposisi.dokumen_disposisi.url }}" target="_blank"
-                       class="inline-flex items-center justify-center ml-5
-                              bg-blue-950 text-white font-semibold rounded
-                              w-40 h-10 text-md hover:bg-blue-900">
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
                         Disposisi
                     </a>
                 {% else %}
                     <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
-                       class="inline-flex items-center justify-center mx-5
-                              bg-blue-950 text-white font-semibold rounded
-                              w-40 h-10 text-md hover:bg-blue-900">
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
                         Preview
-                    </a>
-                    <a href="{% url 'disposisi:uploaddisposisi' disposisi.id %}"
-                       class="inline-flex items-center justify-center
-                              bg-blue-950 text-white font-semibold rounded
-                              w-40 h-10 text-md hover:bg-blue-900">
-                        Lanjutkan
                     </a>
                 {% endif %}
             </div>
+          </div>
         </div>
+
+        {% if request.user.can_share_disposisi and disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIISI' %}
+        <div id="shareModal"
+             class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4"
+             role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+            <div class="w-full max-w-xl rounded-lg bg-white shadow-2xl">
+                <div class="flex items-center justify-between border-b px-5 py-4">
+                    <div>
+                        <h2 id="shareModalTitle" class="text-lg font-bold text-blue-950">Bagikan Disposisi</h2>
+                        <p class="mt-1 text-sm text-gray-600">Pilih satu atau beberapa penerima.</p>
+                    </div>
+                    <button type="button" id="closeShareModal" aria-label="Tutup"
+                            class="rounded px-3 py-1 text-2xl text-gray-500 hover:bg-gray-100 cursor-pointer">&times;</button>
+                </div>
+                <fieldset class="grid max-h-[55vh] grid-cols-1 gap-2 overflow-y-auto p-5 sm:grid-cols-2">
+                    <legend class="sr-only">Tujuan pembagian disposisi</legend>
+                    {% for role_code, role_label in share_role_choices %}
+                    <label class="flex cursor-pointer items-start gap-3 rounded border border-gray-200 p-3 hover:bg-blue-50">
+                        <input type="checkbox" name="recipients" value="{{ role_code }}"
+                               class="mt-1 h-4 w-4 accent-blue-900">
+                        <span class="text-sm font-medium text-gray-900">{{ role_label }}</span>
+                    </label>
+                    {% endfor %}
+                </fieldset>
+                <div class="flex justify-end gap-3 border-t px-5 py-4">
+                    <button type="button" id="cancelShareModal"
+                            class="inline-flex h-10 items-center rounded border border-gray-300 px-5 text-sm font-semibold hover:bg-gray-100 cursor-pointer">
+                        Batal
+                    </button>
+                    <button type="submit"
+                            formaction="{% url 'disposisi:shareonline' disposisi.id %}"
+                            formmethod="post"
+                            class="inline-flex h-10 items-center rounded bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900 cursor-pointer">
+                        Bagikan
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </form>
 </div>
 
 <style>
+    @media (min-width: 768px) {
+        .detail-action-bar {
+            left: 7rem;
+        }
+    }
+
     .step{
         position: relative;
         margin-right: -8px;
@@ -151,6 +372,26 @@
 
     closeHistoryBtn.addEventListener('click', () => {
         historyDisposisi.classList.add('hidden');
+    });
+
+    const shareModal = document.getElementById('shareModal');
+    const openShareModal = document.getElementById('openShareModal');
+    const closeShareModal = document.getElementById('closeShareModal');
+    const cancelShareModal = document.getElementById('cancelShareModal');
+
+    const hideShareModal = () => {
+        shareModal?.classList.add('hidden');
+        shareModal?.classList.remove('flex');
+    };
+
+    openShareModal?.addEventListener('click', () => {
+        shareModal.classList.remove('hidden');
+        shareModal.classList.add('flex');
+    });
+    closeShareModal?.addEventListener('click', hideShareModal);
+    cancelShareModal?.addEventListener('click', hideShareModal);
+    shareModal?.addEventListener('click', (event) => {
+        if (event.target === shareModal) hideShareModal();
     });
 
 </script>

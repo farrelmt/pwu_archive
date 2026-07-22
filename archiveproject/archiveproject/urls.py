@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.conf import settings
 from django.urls import path, include
 
 urlpatterns = [
@@ -7,5 +8,9 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('disposisi/', include('disposisi.urls')),
     path('pengaturan/', include('pengaturan.urls')),
-    path("__reload__/", include("django_browser_reload.urls")),
 ]
+
+if settings.DEBUG:
+    urlpatterns.append(
+        path("__reload__/", include("django_browser_reload.urls"))
+    )
