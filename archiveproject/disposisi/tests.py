@@ -26,6 +26,11 @@ class DisposisiSecurityTests(TestCase):
             password="password-for-tests",
             role="sekretaris",
         )
+        self.admin = SystemUser.objects.create_user(
+            username="admin-editor",
+            password="password-for-tests",
+            role="admin",
+        )
         self.viewer = SystemUser.objects.create_user(
             username="viewer",
             password="password-for-tests",
@@ -171,6 +176,86 @@ class DisposisiSecurityTests(TestCase):
         return self.client.post(
             reverse("disposisi:uploaddisposisi", args=[self.disposisi.pk]),
             {"metode": "ONLINE"},
+        )
+
+    def upload_offline(self):
+        self.client.force_login(self.editor)
+        uploaded = SimpleUploadedFile(
+            "disposisi.pdf",
+            b"%PDF-1.4 offline test",
+            content_type="application/pdf",
+        )
+        return self.client.post(
+            reverse("disposisi:uploaddisposisi", args=[self.disposisi.pk]),
+            {"metode": "OFFLINE", "dokumen_disposisi": uploaded},
+        )
+
+    def test_offline_upload_waits_until_recipients_are_selected(self):
+        response = self.upload_offline()
+
+        self.assertRedirects(
+            response,
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk]),
+        )
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.tipe_disposisi, "OFFLINE")
+        self.assertEqual(self.disposisi.status_pengajuan, "DIISI")
+
+        detail_response = self.client.get(
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
+        )
+        self.assertContains(detail_response, 'id="openShareModal"')
+        self.assertContains(detail_response, 'id="shareModal"')
+        self.assertContains(detail_response, "Bagikan")
+
+    def test_sharing_offline_disposition_completes_progress(self):
+        self.upload_offline()
+
+        response = self.client.post(
+            reverse("disposisi:shareonline", args=[self.disposisi.pk]),
+            {"recipients": ["kadiv_akuntansi", "kadiv_keuangan"]},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk]),
+        )
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.status_pengajuan, "SELESAI")
+        self.assertSetEqual(
+            set(self.disposisi.shared_recipients.values_list("role", flat=True)),
+            {"kadiv_akuntansi", "kadiv_keuangan"},
+        )
+        self.assertTrue(
+            self.disposisi.logs.filter(action_log="BAGI_DISPOSISI").exists()
+        )
+        self.assertTrue(self.disposisi.logs.filter(action_log="SELESAI").exists())
+
+        detail_response = self.client.get(
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
+        )
+        self.assertContains(detail_response, "Kepala Divisi Akuntansi")
+        self.assertContains(detail_response, "Kepala Divisi Keuangan")
+        self.assertContains(detail_response, "Selesai")
+        self.assertNotContains(detail_response, "Belum menyetujui")
+
+    def test_admin_can_share_uploaded_offline_disposition(self):
+        self.upload_offline()
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("disposisi:shareonline", args=[self.disposisi.pk]),
+            {"recipients": ["kadiv_aset"]},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk]),
+        )
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.status_pengajuan, "SELESAI")
+        self.assertTrue(
+            self.disposisi.shared_recipients.filter(role="kadiv_aset").exists()
         )
 
     def approve_online(self):

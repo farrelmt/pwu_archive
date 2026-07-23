@@ -255,6 +255,19 @@ def detail_disposisi(request, pk):
     ).first()
 
     logs = disposisi.logs.select_related('user_log').all()
+    can_share_this_disposisi = (
+        disposisi.status_pengajuan == 'DIISI'
+        and (
+            (
+                disposisi.tipe_disposisi == 'ONLINE'
+                and request.user.can_share_disposisi
+            )
+            or (
+                disposisi.tipe_disposisi == 'OFFLINE'
+                and request.user.can_edit_disposisi
+            )
+        )
+    )
 
     grouped_logs = defaultdict(list)
 
@@ -292,6 +305,7 @@ def detail_disposisi(request, pk):
             ),
             'is_share_recipient': share_recipient is not None,
             'share_recipient': share_recipient,
+            'can_share_this_disposisi': can_share_this_disposisi,
         })
     else:
         messages.success(request, "You must be logged in to view this page.")
@@ -343,12 +357,18 @@ def upload_disposisi(request, pk):
 
         form = DisposisiUploadForm(request.POST, request.FILES, instance=disposisi)
         if form.is_valid():
-            disposisi = form.save(commit=False)
-            disposisi.tipe_disposisi = 'OFFLINE'
-            disposisi.status_pengajuan = 'SELESAI'
-            disposisi.save()
-
-            create_log(disposisi, request.user, 'UPLOAD_DISPOSISI')
+            with transaction.atomic():
+                disposisi = form.save(commit=False)
+                disposisi.tipe_disposisi = 'OFFLINE'
+                disposisi.status_pengajuan = 'DIISI'
+                disposisi.save()
+                disposisi.shared_recipients.all().delete()
+                create_log(
+                    disposisi,
+                    request.user,
+                    'UPLOAD_DISPOSISI',
+                    'File disposisi offline diunggah dan menunggu untuk dibagikan.',
+                )
 
             return redirect('disposisi:detaildisposisi', pk=pk)
     else:
@@ -508,7 +528,13 @@ def isi_online_disposisi(request, pk):
 @login_required
 @require_POST
 def share_online_disposisi(request, pk):
-    if not request.user.can_share_disposisi:
+    requested_disposisi = get_object_or_404(Disposisi, pk=pk)
+    can_share = (
+        request.user.can_share_disposisi
+        if requested_disposisi.tipe_disposisi == 'ONLINE'
+        else request.user.can_edit_disposisi
+    )
+    if not can_share:
         raise PermissionDenied
 
     form = ShareDisposisiForm(request.POST)
@@ -522,11 +548,18 @@ def share_online_disposisi(request, pk):
             pk=pk,
         )
         if not (
-            disposisi.tipe_disposisi == 'ONLINE'
+            disposisi.tipe_disposisi in {'ONLINE', 'OFFLINE'}
             and disposisi.status_pengajuan == 'DIISI'
         ):
             messages.error(request, "Disposisi ini belum siap dibagikan.")
             return redirect('disposisi:detaildisposisi', pk=pk)
+        can_share_locked = (
+            request.user.can_share_disposisi
+            if disposisi.tipe_disposisi == 'ONLINE'
+            else request.user.can_edit_disposisi
+        )
+        if not can_share_locked:
+            raise PermissionDenied
 
         selected_roles = form.cleaned_data['recipients']
         disposisi.shared_recipients.all().delete()
@@ -534,7 +567,8 @@ def share_online_disposisi(request, pk):
             DisposisiRecipient(disposisi=disposisi, role=role)
             for role in selected_roles
         ])
-        disposisi.status_pengajuan = 'DIBAGIKAN'
+        is_offline = disposisi.tipe_disposisi == 'OFFLINE'
+        disposisi.status_pengajuan = 'SELESAI' if is_offline else 'DIBAGIKAN'
         disposisi.save(update_fields=['status_pengajuan', 'waktu_diedit'])
 
         role_labels = dict(Disposisi.SHARE_ROLE_CHOICES)
@@ -545,8 +579,21 @@ def share_online_disposisi(request, pk):
             'BAGI_DISPOSISI',
             f'Disposisi dibagikan kepada: {recipient_names}.',
         )
+        if is_offline:
+            create_log(
+                disposisi,
+                request.user,
+                'SELESAI',
+                'Disposisi offline selesai setelah file diunggah dan dibagikan.',
+            )
 
-    messages.success(request, f"Disposisi berhasil dibagikan kepada {recipient_names}.")
+    if is_offline:
+        messages.success(
+            request,
+            f"Disposisi offline berhasil dibagikan kepada {recipient_names} dan selesai.",
+        )
+    else:
+        messages.success(request, f"Disposisi berhasil dibagikan kepada {recipient_names}.")
     return redirect('disposisi:detaildisposisi', pk=pk)
 
 

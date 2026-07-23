@@ -82,11 +82,13 @@
                 <div class="my-1 flex flex-1 flex-wrap gap-2">
                     {% for recipient in disposisi.shared_recipients.all %}
                     <span class="rounded px-3 py-1 text-sm font-medium
-                                 {% if recipient.agreed_at %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                 {% if disposisi.tipe_disposisi == 'OFFLINE' %}bg-blue-100 text-blue-900{% elif recipient.agreed_at %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
                         {{ recipient.get_role_display }}
+                        {% if disposisi.tipe_disposisi == 'ONLINE' %}
                         <span class="ml-1 text-xs font-semibold">
-                            {% if recipient.agreed_at %}(Sudah Disetujui){% else %}(Belum Disetujui){% endif %}
+                            {% if recipient.agreed_at %}(Sudah menyetujui){% else %}(Belum menyetujui){% endif %}
                         </span>
+                        {% endif %}
                     </span>
                     {% empty %}
                     <span class="text-sm text-gray-500">Belum ada penerima.</span>
@@ -198,6 +200,26 @@
                     </button>
                     {% endif %}
                     {% endif %}
+                {% elif disposisi.tipe_disposisi == 'OFFLINE' and disposisi.status_pengajuan == 'DIISI' %}
+                    <a href="{{ disposisi.dokumen_disposisi.url }}" target="_blank"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Disposisi
+                    </a>
+                    {% if can_share_this_disposisi %}
+                    <button type="button" id="openShareModal"
+                            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                   bg-blue-950 px-5 text-sm font-semibold text-white
+                                   hover:bg-blue-900 cursor-pointer">
+                        Bagikan
+                    </button>
+                    {% else %}
+                    <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                 bg-yellow-100 px-4 text-sm font-semibold text-yellow-800">
+                        Menunggu Dibagikan
+                    </span>
+                    {% endif %}
                 {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIISI' %}
                     <a href="{% url 'disposisi:isionline' disposisi.id %}"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
@@ -211,7 +233,7 @@
                               hover:bg-blue-50">
                         Preview
                     </a>
-                    {% if request.user.can_share_disposisi %}
+                    {% if can_share_this_disposisi %}
                     <button type="button" id="openShareModal"
                             class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                    bg-blue-950 px-5 text-sm font-semibold text-white
@@ -277,6 +299,17 @@
                                  bg-green-100 px-4 text-sm font-semibold text-green-800">
                         Selesai
                     </span>
+                {% elif disposisi.tipe_disposisi == 'OFFLINE' and disposisi.status_pengajuan == 'SELESAI' %}
+                    <a href="{{ disposisi.dokumen_disposisi.url }}" target="_blank"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                              hover:bg-blue-50">
+                        Disposisi
+                    </a>
+                    <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                 bg-green-100 px-4 text-sm font-semibold text-green-800">
+                        Selesai
+                    </span>
                 {% elif disposisi.dokumen_disposisi %}
                     <a href="{{ disposisi.dokumen_disposisi.url }}" target="_blank"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
@@ -296,7 +329,7 @@
           </div>
         </div>
 
-        {% if request.user.can_share_disposisi and disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIISI' %}
+        {% if can_share_this_disposisi %}
         <div id="shareModal"
              class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4"
              role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
