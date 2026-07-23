@@ -243,7 +243,9 @@ class ShareDisposisiForm(forms.Form):
     recipients = forms.MultipleChoiceField(
         label="Tujuan Bagikan",
         choices=Disposisi.SHARE_ROLE_CHOICES,
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            "class": "mt-1 h-4 w-4 accent-blue-900",
+        }),
         error_messages={
             "required": "Pilih minimal satu tujuan disposisi.",
             "invalid_choice": "Tujuan disposisi tidak valid.",

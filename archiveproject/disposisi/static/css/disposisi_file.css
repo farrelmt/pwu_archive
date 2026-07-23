@@ -188,6 +188,12 @@ body {
     height: 16px;
     border: 1px solid black;
     margin-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .checkbox-text{

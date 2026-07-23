@@ -306,6 +306,9 @@ def detail_disposisi(request, pk):
             'is_share_recipient': share_recipient is not None,
             'share_recipient': share_recipient,
             'can_share_this_disposisi': can_share_this_disposisi,
+            'selected_recipient_roles': list(
+                disposisi.shared_recipients.values_list('role', flat=True)
+            ),
         })
     else:
         messages.success(request, "You must be logged in to view this page.")
@@ -314,12 +317,18 @@ def detail_disposisi(request, pk):
 @login_required
 def preview_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
-    return render(request, 'disposisi_preview.html', {'disposisi': disposisi})
+    return render(request, 'disposisi_preview.html', {
+        'disposisi': disposisi,
+        'selected_recipient_roles': list(
+            disposisi.shared_recipients.values_list('role', flat=True)
+        ),
+    })
 
 @login_required
 @disposisi_editor_required
 def upload_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
+    share_form = ShareDisposisiForm(request.POST or None)
 
     if request.method == "POST":
         if disposisi.status_pengajuan != 'DIBUAT':
@@ -327,6 +336,23 @@ def upload_disposisi(request, pk):
             return redirect('disposisi:detaildisposisi', pk=pk)
 
         metode = request.POST.get('metode')
+        if not share_form.is_valid():
+            messages.error(request, share_form.errors['recipients'][0])
+            form = DisposisiUploadForm(
+                request.POST,
+                request.FILES,
+                instance=disposisi,
+            )
+            return render(request, 'disposisi_upload.html', {
+                'disposisi': disposisi,
+                'form': form,
+                'share_form': share_form,
+            })
+
+        selected_roles = share_form.cleaned_data['recipients']
+        role_labels = dict(Disposisi.SHARE_ROLE_CHOICES)
+        recipient_names = ', '.join(role_labels[role] for role in selected_roles)
+
         if metode == 'ONLINE':
             with transaction.atomic():
                 disposisi = Disposisi.objects.select_for_update().get(pk=pk)
@@ -342,11 +368,16 @@ def upload_disposisi(request, pk):
                     'status_pengajuan', 'waktu_diedit'
                 ])
                 disposisi.shared_recipients.all().delete()
+                DisposisiRecipient.objects.bulk_create([
+                    DisposisiRecipient(disposisi=disposisi, role=role)
+                    for role in selected_roles
+                ])
                 create_log(
                     disposisi,
                     request.user,
                     'AJUKAN_DISPOSISI',
-                    'Pengajuan disposisi online dikirim ke Direktur.',
+                    f'Pengajuan disposisi online dikirim ke Direktur dan akan '
+                    f'dibagikan kepada: {recipient_names}.',
                 )
             messages.success(request, "Pengajuan online dikirim ke Direktur.")
             return redirect('disposisi:detaildisposisi', pk=pk)
@@ -360,14 +391,31 @@ def upload_disposisi(request, pk):
             with transaction.atomic():
                 disposisi = form.save(commit=False)
                 disposisi.tipe_disposisi = 'OFFLINE'
-                disposisi.status_pengajuan = 'DIISI'
+                disposisi.status_pengajuan = 'SELESAI'
                 disposisi.save()
                 disposisi.shared_recipients.all().delete()
+                DisposisiRecipient.objects.bulk_create([
+                    DisposisiRecipient(disposisi=disposisi, role=role)
+                    for role in selected_roles
+                ])
                 create_log(
                     disposisi,
                     request.user,
                     'UPLOAD_DISPOSISI',
-                    'File disposisi offline diunggah dan menunggu untuk dibagikan.',
+                    'File disposisi offline berhasil diunggah.',
+                )
+                create_log(
+                    disposisi,
+                    request.user,
+                    'BAGI_DISPOSISI',
+                    f'Disposisi dibagikan kepada: {recipient_names}.',
+                )
+                create_log(
+                    disposisi,
+                    request.user,
+                    'SELESAI',
+                    'Disposisi offline selesai setelah file diunggah dan '
+                    'penerima dipilih.',
                 )
 
             return redirect('disposisi:detaildisposisi', pk=pk)
@@ -377,6 +425,7 @@ def upload_disposisi(request, pk):
     return render(request, 'disposisi_upload.html', {
         'disposisi': disposisi,
         'form': form,
+        'share_form': share_form,
     })
 
 
@@ -502,7 +551,10 @@ def isi_online_disposisi(request, pk):
                     raise PermissionDenied
 
                 locked_disposisi.isi_disposisi = form.cleaned_data['isi_disposisi']
-                locked_disposisi.status_pengajuan = 'DIISI'
+                has_recipients = locked_disposisi.shared_recipients.exists()
+                locked_disposisi.status_pengajuan = (
+                    'DIBAGIKAN' if has_recipients else 'DIISI'
+                )
                 locked_disposisi.save(update_fields=[
                     'isi_disposisi', 'status_pengajuan', 'waktu_diedit'
                 ])
@@ -512,6 +564,22 @@ def isi_online_disposisi(request, pk):
                     'SETUJUI_DISPOSISI',
                     'Isi disposisi online dikirim dan disetujui oleh Direktur.',
                 )
+                if has_recipients:
+                    role_labels = dict(Disposisi.SHARE_ROLE_CHOICES)
+                    selected_roles = list(
+                        locked_disposisi.shared_recipients.values_list(
+                            'role', flat=True
+                        )
+                    )
+                    recipient_names = ', '.join(
+                        role_labels[role] for role in selected_roles
+                    )
+                    create_log(
+                        locked_disposisi,
+                        request.user,
+                        'BAGI_DISPOSISI',
+                        f'Disposisi dibagikan kepada: {recipient_names}.',
+                    )
 
             messages.success(request, "Isi disposisi berhasil dikirim dan disetujui.")
             return redirect('disposisi:detaildisposisi', pk=pk)
@@ -522,6 +590,9 @@ def isi_online_disposisi(request, pk):
         'disposisi': disposisi,
         'form': form,
         'read_only': read_only,
+        'selected_recipient_roles': list(
+            disposisi.shared_recipients.values_list('role', flat=True)
+        ),
     })
 
 
@@ -671,7 +742,12 @@ def download_disposisi_pdf(request, pk):
 
     html_string = render_to_string(
         'disposisi_pdf.html',
-        {'disposisi': disposisi}
+        {
+            'disposisi': disposisi,
+            'selected_recipient_roles': list(
+                disposisi.shared_recipients.values_list('role', flat=True)
+            ),
+        }
     )
 
     response = HttpResponse(content_type='application/pdf')

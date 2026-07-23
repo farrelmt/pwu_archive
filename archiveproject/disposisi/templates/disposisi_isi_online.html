@@ -52,14 +52,14 @@
                             <span class="document-label">Diteruskan Kepada</span>
                             <span>:</span>
                         </div>
-                        <div class="destination-option"><span></span>Direktur Utama</div>
-                        <div class="destination-option"><span></span>Direktur Umum</div>
-                        <div class="destination-option"><span></span>Kepala Divisi Akuntansi</div>
-                        <div class="destination-option"><span></span>Kepala Divisi Manajemen Risiko</div>
-                        <div class="destination-option"><span></span>Kepala Divisi Keuangan</div>
-                        <div class="destination-option"><span></span>Kepala Divisi Legal &amp; Umum / Sekretaris Perusahaan</div>
-                        <div class="destination-option"><span></span>Kepala Divisi Aset</div>
-                        <div class="destination-option"><span></span>Kepala SPI</div>
+                        <div class="destination-option"><span>{% if 'direktur_utama' in selected_recipient_roles %}✓{% endif %}</span>Direktur Utama</div>
+                        <div class="destination-option"><span>{% if 'direktur_umum' in selected_recipient_roles %}✓{% endif %}</span>Direktur Umum</div>
+                        <div class="destination-option"><span>{% if 'kadiv_akuntansi' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Akuntansi</div>
+                        <div class="destination-option"><span>{% if 'kadiv_risiko' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Manajemen Risiko</div>
+                        <div class="destination-option"><span>{% if 'kadiv_keuangan' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Keuangan</div>
+                        <div class="destination-option"><span>{% if 'kadiv_legal_umum' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Legal &amp; Umum / Sekretaris Perusahaan</div>
+                        <div class="destination-option"><span>{% if 'kadiv_aset' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Aset</div>
+                        <div class="destination-option"><span>{% if 'kadiv_spi' in selected_recipient_roles %}✓{% endif %}</span>Kepala SPI</div>
                     </div>
                 </div>
 
@@ -267,6 +267,11 @@
         height: 16px;
         margin-right: 8px;
         border: 1px solid #000;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        line-height: 1;
     }
 
     .isi-section {

@@ -33,14 +33,14 @@
         </div>
         <div class="tujuan-container border-bottom border-right">
             <div class="tujuan-title"><div class="label" style="width: 150px;">Diteruskan Kepada</div><div class="colon">:</div></div>
-            <div class="checkbox-row"><div class="checkbox checkbox-text"></div><span class="checkbox-text">Direktur Utama</span></div>
-            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Direktur Umum</span></div>
-            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Akuntansi</span></div>
-            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Manajemen Risiko</span></div>
-            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Keuangan</span></div>
-            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Legal & Umum / Sekretaris Perusahaan</span></div>
-            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala Divisi Aset</span></div>
-            <div class="checkbox-row"><div class="checkbox"></div><span class="checkbox-text">Kepala SPI</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'direktur_utama' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Direktur Utama</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'direktur_umum' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Direktur Umum</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_akuntansi' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Akuntansi</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_risiko' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Manajemen Risiko</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_keuangan' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Keuangan</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_legal_umum' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Legal & Umum / Sekretaris Perusahaan</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_aset' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Aset</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_spi' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala SPI</span></div>
         </div>
     </div>
 
