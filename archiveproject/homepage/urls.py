@@ -11,6 +11,7 @@ urlpatterns = [
     path('surat-keluar/', views.surat_keluar, name='suratkeluar'),
     path('monitor/', views.monitoring, name='monitor'),
     path('divisi/', views.divisi, name='divisi'),
+    path('activity-log/', views.activity_log, name='activity_log'),
     path('notif/', views.notifikasi, name='notif'),
     path('report/', views.report, name='report'),
 

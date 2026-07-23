@@ -1,6 +1,7 @@
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from accounts.models import ActivityLog
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"])
@@ -46,3 +47,65 @@ class DivisionUserListTests(TestCase):
         total_users = get_user_model().objects.count()
         self.assertEqual(response.context["users"].count(), total_users)
         self.assertContains(response, f"Total pengguna: {total_users}")
+
+
+@override_settings(ALLOWED_HOSTS=["testserver"])
+class ActivityLogAccessTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.admin = user_model.objects.create_user(
+            username="audit-admin",
+            password="test-password",
+            role="admin",
+        )
+        self.regular_user = user_model.objects.create_user(
+            username="audit-viewer",
+            password="test-password",
+            role="kadiv_keuangan",
+        )
+        ActivityLog.objects.create(
+            actor=self.regular_user,
+            actor_username=self.regular_user.username,
+            category="DISPOSISI",
+            action="DIEDIT",
+            description="Disposition updated.",
+            target_type="disposisi.Disposisi",
+            target_id="12",
+            target_label="12/VII/2026",
+        )
+
+    def test_activity_log_is_visible_to_admin(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("homepage:activity_log"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Activity Log")
+        self.assertContains(response, "audit-viewer")
+        self.assertContains(response, "DIEDIT")
+        self.assertContains(response, "12/VII/2026")
+
+    def test_activity_log_rejects_non_admin(self):
+        self.client.force_login(self.regular_user)
+
+        response = self.client.get(reverse("homepage:activity_log"))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_activity_log_filters_by_category_and_result(self):
+        ActivityLog.objects.create(
+            actor_username="unknown-user",
+            category="AUTH",
+            action="LOGIN_FAILED",
+            description="Login attempt failed.",
+            success=False,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse("homepage:activity_log"),
+            {"category": "AUTH", "result": "failed"},
+        )
+
+        self.assertContains(response, "LOGIN_FAILED")
+        self.assertNotContains(response, "12/VII/2026")

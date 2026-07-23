@@ -102,6 +102,15 @@
                 </div>
 
                 <div class="mb-2">
+                    {% if request.user.is_superuser or request.user.role == 'admin' %}
+                    <a href="{% url 'homepage:activity_log' %}"
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if 'activity-log' in request.path %}
+                            bg-blue-600
+                        {% endif %}">
+                        Activity Log
+                    </a>
+                    {% endif %}
                     <a href="{% url 'homepage:report' %}"
                        class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
                         {% if 'report' in request.path %}

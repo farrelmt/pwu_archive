@@ -26,7 +26,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'tailwind',
     'theme',
-    'accounts',
+    'accounts.apps.AccountsConfig',
     'homepage',
     'disposisi',
     'pengaturan',

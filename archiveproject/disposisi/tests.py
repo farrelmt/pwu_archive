@@ -5,6 +5,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import SystemUser
+from accounts.models import ActivityLog
 from .models import Disposisi
 
 
@@ -294,6 +295,14 @@ class DisposisiSecurityTests(TestCase):
         self.assertEqual(self.disposisi.isi_disposisi, "")
         self.assertTrue(
             self.disposisi.logs.filter(action_log="AJUKAN_DISPOSISI").exists()
+        )
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                actor=self.editor,
+                category="DISPOSISI",
+                action="AJUKAN_DISPOSISI",
+                target_id=str(self.disposisi.pk),
+            ).exists()
         )
 
         detail_response = self.client.get(

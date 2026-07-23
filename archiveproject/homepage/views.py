@@ -8,7 +8,11 @@ from django.contrib.auth import get_user_model
 from .models import AppSetting
 from django.conf import settings
 from .services import monitor_disposisi_for_user
+from accounts.audit import record_activity
+from accounts.models import ActivityLog
+from django.core.exceptions import PermissionDenied
 import textwrap
+from datetime import date
 
 @login_required(login_url='accounts:login')
 def dashboard(request):
@@ -66,6 +70,84 @@ def divisi(request):
     users = get_user_model().objects.all().order_by('role', 'username')
     return render(request, 'divisi.html', {'users': users})
 
+
+@login_required(login_url='accounts:login')
+def activity_log(request):
+    if not (request.user.is_superuser or request.user.role == 'admin'):
+        raise PermissionDenied
+
+    logs = ActivityLog.objects.select_related('actor').all()
+    search = request.GET.get('search', '').strip()
+    actor_id = request.GET.get('actor', '').strip()
+    category = request.GET.get('category', '').strip()
+    action = request.GET.get('action', '').strip()
+    result = request.GET.get('result', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to = request.GET.get('date_to', '').strip()
+
+    if search:
+        logs = logs.filter(
+            Q(actor_username__icontains=search)
+            | Q(description__icontains=search)
+            | Q(target_label__icontains=search)
+            | Q(ip_address__icontains=search)
+        )
+    if actor_id.isdigit():
+        logs = logs.filter(actor_id=actor_id)
+    if category in dict(ActivityLog.CATEGORY_CHOICES):
+        logs = logs.filter(category=category)
+    if action:
+        logs = logs.filter(action=action)
+    if result == 'success':
+        logs = logs.filter(success=True)
+    elif result == 'failed':
+        logs = logs.filter(success=False)
+    try:
+        parsed_date_from = date.fromisoformat(date_from) if date_from else None
+    except ValueError:
+        parsed_date_from = None
+        date_from = ''
+    try:
+        parsed_date_to = date.fromisoformat(date_to) if date_to else None
+    except ValueError:
+        parsed_date_to = None
+        date_to = ''
+    if parsed_date_from:
+        logs = logs.filter(created_at__date__gte=parsed_date_from)
+    if parsed_date_to:
+        logs = logs.filter(created_at__date__lte=parsed_date_to)
+
+    try:
+        page_limit = int(request.GET.get('limit', 20))
+    except (TypeError, ValueError):
+        page_limit = 20
+    if page_limit not in {20, 50, 100}:
+        page_limit = 20
+
+    paginator = Paginator(logs, page_limit)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
+
+    return render(request, 'activity_log.html', {
+        'page_obj': page_obj,
+        'page_limit': str(page_limit),
+        'search': search,
+        'selected_actor': actor_id,
+        'selected_category': category,
+        'selected_action': action,
+        'selected_result': result,
+        'date_from': date_from,
+        'date_to': date_to,
+        'users': get_user_model().objects.order_by('username'),
+        'categories': ActivityLog.CATEGORY_CHOICES,
+        'actions': ActivityLog.objects.order_by('action').values_list(
+            'action', flat=True
+        ).distinct(),
+        'query_string': query_params.urlencode(),
+    })
+
+
 @login_required(login_url='accounts:login')
 def notifikasi(request):
     messages.info(request, "Fitur notifikasi belum tersedia.")
@@ -108,6 +190,14 @@ Steps:
             email.attach(screenshot.name, screenshot.read(), screenshot.content_type)
 
         email.send()
+        record_activity(
+            request=request,
+            category='SYSTEM',
+            action='BUG_REPORT_SENT',
+            description='Bug report sent by email.',
+            target_type='homepage.Report',
+            target_label=title or 'Untitled report',
+        )
 
         messages.success(request, "Report sent successfully")
         return redirect("homepage:dashboard")

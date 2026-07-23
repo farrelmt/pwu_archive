@@ -22,6 +22,7 @@ from django.contrib import messages
 from weasyprint import HTML
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
+from accounts.audit import record_activity
 
 @login_required
 def list_disposisi(request):
@@ -176,12 +177,26 @@ def list_disposisi(request):
     return render(request, 'disposisi.html', context)
 
 def create_log(disposisi, user, action, desc=""):
-    DisposisiLog.objects.create(
+    log = DisposisiLog.objects.create(
         disposisi= disposisi,
         user_log= user,
         action_log= action,
         keterangan_log  = desc
     )
+    record_activity(
+        actor=user,
+        category='DISPOSISI',
+        action=action,
+        description=desc or log.get_action_log_display(),
+        target_type='disposisi.Disposisi',
+        target_id=disposisi.pk,
+        target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
+        metadata={
+            'status': disposisi.status_pengajuan,
+            'method': disposisi.tipe_disposisi,
+        },
+    )
+
 
 @login_required
 @disposisi_editor_required
@@ -241,6 +256,19 @@ def update_disposisi(request, pk):
 def hapus_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
     files = [disposisi.dokumen_surat_masuk, disposisi.dokumen_disposisi]
+    record_activity(
+        request=request,
+        category='DISPOSISI',
+        action='HAPUS',
+        description='Disposisi deleted.',
+        target_type='disposisi.Disposisi',
+        target_id=disposisi.pk,
+        target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
+        metadata={
+            'status': disposisi.status_pengajuan,
+            'method': disposisi.tipe_disposisi,
+        },
+    )
     disposisi.delete()
     for document in files:
         if document:
@@ -739,6 +767,15 @@ def edit_file_disposisi(request, pk):
 @login_required
 def download_disposisi_pdf(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
+    record_activity(
+        request=request,
+        category='DISPOSISI',
+        action='DOWNLOAD_PDF',
+        description='Disposition PDF generated and downloaded.',
+        target_type='disposisi.Disposisi',
+        target_id=disposisi.pk,
+        target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
+    )
 
     html_string = render_to_string(
         'disposisi_pdf.html',
