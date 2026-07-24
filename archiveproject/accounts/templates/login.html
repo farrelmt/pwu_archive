@@ -21,7 +21,8 @@
                 <div class="flex items-center justify-between">
 
                     <label class="flex items-center text-sm text-black font-semibold w-60">
-                        <input type="checkbox" onClick="togglePassword()" name="show-password" class="bg-white border-gray-300 text-blue-500 mr-2">
+                        <input type="checkbox" id="showPassword" name="show-password"
+                               class="bg-white border-gray-300 text-blue-500 mr-2">
                         Show Password
                     </label>
 
@@ -42,7 +43,7 @@
         </div>
     </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function togglePassword() {
     const input = document.getElementById("password");
 
@@ -52,5 +53,6 @@ function togglePassword() {
         input.type = "password";
     }
 }
+document.getElementById("showPassword").addEventListener("change", togglePassword);
 </script>
 {% endblock %}

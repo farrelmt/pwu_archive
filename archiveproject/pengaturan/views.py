@@ -1,9 +1,8 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from accounts.models import SystemUser
-from django.shortcuts import get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.password_validation import validate_password
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 
@@ -33,19 +32,29 @@ def edit_profil(request, pk):
 
         password = request.POST.get('new-password')
         repassword = request.POST.get('confirm-password')
+        current_password = request.POST.get('current-password')
+        password_changed = False
 
-        if password and repassword:
-            if len(password) < 8 and len(password) < 8:
-                messages.error(request, 'Password must be at least 8 characters.')
+        if password or repassword:
+            if not current_password or not user.check_password(current_password):
+                messages.error(request, 'Current password is incorrect.')
                 return redirect('pengaturan:edit-profil', pk=pk)
 
             if password != repassword:
                 messages.error(request, 'Passwords do not match')
                 return redirect('pengaturan:edit-profil', pk=pk)
+
+            try:
+                validate_password(password, user=user)
+            except ValidationError as error:
+                messages.error(request, " ".join(error.messages))
+                return redirect('pengaturan:edit-profil', pk=pk)
             user.set_password(password)
+            password_changed = True
 
         user.save()
-        update_session_auth_hash(request, user)
+        if password_changed:
+            update_session_auth_hash(request, user)
 
         messages.success(request, "Profil berhasil diperbarui!")
         return redirect('pengaturan:main')

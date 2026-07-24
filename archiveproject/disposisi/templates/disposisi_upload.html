@@ -137,7 +137,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const fileInput = document.getElementById('dokumenInput');
     const btnFile = document.getElementById('btnFile');
     const fileName = document.getElementById('fileName');

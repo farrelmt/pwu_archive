@@ -36,6 +36,7 @@ TAILWIND_APP_NAME = 'theme'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'archiveproject.security.SecurityHeadersMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -97,6 +98,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 12,
+        },
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -152,11 +156,34 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-EMAIL_TO_REPORT = os.getenv('EMAIL_HOST_USER')
+EMAIL_TO_REPORT = os.getenv('EMAIL_TO_REPORT', EMAIL_HOST_USER)
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=15)
+
+SESSION_COOKIE_AGE = env.int('SESSION_COOKIE_AGE', default=28800)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = env.bool(
+    'SESSION_EXPIRE_AT_BROWSER_CLOSE',
+    default=True,
+)
+SESSION_SAVE_EVERY_REQUEST = env.bool('SESSION_SAVE_EVERY_REQUEST', default=True)
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int(
+    'DATA_UPLOAD_MAX_MEMORY_SIZE',
+    default=2 * 1024 * 1024,
+)
+FILE_UPLOAD_MAX_MEMORY_SIZE = env.int(
+    'FILE_UPLOAD_MAX_MEMORY_SIZE',
+    default=2 * 1024 * 1024,
+)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = env.int(
+    'DATA_UPLOAD_MAX_NUMBER_FIELDS',
+    default=1000,
+)
+SECURE_REFERRER_POLICY = 'same-origin'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=True)
     CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=True)
+    CSRF_COOKIE_HTTPONLY = env.bool('CSRF_COOKIE_HTTPONLY', default=True)
     SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
     SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=31536000)
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(

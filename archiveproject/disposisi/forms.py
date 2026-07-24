@@ -1,8 +1,10 @@
 from django import forms
+from django.core.files.uploadedfile import UploadedFile
 from django.utils.html import escape, strip_tags
 from datetime import date
 from html.parser import HTMLParser
 import re
+from PIL import Image, UnidentifiedImageError
 from .models import Disposisi
 
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024
@@ -11,6 +13,7 @@ ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
     "image/png",
 }
+ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG"}
 
 
 class DisposisiRichTextSanitizer(HTMLParser):
@@ -134,14 +137,34 @@ def sanitize_disposisi_rich_text(value):
 def validate_uploaded_document(uploaded_file):
     if not uploaded_file:
         return uploaded_file
+    if not isinstance(uploaded_file, UploadedFile):
+        return uploaded_file
 
     if uploaded_file.size > MAX_UPLOAD_SIZE:
         raise forms.ValidationError("Ukuran maksimal file adalah 10 MB.")
 
     content_type = getattr(uploaded_file, "content_type", None)
-    if content_type and content_type not in ALLOWED_CONTENT_TYPES:
+    if content_type not in ALLOWED_CONTENT_TYPES:
         raise forms.ValidationError("Format file tidak diizinkan (PDF / JPG / PNG).")
 
+    header = uploaded_file.read(8)
+    uploaded_file.seek(0)
+    if content_type == "application/pdf":
+        if not header.startswith(b"%PDF-"):
+            raise forms.ValidationError("Isi file bukan PDF yang valid.")
+        return uploaded_file
+
+    try:
+        image = Image.open(uploaded_file)
+        image.verify()
+        image_format = image.format
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise forms.ValidationError("Isi file gambar tidak valid.")
+    finally:
+        uploaded_file.seek(0)
+
+    if image_format not in ALLOWED_IMAGE_FORMATS:
+        raise forms.ValidationError("Format gambar tidak diizinkan.")
     return uploaded_file
 
 class DisposisiForm(forms.ModelForm):
@@ -251,4 +274,3 @@ class ShareDisposisiForm(forms.Form):
             "invalid_choice": "Tujuan disposisi tidak valid.",
         },
     )
-

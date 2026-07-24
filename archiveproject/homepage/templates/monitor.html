@@ -37,7 +37,7 @@
         <form method="get" class="mb-2 flex items-center gap-2">
             <input type="hidden" name="search" value="{{ search }}">
             <label for="monitorLimit" class="font-medium">Tampilkan</label>
-            <select id="monitorLimit" name="limit" onchange="this.form.submit()"
+            <select id="monitorLimit" name="limit" data-auto-submit
                     class="h-7 w-16 border bg-white text-sm">
                 <option value="20" {% if page_limit == '20' %}selected{% endif %}>20</option>
                 <option value="50" {% if page_limit == '50' %}selected{% endif %}>50</option>
@@ -61,8 +61,9 @@
                 </thead>
                 <tbody>
                     {% for disposisi in page_obj %}
-                    <tr onclick="window.location.href='{% url 'disposisi:detaildisposisi' disposisi.pk %}';"
-                        class="cursor-pointer transition hover:bg-yellow-300">
+                    <tr data-href="{% url 'disposisi:detaildisposisi' disposisi.pk %}"
+                        tabindex="0"
+                        class="js-navigate-row cursor-pointer transition hover:bg-yellow-300">
                         <td class="border px-3 py-2">
                             {{ page_obj.start_index|add:forloop.counter0 }}
                         </td>

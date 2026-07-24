@@ -1,8 +1,9 @@
 {% load disposisi_extras %}
 {% for disposisi in page_obj %}
 
-<tr onclick="window.location.href='{{ disposisi.id }}';"
-    class="dataDis cursor-pointer hover:bg-yellow-300 transition">
+<tr data-href="{% url 'disposisi:detaildisposisi' disposisi.pk %}"
+    tabindex="0"
+    class="dataDis js-navigate-row cursor-pointer hover:bg-yellow-300 transition">
     <td class="border px-4 py-2">{{ forloop.counter }}</td>
     <td class="border px-4 py-2">{{ disposisi.tanggal_surat_diterima|tanggal_id }}</td>
     <td class="border px-4 py-2">{{ disposisi.nomor_agenda }}</td>

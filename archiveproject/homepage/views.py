@@ -1,11 +1,15 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
+from django.core.mail import EmailMessage
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_http_methods
 from .models import AppSetting
+from .forms import ReportForm
 from django.conf import settings
 from .services import monitor_disposisi_for_user
 import textwrap
@@ -17,8 +21,9 @@ def dashboard(request):
         {"page": "nota_dinas",  "url": "notadinas", "title": "Nota Dinas", "icon": "nota_dinas"},
         {"page": "surat_keluar", "url": "suratkeluar", "title": "Surat Keluar", "icon": "surat_keluar"},
         {"page": "monitor", "url": "monitor", "title": "Monitor", "icon": "monitor"},
-        {"page": "divisi", "url": "divisi", "title": "Divisi", "icon": "divisi"},
     ]
+    if request.user.is_superuser or request.user.can_edit_disposisi:
+        links.append({"page": "divisi", "url": "divisi", "title": "Divisi", "icon": "divisi"})
     pending_online_count = monitor_disposisi_for_user(request.user).count()
     return render(request, 'dashboard.html', {
         'links': links,
@@ -63,6 +68,8 @@ def monitoring(request):
 
 @login_required(login_url='accounts:login')
 def divisi(request):
+    if not (request.user.is_superuser or request.user.can_edit_disposisi):
+        raise PermissionDenied
     users = get_user_model().objects.all().order_by('role', 'username')
     return render(request, 'divisi.html', {'users': users})
 
@@ -72,14 +79,17 @@ def notifikasi(request):
     return redirect("homepage:dashboard")
 
 @login_required(login_url='accounts:login')
+@never_cache
+@require_http_methods(["GET", "POST"])
 def report(request):
     to_email = settings.EMAIL_TO_REPORT
+    form = ReportForm(request.POST or None, request.FILES or None)
 
-    if request.method == "POST":
-        title = request.POST.get("title")
-        description = request.POST.get("description")
-        steps = request.POST.get("steps")
-        screenshot = request.FILES.get("screenshot")
+    if request.method == "POST" and form.is_valid():
+        title = form.cleaned_data["title"]
+        description = form.cleaned_data["description"]
+        steps = form.cleaned_data["steps"]
+        screenshot = form.cleaned_data.get("screenshot")
 
         user = request.user
 
@@ -112,4 +122,4 @@ Steps:
         messages.success(request, "Report sent successfully")
         return redirect("homepage:dashboard")
 
-    return render(request, 'report.html')
+    return render(request, 'report.html', {'form': form})

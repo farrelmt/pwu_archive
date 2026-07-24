@@ -1,7 +1,10 @@
+import mimetypes
+from urllib.parse import quote
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.http import JsonResponse, HttpResponse
+from django.http import Http404, JsonResponse, HttpResponse
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.db import transaction
@@ -14,6 +17,7 @@ from .forms import (
     ShareDisposisiForm,
 )
 from .decorators import disposisi_director_required, disposisi_editor_required
+from .access import visible_disposisi_for_user
 from datetime import datetime
 from collections import defaultdict
 from django.utils import timezone
@@ -21,14 +25,19 @@ from django.utils.timezone import localtime
 from django.contrib import messages
 from weasyprint import HTML
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET, require_POST
+from django.utils.http import content_disposition_header
 
 @login_required
+@never_cache
 def list_disposisi(request):
     search = request.GET.get('search', '')
     try:
         page_limit = int(request.GET.get('limit', 20))
     except ValueError:
+        page_limit = 20
+    if page_limit not in {20, 50, 100}:
         page_limit = 20
 
     try:
@@ -61,9 +70,9 @@ def list_disposisi(request):
     sortTable = ALLOWED_SORT.get(sortDisposisi, 'tanggal_surat_diterima')
 
     if orderDisposisi == 'asc':
-        data = Disposisi.objects.all().order_by(sortTable)
+        data = visible_disposisi_for_user(request.user).order_by(sortTable)
     else:
-        data = Disposisi.objects.all().order_by(f'-{sortTable}')
+        data = visible_disposisi_for_user(request.user).order_by(f'-{sortTable}')
 
     SEARCH_FIELDS = [
         'tanggal_surat_diterima',
@@ -193,8 +202,6 @@ def tambah_disposisi(request):
 
             create_log(disposisi, request.user, 'DIBUAT')
             return redirect('disposisi:disposisi')
-        else:
-            print(form.errors)
 
     else:
         form = DisposisiForm()
@@ -224,8 +231,6 @@ def update_disposisi(request, pk):
 
             create_log(disposisi, request.user, 'DIEDIT')
             return redirect('disposisi:detaildisposisi', pk=pk)
-        else:
-            print(form.errors)
     else:
         form = DisposisiForm(instance=disposisi)
 
@@ -248,8 +253,12 @@ def hapus_disposisi(request, pk):
     return redirect('disposisi:disposisi')
 
 @login_required
+@never_cache
 def detail_disposisi(request, pk):
-    disposisi = get_object_or_404(Disposisi, pk=pk)
+    disposisi = get_object_or_404(
+        visible_disposisi_for_user(request.user),
+        pk=pk,
+    )
     share_recipient = disposisi.shared_recipients.filter(
         role=request.user.role,
     ).first()
@@ -295,28 +304,28 @@ def detail_disposisi(request, pk):
         })
 
 
-    if request.user.is_authenticated:
-        return render(request, 'disposisi_detail.html', {
-            'disposisi': disposisi,
-            'grouped_logs': dict(grouped_logs),
-            'share_role_choices': Disposisi.SHARE_ROLE_CHOICES,
-            'can_approve_this_disposisi': disposisi.can_be_approved_by(
-                request.user,
-            ),
-            'is_share_recipient': share_recipient is not None,
-            'share_recipient': share_recipient,
-            'can_share_this_disposisi': can_share_this_disposisi,
-            'selected_recipient_roles': list(
-                disposisi.shared_recipients.values_list('role', flat=True)
-            ),
-        })
-    else:
-        messages.success(request, "You must be logged in to view this page.")
-        return redirect('accounts:login')
+    return render(request, 'disposisi_detail.html', {
+        'disposisi': disposisi,
+        'grouped_logs': dict(grouped_logs),
+        'share_role_choices': Disposisi.SHARE_ROLE_CHOICES,
+        'can_approve_this_disposisi': disposisi.can_be_approved_by(
+            request.user,
+        ),
+        'is_share_recipient': share_recipient is not None,
+        'share_recipient': share_recipient,
+        'can_share_this_disposisi': can_share_this_disposisi,
+        'selected_recipient_roles': list(
+            disposisi.shared_recipients.values_list('role', flat=True)
+        ),
+    })
 
 @login_required
+@never_cache
 def preview_disposisi(request, pk):
-    disposisi = get_object_or_404(Disposisi, pk=pk)
+    disposisi = get_object_or_404(
+        visible_disposisi_for_user(request.user),
+        pk=pk,
+    )
     return render(request, 'disposisi_preview.html', {
         'disposisi': disposisi,
         'selected_recipient_roles': list(
@@ -511,8 +520,12 @@ def decide_online_disposisi(request, pk):
 
 
 @login_required
+@never_cache
 def isi_online_disposisi(request, pk):
-    disposisi = get_object_or_404(Disposisi, pk=pk)
+    disposisi = get_object_or_404(
+        visible_disposisi_for_user(request.user),
+        pk=pk,
+    )
     is_pending = (
         disposisi.tipe_disposisi == 'ONLINE'
         and disposisi.status_pengajuan == 'DIAJUKAN'
@@ -737,8 +750,12 @@ def edit_file_disposisi(request, pk):
     return redirect('disposisi:detaildisposisi', pk=pk)
 
 @login_required
+@never_cache
 def download_disposisi_pdf(request, pk):
-    disposisi = get_object_or_404(Disposisi, pk=pk)
+    disposisi = get_object_or_404(
+        visible_disposisi_for_user(request.user),
+        pk=pk,
+    )
 
     html_string = render_to_string(
         'disposisi_pdf.html',
@@ -759,4 +776,39 @@ def download_disposisi_pdf(request, pk):
         base_url=request.build_absolute_uri('/')
     ).write_pdf(response)
 
+    return response
+
+
+@login_required
+@require_GET
+@never_cache
+def download_document(request, pk, kind):
+    """Authorize a document and let Nginx serve it from an internal location."""
+    field_name = {
+        "surat-masuk": "dokumen_surat_masuk",
+        "disposisi": "dokumen_disposisi",
+    }.get(kind)
+    if field_name is None:
+        raise Http404
+
+    disposisi = get_object_or_404(
+        visible_disposisi_for_user(request.user),
+        pk=pk,
+    )
+    document = getattr(disposisi, field_name)
+    if not document:
+        raise Http404
+
+    filename = document.name.rsplit("/", 1)[-1]
+    content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    response = HttpResponse(content_type=content_type)
+    response["Content-Disposition"] = content_disposition_header(
+        as_attachment=True,
+        filename=filename,
+    )
+    response["X-Accel-Redirect"] = (
+        f"/protected-media/{quote(document.name, safe='/')}"
+    )
+    response["Cache-Control"] = "private, no-store, max-age=0"
+    response["X-Content-Type-Options"] = "nosniff"
     return response

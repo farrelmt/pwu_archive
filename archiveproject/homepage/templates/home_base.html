@@ -92,13 +92,15 @@
                         {% endif %}">
                         Monitor
                     </a>
-                    <a href="{% url 'homepage:divisi' %}"
-                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
-                        {% if 'divisi' in request.path %}
-                            bg-blue-600
-                        {% endif %}">
-                        Divisi
-                    </a>
+                    {% if request.user.is_superuser or request.user|can_edit_disposisi %}
+                        <a href="{% url 'homepage:divisi' %}"
+                           class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                            {% if 'divisi' in request.path %}
+                                bg-blue-600
+                            {% endif %}">
+                            Divisi
+                        </a>
+                    {% endif %}
                 </div>
 
                 <div class="mb-2">
@@ -133,12 +135,39 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         const menuBtn = document.getElementById("menuBtn");
         const sidebar = document.getElementById("sidebar");
 
-        menuBtn.addEventListener("click", () => {
+        menuBtn?.addEventListener("click", () => {
             sidebar.classList.toggle("-translate-x-full");
+        });
+
+        document.addEventListener("click", (event) => {
+            const confirmationTarget = event.target.closest("[data-confirm]");
+            if (
+                confirmationTarget
+                && !window.confirm(confirmationTarget.dataset.confirm)
+            ) {
+                event.preventDefault();
+            }
+
+            const row = event.target.closest(".js-navigate-row[data-href]");
+            if (row && !event.target.closest("a, button, input, select, textarea")) {
+                window.location.assign(row.dataset.href);
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            const row = event.target.closest(".js-navigate-row[data-href]");
+            if (row && (event.key === "Enter" || event.key === " ")) {
+                event.preventDefault();
+                window.location.assign(row.dataset.href);
+            }
+        });
+
+        document.querySelectorAll("[data-auto-submit]").forEach((element) => {
+            element.addEventListener("change", () => element.form?.submit());
         });
     </script>
 

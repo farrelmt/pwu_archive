@@ -5,7 +5,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import SystemUser
-from .models import Disposisi
+from .models import Disposisi, DisposisiRecipient
 
 
 @override_settings(
@@ -128,6 +128,26 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(response, "Format file tidak diizinkan")
         self.disposisi.refresh_from_db()
         self.assertFalse(self.disposisi.dokumen_disposisi)
+
+    def test_upload_rejects_spoofed_image_content(self):
+        self.client.force_login(self.editor)
+        uploaded = SimpleUploadedFile(
+            "fake.jpg",
+            b"<html><script>alert(1)</script></html>",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.post(
+            reverse("disposisi:uploaddisposisi", args=[self.disposisi.pk]),
+            {
+                "metode": "OFFLINE",
+                "dokumen_disposisi": uploaded,
+                "recipients": ["kadiv_akuntansi"],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Isi file gambar tidak valid")
 
     def test_non_editor_cannot_upload(self):
         self.client.force_login(self.viewer)
@@ -316,7 +336,7 @@ class DisposisiSecurityTests(TestCase):
         wrong_decision = self.client.post(decision_url, {"keputusan": "TOLAK"})
 
         self.assertNotContains(wrong_monitor, self.disposisi.nomor_surat)
-        self.assertEqual(wrong_editor.status_code, 403)
+        self.assertEqual(wrong_editor.status_code, 404)
         self.assertEqual(wrong_decision.status_code, 403)
 
         self.client.force_login(self.director)
@@ -817,3 +837,66 @@ class DisposisiSecurityTests(TestCase):
         self.assertFalse(
             self.disposisi.logs.filter(action_log="TOLAK_DISPOSISI").exists()
         )
+
+    def test_unselected_user_cannot_list_or_open_disposition(self):
+        self.client.force_login(self.risk_head)
+
+        list_response = self.client.get(reverse("disposisi:disposisi"))
+        detail_response = self.client.get(
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
+        )
+        preview_response = self.client.get(
+            reverse("disposisi:previewdisposisi", args=[self.disposisi.pk])
+        )
+
+        self.assertNotContains(list_response, self.disposisi.nomor_surat)
+        self.assertEqual(detail_response.status_code, 404)
+        self.assertEqual(preview_response.status_code, 404)
+
+    def test_selected_recipient_can_open_shared_document(self):
+        self.disposisi.tipe_disposisi = "ONLINE"
+        self.disposisi.status_pengajuan = "DIBAGIKAN"
+        self.disposisi.save(
+            update_fields=["tipe_disposisi", "status_pengajuan", "waktu_diedit"]
+        )
+        DisposisiRecipient.objects.create(
+            disposisi=self.disposisi,
+            role=self.accounting_head.role,
+        )
+        self.client.force_login(self.accounting_head)
+
+        response = self.client.get(
+            reverse(
+                "disposisi:download_document",
+                args=[self.disposisi.pk, "surat-masuk"],
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response["X-Accel-Redirect"].startswith("/protected-media/"))
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertIn("private", response["Cache-Control"])
+        self.assertIn("no-store", response["Cache-Control"])
+
+    def test_unselected_user_cannot_download_document(self):
+        self.client.force_login(self.risk_head)
+
+        response = self.client.get(
+            reverse(
+                "disposisi:download_document",
+                args=[self.disposisi.pk, "surat-masuk"],
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_list_page_size_is_bounded(self):
+        self.client.force_login(self.editor)
+
+        response = self.client.get(
+            reverse("disposisi:disposisi"),
+            {"limit": "999999999"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page_limit"], "20")

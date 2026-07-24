@@ -46,3 +46,15 @@ class DivisionUserListTests(TestCase):
         total_users = get_user_model().objects.count()
         self.assertEqual(response.context["users"].count(), total_users)
         self.assertContains(response, f"Total pengguna: {total_users}")
+
+    def test_non_editor_cannot_list_user_directory(self):
+        viewer = get_user_model().objects.create_user(
+            username="viewer_test",
+            password="test-password",
+            role="kadiv_risiko",
+        )
+        self.client.force_login(viewer)
+
+        response = self.client.get(reverse("homepage:divisi"))
+
+        self.assertEqual(response.status_code, 403)

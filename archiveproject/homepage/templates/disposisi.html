@@ -93,7 +93,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         document.addEventListener('DOMContentLoaded', () => {
             const selectLimitDis = document.getElementById('selectDisNum');
             const searchInputDis = document.getElementById('cariDis');
@@ -254,7 +254,6 @@
     </script>
 
 {% endblock %}
-
 
 
 

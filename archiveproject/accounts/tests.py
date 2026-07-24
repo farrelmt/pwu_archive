@@ -25,3 +25,18 @@ class LogoutSecurityTests(TestCase):
 
         self.assertRedirects(response, reverse("accounts:login"))
         self.assertNotIn("_auth_user_id", self.client.session)
+
+
+@override_settings(ALLOWED_HOSTS=["testserver"])
+class LoginSecurityTests(TestCase):
+    def test_login_response_has_enforced_csp(self):
+        response = self.client.get(reverse("accounts:login"))
+
+        policy = response["Content-Security-Policy"]
+        self.assertIn("script-src 'self' 'nonce-", policy)
+        self.assertIn("object-src 'none'", policy)
+        self.assertNotIn("unsafe-inline", policy.split("style-src")[0])
+        self.assertEqual(
+            response["Permissions-Policy"],
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+        )
