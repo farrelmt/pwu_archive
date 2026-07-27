@@ -10,9 +10,18 @@
         <form method="POST" enctype="multipart/form-data">
             <div class="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
             {% csrf_token %}
+                {% if form.errors %}
+                <div class="mb-4 rounded border border-red-300 bg-red-50 p-3 text-red-700">
+                    {% for field in form %}
+                        {% for error in field.errors %}<p>{{ error }}</p>{% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+                {% endif %}
                 <div class="mb-4">
                     <label class="block font-medium mb-1">Judul Bug</label>
-                    <input type="text" name="title"
+                    <input type="text" name="title" maxlength="120"
+                           value="{{ form.title.value|default_if_none:'' }}"
                            placeholder="Contoh: Tidak bisa login"
                            class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
                            required>
@@ -20,25 +29,25 @@
 
                 <div class="mb-4">
                     <label class="block font-medium mb-1">Deskripsi</label>
-                    <textarea name="description" rows="4"
+                    <textarea name="description" rows="4" maxlength="5000"
                               placeholder="Jelaskan bug yang terjadi..."
                               class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500
                                      h-150px resize-none"
-                              required></textarea>
+                              required>{{ form.description.value|default_if_none:'' }}</textarea>
                 </div>
 
                 <div class="mb-4">
                     <label class="block font-medium mb-1">Langkah Reproduksi</label>
-                    <textarea name="steps" rows="3"
+                    <textarea name="steps" rows="3" maxlength="5000"
                               placeholder="1. Klik ... 2. Masukkan ... 3. Error muncul"
                               class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500
                                      h-150px resize-none" required
-                    ></textarea>
+                    >{{ form.steps.value|default_if_none:'' }}</textarea>
                 </div>
 
                 <div class="mb-4">
                     <label class="block font-medium mb-1">Upload Screenshot (optional)</label>
-                    <input type="file" name="screenshot"
+                    <input type="file" name="screenshot" accept="image/jpeg,image/png"
                            class="w-full border border-gray-300 rounded px-3 py-2">
                 </div>
 

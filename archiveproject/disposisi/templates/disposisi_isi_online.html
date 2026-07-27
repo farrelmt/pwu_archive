@@ -417,7 +417,7 @@
     }
 </style>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     (() => {
         const form = document.getElementById('isiDisposisiForm');
         const editor = document.getElementById('isiEditor');

@@ -70,7 +70,7 @@
         -->
     </div>
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         function updateWidth() {
             document.getElementById("screenWidth").textContent = window.innerWidth;
         }

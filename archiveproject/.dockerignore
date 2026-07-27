@@ -16,3 +16,6 @@ env/
 media/
 staticfiles/
 .DS_Store
+*.key
+*.pem
+backups/

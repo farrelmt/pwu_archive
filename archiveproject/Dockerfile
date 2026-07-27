@@ -1,41 +1,53 @@
-FROM python:3.13-slim
+FROM python:3.13.14-slim AS builder
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
 
-WORKDIR /app
-
-# Install system dependencies:
-# - gcc + libpq-dev   → psycopg2
-# - nodejs + npm      → django-tailwind
-# - cairo/pango/etc   → weasyprint
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libpq-dev \
-    curl \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    gcc \
+    libffi-dev \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY requirements.txt .
+RUN pip wheel --wheel-dir /wheels -r requirements.txt
+
+
+FROM python:3.13.14-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-dejavu-core \
     libcairo2 \
+    libffi8 \
+    libgdk-pixbuf-2.0-0 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
-    libgdk-pixbuf-2.0-0 \
-    libffi-dev \
+    libpq5 \
     libxml2 \
     libxslt1.1 \
     shared-mime-info \
-    fonts-dejavu-core \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=builder /wheels /wheels
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-index --find-links=/wheels -r /tmp/requirements.txt \
+    && rm -rf /wheels /tmp/requirements.txt \
+    && groupadd --gid 10001 app \
+    && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
 
-# Copy project
-COPY . .
+WORKDIR /app
+COPY --chown=app:app . .
+RUN mkdir -p /app/media /app/staticfiles \
+    && chown -R app:app /app/media /app/staticfiles
+
+USER 10001:10001
 
 EXPOSE 8000
 
-#CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 CMD ["gunicorn", "archiveproject.wsgi:application", "--bind", "0.0.0.0:8000"]

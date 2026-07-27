@@ -118,7 +118,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const dateInput = document.getElementById('date_tsd');
     const nomorAgendaInput = document.getElementById('nomor_agenda_input');
 

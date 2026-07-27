@@ -17,7 +17,7 @@
                     <button type="submit"
                        formaction="{% url 'disposisi:hapusdisposisi' disposisi.id %}"
                        formmethod="post"
-                       onclick="return confirm('Yakin Ingin Menghapus Disposisi Ini?')"
+                       data-confirm="Yakin Ingin Menghapus Disposisi Ini?"
                         class="inline-flex bg-blue-950 text-white items-center justify-center font-semibold
                         rounded w-20 h-8 text-sm font-bold hover:bg-red-800 cursor-pointer">
                         Hapus
@@ -133,7 +133,7 @@
                     <span
                         id="fileNameSurat"
                         class="text-xs text-gray-600 truncate max-w-xs"
-                        data-dokumensurat=" {{disposisi.dokumen_surat_masuk.url}}"
+                        data-dokumensurat="{% url 'disposisi:download_document' disposisi.pk 'surat-masuk' %}"
                    >
                         {{disposisi.name_dokumen_surat_masuk}}
                         <br>
@@ -176,7 +176,7 @@
                     <span
                         id="fileNameDisposisi"
                         class="text-xs text-gray-600 truncate max-w-xs"
-                        data-dokumendisposisi="{% if disposisi.dokumen_disposisi %}{{ disposisi.dokumen_disposisi.url }}{% endif %}"
+                        data-dokumendisposisi="{% if disposisi.dokumen_disposisi %}{% url 'disposisi:download_document' disposisi.pk 'disposisi' %}{% endif %}"
                    >
                         {% if disposisi.dokumen_disposisi %}
                             {{ disposisi.dokumen_disposisi.name|slice:"30:" }}
@@ -209,7 +209,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const dateInput = document.getElementById('date_tsd');
     const nomorAgendaInput = document.getElementById('nomor_agenda_input');
 

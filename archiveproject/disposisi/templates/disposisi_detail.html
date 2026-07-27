@@ -129,7 +129,7 @@
                 {% if disposisi.tipe_disposisi != 'ONLINE' or disposisi.status_pengajuan != 'DIAJUKAN' %}
                 <a href="{% url 'disposisi:editdisposisi' disposisi.id %}"
                    {% if disposisi.status_pengajuan != 'DIBUAT' %}
-                        onclick="return confirm('Peringatan: Mengedit atau mengubah data disposisi akan mereset progress disposisi kembali ke awal. Apakah Anda yakin ingin melanjutkan?')"
+                        data-confirm="Peringatan: Mengedit atau mengubah data disposisi akan mereset progress disposisi kembali ke awal. Apakah Anda yakin ingin melanjutkan?"
                    {% endif %}
                    class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                           bg-blue-950 px-4 text-sm font-semibold text-white hover:bg-blue-900">
@@ -139,14 +139,15 @@
                 {% endif %}
             </div>
             <div class="flex max-w-full flex-wrap items-center gap-2 lg:justify-end">
-                <a href="{{ disposisi.dokumen_surat_masuk.url }}" id="btnPreview"  target="_blank"
+                <a href="{% url 'disposisi:download_document' disposisi.pk 'surat-masuk' %}"
+                   id="btnPreview" target="_blank" rel="noopener noreferrer"
                    class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                           border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                           hover:bg-blue-50">
                     Dokumen Surat
                 </a>
                 {% if disposisi.status_pengajuan == 'DIBUAT' %}
-                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
@@ -160,7 +161,7 @@
                     </a>
                     {% endif %}
                 {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIAJUKAN' %}
-                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
@@ -177,7 +178,7 @@
                             formmethod="post"
                             name="keputusan"
                             value="TOLAK"
-                            onclick="return confirm('Tolak pengajuan disposisi online ini?');"
+                            data-confirm="Tolak pengajuan disposisi online ini?"
                             class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                    bg-red-700 px-4 text-sm font-semibold text-white
                                    hover:bg-red-800 cursor-pointer">
@@ -192,7 +193,7 @@
                     <button type="submit"
                             formaction="{% url 'disposisi:cancelonline' disposisi.id %}"
                             formmethod="post"
-                            onclick="return confirm('Batalkan pengajuan online ini?');"
+                            data-confirm="Batalkan pengajuan online ini?"
                             class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                    bg-red-700 px-4 text-sm font-semibold text-white
                                    hover:bg-red-800 cursor-pointer">
@@ -201,7 +202,8 @@
                     {% endif %}
                     {% endif %}
                 {% elif disposisi.tipe_disposisi == 'OFFLINE' and disposisi.status_pengajuan == 'DIISI' %}
-                    <a href="{{ disposisi.dokumen_disposisi.url }}" target="_blank"
+                    <a href="{% url 'disposisi:download_document' disposisi.pk 'disposisi' %}"
+                       target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
@@ -227,7 +229,7 @@
                               hover:bg-blue-50">
                         Lihat Isi Disposisi
                     </a>
-                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
@@ -253,7 +255,7 @@
                               hover:bg-blue-50">
                         Lihat Isi Disposisi
                     </a>
-                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
@@ -269,7 +271,7 @@
                     <button type="submit"
                             formaction="{% url 'disposisi:completeonline' disposisi.id %}"
                             formmethod="post"
-                            onclick="return confirm('Setujui disposisi ini?');"
+                            data-confirm="Setujui disposisi ini?"
                             class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                    bg-green-700 px-5 text-sm font-semibold text-white
                                    hover:bg-green-800 cursor-pointer">
@@ -289,7 +291,7 @@
                               hover:bg-blue-50">
                         Lihat Isi Disposisi
                     </a>
-                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
@@ -300,7 +302,8 @@
                         Selesai
                     </span>
                 {% elif disposisi.tipe_disposisi == 'OFFLINE' and disposisi.status_pengajuan == 'SELESAI' %}
-                    <a href="{{ disposisi.dokumen_disposisi.url }}" target="_blank"
+                    <a href="{% url 'disposisi:download_document' disposisi.pk 'disposisi' %}"
+                       target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
@@ -311,14 +314,15 @@
                         Selesai
                     </span>
                 {% elif disposisi.dokumen_disposisi %}
-                    <a href="{{ disposisi.dokumen_disposisi.url }}" target="_blank"
+                    <a href="{% url 'disposisi:download_document' disposisi.pk 'disposisi' %}"
+                       target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
                         Disposisi
                     </a>
                 {% else %}
-                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank"
+                    <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
@@ -394,7 +398,7 @@
     }
 </style>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const historyBtn = document.getElementById('historyButton');
     const historyDisposisi = document.getElementById('historyDisposisi');
     const closeHistoryBtn = document.getElementById('closeHistory');
