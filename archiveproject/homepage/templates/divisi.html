@@ -17,6 +17,7 @@
                         <th class="w-16 border px-3 py-2">No</th>
                         <th class="w-64 border px-3 py-2">Username</th>
                         <th class="w-72 border px-3 py-2">Nama</th>
+                        <th class="w-72 border px-3 py-2">Email</th>
                         <th class="w-80 border px-3 py-2">Role</th>
                         <th class="w-32 border px-3 py-2">Status</th>
                     </tr>
@@ -29,6 +30,13 @@
                         <td class="border px-3 py-2">
                             {% if system_user.get_full_name %}
                                 {{ system_user.get_full_name }}
+                            {% else %}
+                                <span class="text-gray-500">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="border px-3 py-2">
+                            {% if system_user.email %}
+                                {{ system_user.email }}
                             {% else %}
                                 <span class="text-gray-500">-</span>
                             {% endif %}
@@ -48,7 +56,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="py-6 text-center text-gray-500">
+                        <td colspan="6" class="py-6 text-center text-gray-500">
                             Belum ada pengguna di dalam sistem.
                         </td>
                     </tr>

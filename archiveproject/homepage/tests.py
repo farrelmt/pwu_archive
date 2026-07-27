@@ -1,13 +1,18 @@
+from datetime import date
+
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+
 from accounts.models import ActivityLog
+from disposisi.models import Disposisi, DisposisiRecipient
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"])
 class HomepageAuthenticationTests(TestCase):
     def test_feature_pages_require_login(self):
-        for name in ("notadinas", "suratkeluar", "monitor", "divisi", "notif"):
+        for name in ("notadinas", "suratkeluar", "inbox", "monitor", "divisi", "notif"):
             with self.subTest(name=name):
                 response = self.client.get(reverse(f"homepage:{name}"))
                 self.assertEqual(response.status_code, 302)
@@ -23,6 +28,7 @@ class DivisionUserListTests(TestCase):
             password="test-password",
             first_name="Siti",
             last_name="Sekretaris",
+            email="siti.sekretaris@pwujatim.site",
             role="sekretaris",
         )
         self.finance_head = user_model.objects.create_user(
@@ -40,6 +46,8 @@ class DivisionUserListTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "sekretaris_test")
         self.assertContains(response, "Siti Sekretaris")
+        self.assertContains(response, "Email")
+        self.assertContains(response, "siti.sekretaris@pwujatim.site")
         self.assertContains(response, "Sekretaris")
         self.assertContains(response, "kadiv_keuangan_test")
         self.assertContains(response, "Kepala Divisi Keuangan")
@@ -59,6 +67,108 @@ class DivisionUserListTests(TestCase):
         response = self.client.get(reverse("homepage:divisi"))
 
         self.assertEqual(response.status_code, 403)
+
+    def test_dashboard_uses_surat_masuk_label(self):
+        self.client.force_login(self.secretary)
+
+        response = self.client.get(reverse("homepage:dashboard"))
+
+        self.assertContains(response, "Surat Masuk")
+
+    def test_non_secretary_cannot_open_archive_modules(self):
+        viewer = get_user_model().objects.create_user(
+            username="archive-viewer",
+            password="test-password",
+            role="kadiv_keuangan",
+        )
+        self.client.force_login(viewer)
+
+        for url in (
+            reverse("disposisi:disposisi"),
+            reverse("homepage:notadinas"),
+            reverse("homepage:suratkeluar"),
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 403)
+
+        dashboard = self.client.get(reverse("homepage:dashboard"))
+        self.assertNotContains(dashboard, "Surat Masuk")
+        self.assertNotContains(dashboard, "Nota Dinas")
+        self.assertNotContains(dashboard, "Surat Keluar")
+        self.assertContains(dashboard, "Inbox")
+        self.assertContains(dashboard, "Monitor")
+
+
+@override_settings(ALLOWED_HOSTS=["testserver"])
+class DocumentQueueTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.secretary = user_model.objects.create_user(
+            username="queue-secretary",
+            password="test-password",
+            role="sekretaris",
+        )
+        self.finance_head = user_model.objects.create_user(
+            username="queue-finance",
+            password="test-password",
+            role="kadiv_keuangan",
+        )
+        self.pending = self.create_document("PENDING-001", "DIBAGIKAN")
+        DisposisiRecipient.objects.create(
+            disposisi=self.pending,
+            role="kadiv_keuangan",
+        )
+        self.completed = self.create_document("DONE-001", "SELESAI")
+        DisposisiRecipient.objects.create(
+            disposisi=self.completed,
+            role="kadiv_keuangan",
+            agreed_at=timezone.now(),
+        )
+        self.unrelated = self.create_document("OTHER-001", "DIBAGIKAN")
+
+    @staticmethod
+    def create_document(number, status):
+        return Disposisi.objects.create(
+            tanggal_surat_diterima=date(2026, 7, 27),
+            tanggal_surat=date(2026, 7, 27),
+            nomor_surat=number,
+            pengirim="Pengirim Uji",
+            lampiran="-",
+            tujuan="DIR",
+            tembusan="-",
+            perihal=f"Perihal {number}",
+            tujuan_disposisi="kadiv_keuangan",
+            tipe_disposisi="ONLINE",
+            status_pengajuan=status,
+            dokumen_surat_masuk=f"tests/{number}.pdf",
+        )
+
+    def test_monitor_lists_all_documents_related_to_recipient(self):
+        self.client.force_login(self.finance_head)
+
+        response = self.client.get(reverse("homepage:monitor"))
+
+        self.assertContains(response, "PENDING-001")
+        self.assertContains(response, "DONE-001")
+        self.assertNotContains(response, "OTHER-001")
+
+    def test_inbox_only_lists_documents_needing_action(self):
+        self.client.force_login(self.finance_head)
+
+        response = self.client.get(reverse("homepage:inbox"))
+
+        self.assertContains(response, "PENDING-001")
+        self.assertNotContains(response, "DONE-001")
+        self.assertNotContains(response, "OTHER-001")
+
+    def test_secretary_monitor_lists_all_documents(self):
+        self.client.force_login(self.secretary)
+
+        response = self.client.get(reverse("homepage:monitor"))
+
+        self.assertContains(response, "PENDING-001")
+        self.assertContains(response, "DONE-001")
+        self.assertContains(response, "OTHER-001")
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"])

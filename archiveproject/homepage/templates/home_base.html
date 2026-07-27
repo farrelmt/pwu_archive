@@ -24,7 +24,7 @@
             </div>
 
             <div class="flex items-center space-x-4">
-                <a href="{% url 'homepage:monitor' %}"
+                <a href="{% url 'homepage:inbox' %}"
                    class="relative inline-flex h-8 w-8 items-center justify-center rounded hover:bg-blue-800"
                    aria-label="Notifikasi tugas{% if action_notification_count %}: {{ action_notification_count }} tugas{% endif %}"
                    title="{% if action_notification_count %}{{ action_notification_count }} tugas perlu diproses{% else %}Tidak ada tugas baru{% endif %}">
@@ -63,13 +63,14 @@
                         {% endif %}">
                         Beranda
                     </a>
+                    {% if request.user|can_edit_disposisi %}
                     <a href="{% url 'disposisi:disposisi' %}"
                        class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
                         {% if 'disposisi' in request.path %}
                             bg-blue-600
                         {% endif %}
                         ">
-                        Disposisi
+                        Surat Masuk
                     </a>
                     <a href="{% url 'homepage:notadinas' %}"
                        class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
@@ -85,6 +86,19 @@
                         {% endif %}">
                         Surat Keluar
                     </a>
+                    {% endif %}
+                    <a href="{% url 'homepage:inbox' %}"
+                       class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
+                        {% if 'inbox' in request.path %}
+                            bg-blue-600
+                        {% endif %}">
+                        Inbox
+                        {% if action_notification_count %}
+                        <span class="ml-1 rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-bold">
+                            {{ action_notification_count }}
+                        </span>
+                        {% endif %}
+                    </a>
                     <a href="{% url 'homepage:monitor' %}"
                        class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
                         {% if 'monitor' in request.path %}
@@ -92,7 +106,7 @@
                         {% endif %}">
                         Monitor
                     </a>
-                    {% if request.user.is_superuser or request.user|can_edit_disposisi %}
+                    {% if request.user|can_edit_disposisi %}
                         <a href="{% url 'homepage:divisi' %}"
                            class="block py-2 px-3 hover:bg-blue-700 text-center text-sm
                             {% if 'divisi' in request.path %}

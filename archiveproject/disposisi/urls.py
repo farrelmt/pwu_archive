@@ -21,10 +21,27 @@ urlpatterns = [
         views.download_document,
         name='download_document',
     ),
+    path(
+        '<disposisi_id:pk>/document/disposisi/preview/',
+        views.preview_uploaded_disposisi,
+        name='preview_uploaded_disposisi',
+    ),
+    path(
+        '<disposisi_id:pk>/document/disposisi/view/',
+        views.view_uploaded_disposisi,
+        name='view_uploaded_disposisi',
+    ),
+    path(
+        '<disposisi_id:pk>/document/disposisi/download/',
+        views.download_uploaded_disposisi,
+        name='download_uploaded_disposisi',
+    ),
     path('<disposisi_id:pk>/upload/', views.upload_disposisi, name='uploaddisposisi'),
     path('<disposisi_id:pk>/online/cancel/', views.cancel_online_disposisi, name='cancelonline'),
     path('<disposisi_id:pk>/online/decision/', views.decide_online_disposisi, name='decisiononline'),
     path('<disposisi_id:pk>/online/isi/', views.isi_online_disposisi, name='isionline'),
     path('<disposisi_id:pk>/online/share/', views.share_online_disposisi, name='shareonline'),
+    path('<disposisi_id:pk>/online/receive/', views.receive_shared_disposisi, name='receiveonline'),
     path('<disposisi_id:pk>/online/complete/', views.complete_shared_disposisi, name='completeonline'),
+    path('<disposisi_id:pk>/online/final-approve/', views.approve_completed_disposisi, name='approvecomplete'),
 ]

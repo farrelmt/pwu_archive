@@ -3,8 +3,10 @@ from django.db.models import Q
 from .models import Disposisi
 
 
-PROCESSED_STATUSES = {"DIAJUKAN", "DIISI", "DIBAGIKAN", "SELESAI"}
-SHARED_STATUSES = {"DIBAGIKAN", "SELESAI"}
+PROCESSED_STATUSES = {
+    "DIAJUKAN", "DIISI", "DIBAGIKAN", "VERIFIKASI", "SELESAI",
+}
+SHARED_STATUSES = {"DIBAGIKAN", "VERIFIKASI", "SELESAI"}
 
 
 def visible_disposisi_for_user(user):
@@ -20,12 +22,12 @@ def visible_disposisi_for_user(user):
     if user.can_approve_disposisi:
         if user.role == "direktur_utama":
             filters |= Q(
-                tujuan="DIRUT",
+                tujuan__in=["DIRUT", "DIREKSI"],
                 status_pengajuan__in=PROCESSED_STATUSES,
             )
         elif user.role in {"direktur", "direktur_umum"}:
             filters |= Q(
-                tujuan="DIR",
+                tujuan__in=["DIR", "DIREKSI"],
                 status_pengajuan__in=PROCESSED_STATUSES,
             )
 

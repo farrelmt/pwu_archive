@@ -1,5 +1,5 @@
 {% extends 'home_base.html' %}
-{% block title %}Disposisi - Detail Disposisi{% endblock %}
+{% block title %}Surat Masuk - Detail Surat Masuk{% endblock %}
 {% block content %}
 {% load disposisi_extras %}
 {% load auth_extras %}
@@ -76,17 +76,17 @@
                 </p>
             </div>
 
-            {% if disposisi.status_pengajuan == 'DIAJUKAN' or disposisi.status_pengajuan == 'DIISI' or disposisi.status_pengajuan == 'DIBAGIKAN' or disposisi.status_pengajuan == 'SELESAI' %}
+            {% if disposisi.status_pengajuan == 'DIAJUKAN' or disposisi.status_pengajuan == 'DIISI' or disposisi.status_pengajuan == 'DIBAGIKAN' or disposisi.status_pengajuan == 'VERIFIKASI' or disposisi.status_pengajuan == 'SELESAI' %}
             <div id="sharedRecipientDescription" class="flex items-start">
                 <p class="text-md font-semibold w-70 pt-2">Dibagikan Kepada</p>
                 <div class="my-1 flex flex-1 flex-wrap gap-2">
                     {% for recipient in disposisi.shared_recipients.all %}
                     <span class="rounded px-3 py-1 text-sm font-medium
-                                 {% if disposisi.tipe_disposisi == 'OFFLINE' or disposisi.status_pengajuan == 'DIAJUKAN' or disposisi.status_pengajuan == 'DIISI' %}bg-blue-100 text-blue-900{% elif recipient.agreed_at %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                 {% if disposisi.tipe_disposisi == 'OFFLINE' or disposisi.status_pengajuan == 'DIAJUKAN' or disposisi.status_pengajuan == 'DIISI' %}bg-blue-100 text-blue-900{% elif recipient.agreed_at %}bg-green-100 text-green-800{% elif recipient.received_at %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
                         {{ recipient.get_role_display }}
                         {% if disposisi.tipe_disposisi == 'ONLINE' %}
                         <span class="ml-1 text-xs font-semibold">
-                            {% if disposisi.status_pengajuan == 'DIAJUKAN' or disposisi.status_pengajuan == 'DIISI' %}(Dipilih){% elif recipient.agreed_at %}(Sudah menyetujui){% else %}(Belum menyetujui){% endif %}
+                            {% if disposisi.status_pengajuan == 'DIAJUKAN' or disposisi.status_pengajuan == 'DIISI' %}(Dipilih){% elif recipient.agreed_at %}(Selesai){% elif recipient.received_at %}(Sudah diterima){% else %}(Belum diterima){% endif %}
                         </span>
                         {% endif %}
                     </span>
@@ -125,6 +125,22 @@
                                hover:bg-blue-50 cursor-pointer">
                     History
                 </button>
+                {% if selected_recipient_roles %}
+                <button type="button" id="activityLogButton"
+                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                               hover:bg-blue-50 cursor-pointer">
+                    Activity
+                </button>
+                {% if is_share_recipient and share_recipient.agreed_at and is_shared_online %}
+                <button type="button" id="openActivityModal"
+                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                               bg-blue-950 px-5 text-sm font-semibold text-white
+                               hover:bg-blue-900 cursor-pointer">
+                    Edit Activity
+                </button>
+                {% endif %}
+                {% endif %}
                 {% if request.user|can_edit_disposisi %}
                 {% if disposisi.tipe_disposisi != 'ONLINE' or disposisi.status_pengajuan != 'DIAJUKAN' %}
                 <a href="{% url 'disposisi:editdisposisi' disposisi.id %}"
@@ -202,7 +218,7 @@
                     {% endif %}
                     {% endif %}
                 {% elif disposisi.tipe_disposisi == 'OFFLINE' and disposisi.status_pengajuan == 'DIISI' %}
-                    <a href="{% url 'disposisi:download_document' disposisi.pk 'disposisi' %}"
+                    <a href="{% url 'disposisi:preview_uploaded_disposisi' disposisi.id %}"
                        target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
@@ -248,7 +264,7 @@
                         Disetujui Direktur
                     </span>
                     {% endif %}
-                {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIBAGIKAN' %}
+                {% elif is_shared_online %}
                     <a href="{% url 'disposisi:isionline' disposisi.id %}"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
@@ -263,26 +279,54 @@
                     </a>
                     {% if is_share_recipient %}
                     {% if share_recipient.agreed_at %}
-                    <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
-                                 bg-green-100 px-4 text-sm font-semibold text-green-800">
-                        Sudah Menyetujui
+                    <span class="inline-flex min-h-10 max-w-md items-center justify-center rounded
+                                 bg-yellow-100 px-4 py-2 text-center text-sm font-semibold text-yellow-800">
+                        {% if disposisi.status_pengajuan == 'VERIFIKASI' %}
+                            Activity already submitted — waiting for Sekretaris approval
+                        {% else %}
+                            Activity already submitted — waiting for other recipients
+                        {% endif %}
                     </span>
-                    {% else %}
-                    <button type="submit"
-                            formaction="{% url 'disposisi:completeonline' disposisi.id %}"
-                            formmethod="post"
-                            data-confirm="Setujui disposisi ini?"
+                    {% elif share_recipient.received_at %}
+                    <button type="button" id="openActivityModal"
                             class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                    bg-green-700 px-5 text-sm font-semibold text-white
                                    hover:bg-green-800 cursor-pointer">
-                        Setujui
+                        Done
+                    </button>
+                    {% else %}
+                    <button type="submit"
+                            formaction="{% url 'disposisi:receiveonline' disposisi.id %}"
+                            formmethod="post"
+                            data-confirm="Terima disposisi ini?"
+                            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                   bg-blue-950 px-5 text-sm font-semibold text-white
+                                   hover:bg-blue-900 cursor-pointer">
+                        Terima
                     </button>
                     {% endif %}
+                    {% else %}
+                    {% if can_approve_completion %}
+                    <button type="submit"
+                            formaction="{% url 'disposisi:approvecomplete' disposisi.id %}"
+                            formmethod="post"
+                            data-confirm="Setujui disposisi ini sebagai selesai?"
+                            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                   bg-green-700 px-5 text-sm font-semibold text-white
+                                   hover:bg-green-800 cursor-pointer">
+                        Approve Done
+                    </button>
+                    {% elif disposisi.status_pengajuan == 'VERIFIKASI' %}
+                    <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                 bg-yellow-100 px-4 text-sm font-semibold text-yellow-800">
+                        Menunggu Persetujuan Sekretaris
+                    </span>
                     {% else %}
                     <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                  bg-blue-100 px-4 text-sm font-semibold text-blue-900">
                         Telah Dibagikan
                     </span>
+                    {% endif %}
                     {% endif %}
                 {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'SELESAI' %}
                     <a href="{% url 'disposisi:isionline' disposisi.id %}"
@@ -302,7 +346,7 @@
                         Selesai
                     </span>
                 {% elif disposisi.tipe_disposisi == 'OFFLINE' and disposisi.status_pengajuan == 'SELESAI' %}
-                    <a href="{% url 'disposisi:download_document' disposisi.pk 'disposisi' %}"
+                    <a href="{% url 'disposisi:preview_uploaded_disposisi' disposisi.id %}"
                        target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
@@ -314,7 +358,7 @@
                         Selesai
                     </span>
                 {% elif disposisi.dokumen_disposisi %}
-                    <a href="{% url 'disposisi:download_document' disposisi.pk 'disposisi' %}"
+                    <a href="{% url 'disposisi:preview_uploaded_disposisi' disposisi.id %}"
                        target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
@@ -366,6 +410,133 @@
                             formmethod="post"
                             class="inline-flex h-10 items-center rounded bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900 cursor-pointer">
                         Bagikan
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if selected_recipient_roles %}
+        <div id="recipientActivityLogModal"
+             class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4"
+             role="dialog" aria-modal="true" aria-labelledby="recipientActivityLogTitle">
+            <div class="flex max-h-[85vh] w-full max-w-4xl flex-col rounded-lg bg-white shadow-2xl">
+                <div class="flex items-start justify-between border-b px-5 py-4">
+                    <div>
+                        <h2 id="recipientActivityLogTitle" class="text-lg font-bold text-blue-950">
+                            Aktivitas Penerima
+                        </h2>
+                        <p class="mt-1 text-sm text-gray-600">
+                            Tindak lanjut yang dikirim oleh setiap penerima disposisi.
+                        </p>
+                    </div>
+                    <button type="button" id="closeRecipientActivityLog" aria-label="Tutup"
+                            class="rounded px-3 py-1 text-2xl text-gray-500 hover:bg-gray-100 cursor-pointer">&times;</button>
+                </div>
+                <div class="overflow-auto p-5">
+                    <table class="w-full min-w-[700px] border-collapse text-left text-sm">
+                        <thead class="bg-gray-200 text-gray-900">
+                            <tr>
+                                <th class="border border-gray-300 px-3 py-2">User</th>
+                                <th class="border border-gray-300 px-3 py-2">Role</th>
+                                <th class="border border-gray-300 px-3 py-2">Activity</th>
+                                <th class="border border-gray-300 px-3 py-2">Done Time</th>
+                                <th class="border border-gray-300 px-3 py-2">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for recipient in disposisi.shared_recipients.all %}
+                            <tr class="align-top">
+                                <td class="border border-gray-300 px-3 py-2 font-semibold">
+                                    {% if recipient.completed_by %}
+                                        {{ recipient.completed_by.username }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="border border-gray-300 px-3 py-2">
+                                    {{ recipient.get_role_display }}
+                                </td>
+                                <td class="max-w-md whitespace-pre-wrap break-words border border-gray-300 px-3 py-2">
+                                    {{ recipient.activity_description|default:"-" }}
+                                </td>
+                                <td class="whitespace-nowrap border border-gray-300 px-3 py-2">
+                                    {% if recipient.agreed_at %}
+                                        {{ recipient.agreed_at|date:"d/m/Y H:i" }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="border border-gray-300 px-3 py-2">
+                                    {% if recipient.agreed_at %}
+                                    <span class="rounded bg-green-100 px-2 py-1 font-semibold text-green-800">
+                                        Selesai
+                                    </span>
+                                    {% elif recipient.received_at %}
+                                    <span class="rounded bg-yellow-100 px-2 py-1 font-semibold text-yellow-800">
+                                        Diterima
+                                    </span>
+                                    {% else %}
+                                    <span class="rounded bg-red-100 px-2 py-1 font-semibold text-red-800">
+                                        Belum Diterima
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex justify-end border-t px-5 py-4">
+                    <button type="button" id="dismissRecipientActivityLog"
+                            class="inline-flex h-10 items-center rounded bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900 cursor-pointer">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if is_share_recipient and share_recipient.received_at and is_shared_online %}
+        <div id="activityModal"
+             class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4"
+             role="dialog" aria-modal="true" aria-labelledby="activityModalTitle">
+            <div class="w-full max-w-lg rounded-lg bg-white shadow-2xl">
+                <div class="flex items-start justify-between border-b px-5 py-4">
+                    <div>
+                        <h2 id="activityModalTitle" class="text-lg font-bold text-blue-950">
+                            {% if share_recipient.agreed_at %}Edit Aktivitas{% else %}Isi Aktivitas{% endif %}
+                        </h2>
+                        <p class="mt-1 text-sm text-gray-600">
+                            Jelaskan pekerjaan atau tindak lanjut yang telah dilakukan.
+                        </p>
+                    </div>
+                    <button type="button" id="closeActivityModal" aria-label="Tutup"
+                            class="rounded px-3 py-1 text-2xl text-gray-500 hover:bg-gray-100 cursor-pointer">&times;</button>
+                </div>
+                <div class="p-5">
+                    <label for="activityDescription" class="mb-2 block text-sm font-semibold text-gray-900">
+                        Aktivitas
+                    </label>
+                    <textarea id="activityDescription"
+                              name="activity_description"
+                              rows="6"
+                              maxlength="2000"
+                              required
+                              placeholder="Contoh: Memeriksa dokumen dan menindaklanjuti permintaan kepada tim terkait."
+                              class="w-full resize-y rounded border border-gray-300 p-3 text-sm focus:border-blue-900 focus:outline-none">{{ share_recipient.activity_description }}</textarea>
+                    <p class="mt-1 text-xs text-gray-500">Maksimal 2.000 karakter.</p>
+                </div>
+                <div class="flex justify-end gap-3 border-t px-5 py-4">
+                    <button type="button" id="cancelActivityModal"
+                            class="inline-flex h-10 items-center rounded border border-gray-300 px-5 text-sm font-semibold hover:bg-gray-100 cursor-pointer">
+                        Batal
+                    </button>
+                    <button type="submit"
+                            formaction="{% url 'disposisi:completeonline' disposisi.id %}"
+                            formmethod="post"
+                            class="inline-flex h-10 items-center rounded bg-green-700 px-5 text-sm font-semibold text-white hover:bg-green-800 cursor-pointer">
+                        {% if share_recipient.agreed_at %}Simpan Perubahan{% else %}Kirim dan Selesaikan{% endif %}
                     </button>
                 </div>
             </div>
@@ -429,6 +600,50 @@
     cancelShareModal?.addEventListener('click', hideShareModal);
     shareModal?.addEventListener('click', (event) => {
         if (event.target === shareModal) hideShareModal();
+    });
+
+    const activityModal = document.getElementById('activityModal');
+    const openActivityModal = document.getElementById('openActivityModal');
+    const closeActivityModal = document.getElementById('closeActivityModal');
+    const cancelActivityModal = document.getElementById('cancelActivityModal');
+    const activityDescription = document.getElementById('activityDescription');
+
+    const hideActivityModal = () => {
+        activityModal?.classList.add('hidden');
+        activityModal?.classList.remove('flex');
+    };
+
+    openActivityModal?.addEventListener('click', () => {
+        activityModal.classList.remove('hidden');
+        activityModal.classList.add('flex');
+        activityDescription?.focus();
+    });
+    closeActivityModal?.addEventListener('click', hideActivityModal);
+    cancelActivityModal?.addEventListener('click', hideActivityModal);
+    activityModal?.addEventListener('click', (event) => {
+        if (event.target === activityModal) hideActivityModal();
+    });
+
+    const recipientActivityLogModal = document.getElementById('recipientActivityLogModal');
+    const activityLogButton = document.getElementById('activityLogButton');
+    const closeRecipientActivityLog = document.getElementById('closeRecipientActivityLog');
+    const dismissRecipientActivityLog = document.getElementById('dismissRecipientActivityLog');
+
+    const hideRecipientActivityLog = () => {
+        recipientActivityLogModal?.classList.add('hidden');
+        recipientActivityLogModal?.classList.remove('flex');
+    };
+
+    activityLogButton?.addEventListener('click', () => {
+        recipientActivityLogModal.classList.remove('hidden');
+        recipientActivityLogModal.classList.add('flex');
+    });
+    closeRecipientActivityLog?.addEventListener('click', hideRecipientActivityLog);
+    dismissRecipientActivityLog?.addEventListener('click', hideRecipientActivityLog);
+    recipientActivityLogModal?.addEventListener('click', (event) => {
+        if (event.target === recipientActivityLogModal) {
+            hideRecipientActivityLog();
+        }
     });
 
 </script>

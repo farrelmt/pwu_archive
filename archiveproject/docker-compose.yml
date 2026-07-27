@@ -46,15 +46,18 @@ services:
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+    ports:
+      - "127.0.0.1:8000:8000"
     expose:
       - "8000"
     depends_on:
       db:
         condition: service_healthy
     environment:
-      SECRET_KEY: ${SECRET_KEY}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
-      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+      SECRET_KEY: ${PRODUCTION_SECRET_KEY}
+      DEBUG: ${DEBUG:-false}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
       DB_HOST: ${DB_HOST}
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
@@ -63,6 +66,7 @@ services:
       EMAIL_HOST_USER: ${EMAIL_HOST_USER}
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
       EMAIL_TO_REPORT: ${EMAIL_TO_REPORT}
+      SYSTEM_BASE_URL: ${SYSTEM_BASE_URL:-https://pwujatim.site}
       SESSION_COOKIE_SECURE: "true"
       CSRF_COOKIE_SECURE: "true"
       CSRF_COOKIE_HTTPONLY: "true"

@@ -1,10 +1,11 @@
 import mimetypes
 from urllib.parse import quote
+import os
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.http import Http404, JsonResponse, HttpResponse
+from django.http import FileResponse, Http404, JsonResponse, HttpResponse
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.db import transaction
@@ -14,10 +15,12 @@ from .forms import (
     DisposisiForm,
     DisposisiUploadForm,
     OnlineDisposisiIsiForm,
+    RecipientActivityForm,
     ShareDisposisiForm,
 )
 from .decorators import disposisi_director_required, disposisi_editor_required
 from .access import visible_disposisi_for_user
+from .notifications import send_disposition_shared_notifications
 from datetime import datetime
 from collections import defaultdict
 from django.utils import timezone
@@ -30,9 +33,28 @@ from django.views.decorators.http import require_GET, require_POST
 from django.utils.http import content_disposition_header
 from accounts.audit import record_activity
 
+
+def notify_shared_recipients(request, disposisi, selected_roles):
+    sent_count, failed_count = send_disposition_shared_notifications(
+        request=request,
+        disposisi=disposisi,
+        recipient_roles=selected_roles,
+    )
+    if failed_count:
+        messages.warning(
+            request,
+            f'{failed_count} email notifikasi gagal dikirim. '
+            'Disposisi tetap berhasil dibagikan.',
+        )
+    return sent_count
+
+
 @login_required
 @never_cache
 def list_disposisi(request):
+    if not request.user.can_edit_disposisi:
+        raise PermissionDenied
+
     search = request.GET.get('search', '')
     try:
         page_limit = int(request.GET.get('limit', 20))
@@ -92,6 +114,7 @@ def list_disposisi(request):
         "dirut": "DIRUT",
         "direktur": "DIR",
         "dir": "DIR",
+        "direksi": "DIREKSI",
     }
 
     STATUS_MAP = {
@@ -284,14 +307,18 @@ def hapus_disposisi(request, pk):
 @never_cache
 def detail_disposisi(request, pk):
     disposisi = get_object_or_404(
-        visible_disposisi_for_user(request.user),
+        visible_disposisi_for_user(request.user).prefetch_related(
+            'shared_recipients__completed_by',
+        ),
         pk=pk,
     )
     share_recipient = disposisi.shared_recipients.filter(
         role=request.user.role,
     ).first()
 
-    logs = disposisi.logs.select_related('user_log').all()
+    logs = disposisi.logs.select_related('user_log').exclude(
+        action_log='AKTIVITAS_PENERIMA',
+    )
     can_share_this_disposisi = (
         disposisi.status_pengajuan == 'DIISI'
         and (
@@ -341,6 +368,16 @@ def detail_disposisi(request, pk):
         ),
         'is_share_recipient': share_recipient is not None,
         'share_recipient': share_recipient,
+        'recipient_activity_form': RecipientActivityForm(),
+        'is_shared_online': (
+            disposisi.tipe_disposisi == 'ONLINE'
+            and disposisi.status_pengajuan in {'DIBAGIKAN', 'VERIFIKASI'}
+        ),
+        'can_approve_completion': (
+            disposisi.tipe_disposisi == 'ONLINE'
+            and disposisi.status_pengajuan == 'VERIFIKASI'
+            and request.user.can_share_disposisi
+        ),
         'can_share_this_disposisi': can_share_this_disposisi,
         'selected_recipient_roles': list(
             disposisi.shared_recipients.values_list('role', flat=True)
@@ -455,6 +492,7 @@ def upload_disposisi(request, pk):
                     'penerima dipilih.',
                 )
 
+            notify_shared_recipients(request, disposisi, selected_roles)
             return redirect('disposisi:detaildisposisi', pk=pk)
     else:
         form = DisposisiUploadForm(instance=disposisi)
@@ -560,7 +598,9 @@ def isi_online_disposisi(request, pk):
     )
     is_approved = (
         disposisi.tipe_disposisi == 'ONLINE'
-        and disposisi.status_pengajuan in {'DIISI', 'DIBAGIKAN', 'SELESAI'}
+        and disposisi.status_pengajuan in {
+            'DIISI', 'DIBAGIKAN', 'VERIFIKASI', 'SELESAI',
+        }
     )
 
     if not (is_pending or is_approved):
@@ -578,6 +618,7 @@ def isi_online_disposisi(request, pk):
 
         form = OnlineDisposisiIsiForm(request.POST)
         if form.is_valid():
+            selected_roles = []
             with transaction.atomic():
                 locked_disposisi = get_object_or_404(
                     Disposisi.objects.select_for_update(), pk=pk
@@ -622,6 +663,12 @@ def isi_online_disposisi(request, pk):
                         f'Disposisi dibagikan kepada: {recipient_names}.',
                     )
 
+            if selected_roles:
+                notify_shared_recipients(
+                    request,
+                    locked_disposisi,
+                    selected_roles,
+                )
             messages.success(request, "Isi disposisi berhasil dikirim dan disetujui.")
             return redirect('disposisi:detaildisposisi', pk=pk)
     else:
@@ -699,6 +746,7 @@ def share_online_disposisi(request, pk):
                 'Disposisi offline selesai setelah file diunggah dan dibagikan.',
             )
 
+    notify_shared_recipients(request, disposisi, selected_roles)
     if is_offline:
         messages.success(
             request,
@@ -706,6 +754,59 @@ def share_online_disposisi(request, pk):
         )
     else:
         messages.success(request, f"Disposisi berhasil dibagikan kepada {recipient_names}.")
+    return redirect('disposisi:detaildisposisi', pk=pk)
+
+
+@login_required
+@require_POST
+def receive_shared_disposisi(request, pk):
+    with transaction.atomic():
+        disposisi = get_object_or_404(
+            Disposisi.objects.select_for_update(),
+            pk=pk,
+        )
+        recipient = disposisi.shared_recipients.select_for_update().filter(
+            role=request.user.role,
+        ).first()
+        if recipient is None:
+            raise PermissionDenied
+        if not (
+            disposisi.tipe_disposisi == 'ONLINE'
+            and disposisi.status_pengajuan == 'DIBAGIKAN'
+        ):
+            messages.error(request, "Disposisi ini tidak dapat diterima.")
+            return redirect('disposisi:detaildisposisi', pk=pk)
+        if recipient.agreed_at is not None:
+            messages.info(request, "Disposisi ini sudah Anda selesaikan.")
+            return redirect('disposisi:detaildisposisi', pk=pk)
+        if recipient.received_at is not None:
+            messages.info(request, "Disposisi ini sudah Anda terima.")
+            return redirect('disposisi:detaildisposisi', pk=pk)
+
+        recipient.received_at = timezone.now()
+        recipient.save(update_fields=['received_at'])
+        role_label = recipient.get_role_display()
+        create_log(
+            disposisi,
+            request.user,
+            'TERIMA_DISPOSISI',
+            f'Disposisi diterima oleh {role_label}.',
+        )
+
+    record_activity(
+        request=request,
+        category='DISPOSISI',
+        action='DISPOSITION_RECEIVED',
+        description=f'Disposisi diterima oleh {role_label}.',
+        target_type='disposisi.Disposisi',
+        target_id=disposisi.pk,
+        target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
+        metadata={'recipient_role': recipient.role},
+    )
+    messages.success(
+        request,
+        "Disposisi berhasil diterima. Selesaikan pekerjaan lalu isi aktivitas.",
+    )
     return redirect('disposisi:detaildisposisi', pk=pk)
 
 
@@ -722,46 +823,143 @@ def complete_shared_disposisi(request, pk):
         ).first()
         if recipient is None:
             raise PermissionDenied
-        if recipient.agreed_at is not None:
-            messages.info(request, "Anda sudah menyetujui disposisi ini.")
-            return redirect('disposisi:detaildisposisi', pk=pk)
         if not (
             disposisi.tipe_disposisi == 'ONLINE'
-            and disposisi.status_pengajuan == 'DIBAGIKAN'
+            and disposisi.status_pengajuan in {'DIBAGIKAN', 'VERIFIKASI'}
         ):
             messages.error(request, "Disposisi ini tidak dapat diselesaikan.")
             return redirect('disposisi:detaildisposisi', pk=pk)
+        if recipient.received_at is None:
+            messages.error(
+                request,
+                "Terima disposisi terlebih dahulu sebelum menyelesaikannya.",
+            )
+            return redirect('disposisi:detaildisposisi', pk=pk)
 
+        is_edit = recipient.agreed_at is not None
+        form = RecipientActivityForm(request.POST)
+        if not form.is_valid():
+            messages.error(
+                request,
+                form.errors['activity_description'][0],
+            )
+            return redirect('disposisi:detaildisposisi', pk=pk)
+
+        activity_description = form.cleaned_data['activity_description']
+        recipient.activity_description = activity_description
+        recipient.completed_by = request.user
         recipient.agreed_at = timezone.now()
-        recipient.save(update_fields=['agreed_at'])
+        recipient.save(update_fields=[
+            'activity_description',
+            'completed_by',
+            'agreed_at',
+        ])
+        role_label = recipient.get_role_display()
         create_log(
             disposisi,
             request.user,
-            'TERIMA_DISPOSISI',
-            f'Disposisi disetujui oleh {request.user.get_role_display()}.',
+            'AKTIVITAS_PENERIMA',
+            f'{role_label}: {activity_description}',
         )
 
         is_complete = not disposisi.shared_recipients.filter(
             agreed_at__isnull=True,
         ).exists()
-        if is_complete:
-            disposisi.status_pengajuan = 'SELESAI'
+        if is_complete and disposisi.status_pengajuan == 'DIBAGIKAN':
+            disposisi.status_pengajuan = 'VERIFIKASI'
             disposisi.save(update_fields=['status_pengajuan', 'waktu_diedit'])
             create_log(
                 disposisi,
                 request.user,
-                'SELESAI',
-                'Seluruh penerima telah menyetujui disposisi.',
+                'AJUKAN_SELESAI',
+                'Seluruh penerima telah menyelesaikan disposisi dan '
+                'mengisi aktivitas. Menunggu persetujuan Sekretaris.',
             )
 
-    if is_complete:
-        messages.success(request, "Semua penerima telah menyetujui. Disposisi selesai.")
+    record_activity(
+        request=request,
+        category='DISPOSISI',
+        action=(
+            'RECIPIENT_ACTIVITY_UPDATED'
+            if is_edit
+            else 'RECIPIENT_ACTIVITY_SUBMITTED'
+        ),
+        description=f'{role_label}: {activity_description}',
+        target_type='disposisi.Disposisi',
+        target_id=disposisi.pk,
+        target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
+        metadata={
+            'recipient_role': recipient.role,
+            'all_recipients_complete': is_complete,
+        },
+    )
+    if is_edit:
+        messages.success(request, "Aktivitas berhasil diperbarui.")
+    elif is_complete:
+        messages.success(
+            request,
+            "Semua penerima telah mengisi aktivitas. "
+            "Menunggu persetujuan Sekretaris.",
+        )
     else:
         messages.success(
             request,
-            "Persetujuan berhasil. Menunggu persetujuan penerima lainnya.",
+            "Aktivitas berhasil dikirim. Menunggu penerima lainnya.",
         )
     return redirect('disposisi:detaildisposisi', pk=pk)
+
+
+@login_required
+@require_POST
+def approve_completed_disposisi(request, pk):
+    if not request.user.can_share_disposisi:
+        raise PermissionDenied
+
+    with transaction.atomic():
+        disposisi = get_object_or_404(
+            Disposisi.objects.select_for_update(),
+            pk=pk,
+        )
+        if not (
+            disposisi.tipe_disposisi == 'ONLINE'
+            and disposisi.status_pengajuan == 'VERIFIKASI'
+        ):
+            messages.error(
+                request,
+                "Disposisi ini belum siap disetujui sebagai selesai.",
+            )
+            return redirect('disposisi:detaildisposisi', pk=pk)
+        if disposisi.shared_recipients.filter(
+            agreed_at__isnull=True,
+        ).exists():
+            messages.error(
+                request,
+                "Masih ada penerima yang belum mengisi aktivitas.",
+            )
+            return redirect('disposisi:detaildisposisi', pk=pk)
+
+        disposisi.status_pengajuan = 'SELESAI'
+        disposisi.save(update_fields=['status_pengajuan', 'waktu_diedit'])
+        create_log(
+            disposisi,
+            request.user,
+            'SELESAI',
+            'Sekretaris menyetujui penyelesaian disposisi setelah '
+            'memeriksa aktivitas seluruh penerima.',
+        )
+
+    record_activity(
+        request=request,
+        category='DISPOSISI',
+        action='COMPLETION_APPROVED',
+        description='Sekretaris menyetujui disposisi sebagai selesai.',
+        target_type='disposisi.Disposisi',
+        target_id=disposisi.pk,
+        target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
+    )
+    messages.success(request, "Penyelesaian disposisi telah disetujui.")
+    return redirect('disposisi:detaildisposisi', pk=pk)
+
 
 @login_required
 @disposisi_editor_required
@@ -849,3 +1047,62 @@ def download_document(request, pk, kind):
     response["Cache-Control"] = "private, no-store, max-age=0"
     response["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+def _uploaded_disposisi_or_404(user, pk):
+    disposisi = get_object_or_404(
+        visible_disposisi_for_user(user),
+        pk=pk,
+    )
+    if not disposisi.dokumen_disposisi:
+        raise Http404
+    return disposisi
+
+
+@login_required
+@require_GET
+@never_cache
+def preview_uploaded_disposisi(request, pk):
+    disposisi = _uploaded_disposisi_or_404(request.user, pk)
+    return render(request, 'disposisi_document_preview.html', {
+        'disposisi': disposisi,
+        'filename': os.path.basename(disposisi.dokumen_disposisi.name),
+    })
+
+
+@login_required
+@require_GET
+@never_cache
+def view_uploaded_disposisi(request, pk):
+    disposisi = _uploaded_disposisi_or_404(request.user, pk)
+    document = disposisi.dokumen_disposisi
+    filename = os.path.basename(document.name)
+    content_type = (
+        mimetypes.guess_type(filename)[0]
+        or 'application/octet-stream'
+    )
+    return FileResponse(
+        document.open('rb'),
+        as_attachment=False,
+        filename=filename,
+        content_type=content_type,
+    )
+
+
+@login_required
+@require_GET
+@never_cache
+def download_uploaded_disposisi(request, pk):
+    disposisi = _uploaded_disposisi_or_404(request.user, pk)
+    document = disposisi.dokumen_disposisi
+    filename = os.path.basename(document.name)
+    content_type = (
+        mimetypes.guess_type(filename)[0]
+        or 'application/octet-stream'
+    )
+    return FileResponse(
+        document.open('rb'),
+        as_attachment=True,
+        filename=filename,
+        content_type=content_type,
+    )

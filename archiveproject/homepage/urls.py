@@ -9,6 +9,7 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('nota-dinas/', views.nota_dinas, name='notadinas'),
     path('surat-keluar/', views.surat_keluar, name='suratkeluar'),
+    path('inbox/', views.inbox, name='inbox'),
     path('monitor/', views.monitoring, name='monitor'),
     path('divisi/', views.divisi, name='divisi'),
     path('activity-log/', views.activity_log, name='activity_log'),

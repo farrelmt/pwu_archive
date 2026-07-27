@@ -17,6 +17,7 @@ class Disposisi(models.Model):
     TUJUAN_CHOICES = [
         ("DIRUT", "Direktur Utama"),
         ("DIR", "Direktur"),
+        ("DIREKSI", "Direksi"),
     ]
 
     STATUS_CHOICES = [
@@ -24,6 +25,7 @@ class Disposisi(models.Model):
         ("DIAJUKAN", "Disposisi Telah Diajukan"),
         ("DIISI", "Disposisi Telah Diisi"),
         ("DIBAGIKAN", "Disposisi Telah Dibagikan"),
+        ("VERIFIKASI", "Menunggu Persetujuan Sekretaris"),
         ("SELESAI", "Disposisi Telah Selesai"),
     ]
 
@@ -195,6 +197,12 @@ class Disposisi(models.Model):
             return user.role == 'direktur_utama'
         if self.tujuan == 'DIR':
             return user.role in {'direktur', 'direktur_umum'}
+        if self.tujuan == 'DIREKSI':
+            return user.role in {
+                'direktur_utama',
+                'direktur',
+                'direktur_umum',
+            }
         return False
 
 
@@ -205,7 +213,16 @@ class DisposisiRecipient(models.Model):
         related_name='shared_recipients',
     )
     role = models.CharField(max_length=30, choices=Disposisi.SHARE_ROLE_CHOICES)
+    received_at = models.DateTimeField(blank=True, null=True)
     agreed_at = models.DateTimeField(blank=True, null=True)
+    activity_description = models.TextField(blank=True, default='')
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='completed_disposisi_recipients',
+    )
 
     class Meta:
         ordering = ['role']
@@ -231,7 +248,9 @@ class DisposisiLog(models.Model):
         ('SETUJUI_DISPOSISI', 'Pengajuan Disetujui'),
         ('ISI_DISPOSISI', 'Diisi'),
         ('BAGI_DISPOSISI', 'Dibagi'),
-        ('TERIMA_DISPOSISI', 'Penerima Menyetujui'),
+        ('TERIMA_DISPOSISI', 'Diterima Penerima'),
+        ('AKTIVITAS_PENERIMA', 'Aktivitas Penerima'),
+        ('AJUKAN_SELESAI', 'Diajukan ke Sekretaris'),
         ('SELESAI', 'Selesai'),
     ]
 

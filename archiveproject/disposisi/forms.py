@@ -274,3 +274,21 @@ class ShareDisposisiForm(forms.Form):
             "invalid_choice": "Tujuan disposisi tidak valid.",
         },
     )
+
+
+class RecipientActivityForm(forms.Form):
+    activity_description = forms.CharField(
+        label="Aktivitas",
+        max_length=2000,
+        strip=True,
+        widget=forms.Textarea(attrs={
+            "rows": 5,
+            "placeholder": (
+                "Jelaskan aktivitas atau tindak lanjut yang telah dilakukan."
+            ),
+        }),
+        error_messages={
+            "required": "Aktivitas wajib diisi sebelum disposisi diselesaikan.",
+            "max_length": "Aktivitas maksimal 2.000 karakter.",
+        },
+    )

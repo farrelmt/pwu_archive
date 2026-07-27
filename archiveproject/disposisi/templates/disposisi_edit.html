@@ -1,5 +1,5 @@
 {% extends 'home_base.html' %}
-{% block title %}Disposisi - Buat Disposisi{% endblock %}
+{% block title %}Surat Masuk - Edit Surat Masuk{% endblock %}
 {% block content %}
 
 <div class="bg-gray-50/10 p-4 select-none w-full">
@@ -75,10 +75,16 @@
                             {% if disposisi.tujuan == 'DIRUT' %}
                                 selected
                             {% endif %}>
-                        Direksi Utama
+                        Direktur Utama
                     </option>
                     <option value="DIR"
                             {% if disposisi.tujuan == 'DIR' %}
+                                selected
+                            {% endif %}>
+                        Direktur
+                    </option>
+                    <option value="DIREKSI"
+                            {% if disposisi.tujuan == 'DIREKSI' %}
                                 selected
                             {% endif %}>
                         Direksi

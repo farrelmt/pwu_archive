@@ -36,6 +36,15 @@
     </div>
 
     <div class="step font-semibold text-white
+        {% if disposisi.status_pengajuan == 'VERIFIKASI' %}
+            bg-yellow-300
+        {% else %}
+            bg-gray-300
+        {% endif %}">
+        Verifikasi
+    </div>
+
+    <div class="step font-semibold text-white
         {% if disposisi.status_pengajuan == 'SELESAI' %}
             bg-yellow-300
         {% else %}

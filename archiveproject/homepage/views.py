@@ -11,7 +11,7 @@ from django.views.decorators.http import require_http_methods
 from .models import AppSetting
 from .forms import ReportForm
 from django.conf import settings
-from .services import monitor_disposisi_for_user
+from .services import inbox_disposisi_for_user, related_disposisi_for_user
 from accounts.audit import record_activity
 from accounts.models import ActivityLog
 from django.core.exceptions import PermissionDenied
@@ -20,15 +20,20 @@ from datetime import date
 
 @login_required(login_url='accounts:login')
 def dashboard(request):
-    links = [
-        {"page": "disposisi", "url": "disposisi", "title": "Disposisi", "icon": "disposisi"},
-        {"page": "nota_dinas",  "url": "notadinas", "title": "Nota Dinas", "icon": "nota_dinas"},
-        {"page": "surat_keluar", "url": "suratkeluar", "title": "Surat Keluar", "icon": "surat_keluar"},
+    links = []
+    if request.user.can_edit_disposisi:
+        links.extend([
+            {"page": "disposisi", "url": "disposisi", "title": "Surat Masuk", "icon": "disposisi"},
+            {"page": "nota_dinas", "url": "notadinas", "title": "Nota Dinas", "icon": "nota_dinas"},
+            {"page": "surat_keluar", "url": "suratkeluar", "title": "Surat Keluar", "icon": "surat_keluar"},
+        ])
+    links.extend([
+        {"page": "inbox", "url": "inbox", "title": "Inbox", "icon": "inbox"},
         {"page": "monitor", "url": "monitor", "title": "Monitor", "icon": "monitor"},
-    ]
-    if request.user.is_superuser or request.user.can_edit_disposisi:
+    ])
+    if request.user.can_edit_disposisi:
         links.append({"page": "divisi", "url": "divisi", "title": "Divisi", "icon": "divisi"})
-    pending_online_count = monitor_disposisi_for_user(request.user).count()
+    pending_online_count = inbox_disposisi_for_user(request.user).count()
     return render(request, 'dashboard.html', {
         'links': links,
         'pending_online_count': pending_online_count,
@@ -36,19 +41,22 @@ def dashboard(request):
 
 @login_required(login_url='accounts:login')
 def nota_dinas(request):
+    if not request.user.can_edit_disposisi:
+        raise PermissionDenied
     return render(request, 'nota_dinas.html')
 
 @login_required(login_url='accounts:login')
 def surat_keluar(request):
+    if not request.user.can_edit_disposisi:
+        raise PermissionDenied
     return render(request, 'surat_keluar.html')
 
-@login_required(login_url='accounts:login')
-def monitoring(request):
-    pending_online = monitor_disposisi_for_user(request.user).order_by('waktu_diedit')
 
+def _document_list_context(request, queryset):
+    documents = queryset.order_by('-waktu_diedit')
     search = request.GET.get('search', '').strip()
     if search:
-        pending_online = pending_online.filter(
+        documents = documents.filter(
             Q(nomor_agenda__icontains=search)
             | Q(nomor_surat__icontains=search)
             | Q(pengirim__icontains=search)
@@ -62,17 +70,49 @@ def monitoring(request):
     if page_limit not in {20, 50, 100}:
         page_limit = 20
 
-    paginator = Paginator(pending_online, page_limit)
+    paginator = Paginator(documents, page_limit)
     page_obj = paginator.get_page(request.GET.get('page', 1))
-    return render(request, 'monitor.html', {
+    return {
         'page_obj': page_obj,
         'page_limit': str(page_limit),
         'search': search,
+    }
+
+
+@login_required(login_url='accounts:login')
+def inbox(request):
+    context = _document_list_context(
+        request,
+        inbox_disposisi_for_user(request.user),
+    )
+    context.update({
+        'page_title': 'INBOX',
+        'page_heading': 'Inbox',
+        'page_description': 'Dokumen yang membutuhkan tindakan Anda.',
+        'reset_url_name': 'homepage:inbox',
+        'is_inbox': True,
     })
+    return render(request, 'monitor.html', context)
+
+
+@login_required(login_url='accounts:login')
+def monitoring(request):
+    context = _document_list_context(
+        request,
+        related_disposisi_for_user(request.user),
+    )
+    context.update({
+        'page_title': 'MONITOR',
+        'page_heading': 'Monitor Dokumen',
+        'page_description': 'Semua dokumen yang berkaitan dengan Anda.',
+        'reset_url_name': 'homepage:monitor',
+        'is_inbox': False,
+    })
+    return render(request, 'monitor.html', context)
 
 @login_required(login_url='accounts:login')
 def divisi(request):
-    if not (request.user.is_superuser or request.user.can_edit_disposisi):
+    if not request.user.can_edit_disposisi:
         raise PermissionDenied
     users = get_user_model().objects.all().order_by('role', 'username')
     return render(request, 'divisi.html', {'users': users})
@@ -157,8 +197,7 @@ def activity_log(request):
 
 @login_required(login_url='accounts:login')
 def notifikasi(request):
-    messages.info(request, "Fitur notifikasi belum tersedia.")
-    return redirect("homepage:dashboard")
+    return redirect("homepage:inbox")
 
 @login_required(login_url='accounts:login')
 @never_cache

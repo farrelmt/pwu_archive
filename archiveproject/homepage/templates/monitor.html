@@ -1,11 +1,12 @@
 {% extends 'home_base.html' %}
 {% load disposisi_extras %}
-{% block title %}SISTEM ARSIP - MONITOR{% endblock %}
+{% block title %}SISTEM ARSIP - {{ page_title }}{% endblock %}
 {% block content %}
 <div class="w-full select-none bg-gray-50 p-2">
     <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-xl font-bold text-blue-950">Monitor Surat</h1>
+            <h1 class="text-xl font-bold text-blue-950">{{ page_heading }}</h1>
+            <p class="text-sm text-gray-600">{{ page_description }}</p>
         </div>
 
         <form method="get" class="flex flex-wrap items-center gap-2">
@@ -19,7 +20,7 @@
                 Cari
             </button>
             {% if search %}
-            <a href="{% url 'homepage:monitor' %}"
+            <a href="{% url reset_url_name %}"
                class="inline-flex h-8 items-center rounded border border-gray-300 bg-white px-4 text-sm font-semibold">
                 Reset
             </a>
@@ -74,10 +75,14 @@
                         <td class="border px-3 py-2">{{ disposisi.get_tujuan_display }}</td>
                         <td class="border px-3 py-2 text-left">{{ disposisi.perihal|truncatechars:80 }}</td>
                         <td class="border px-3 py-2">
-                            {% if disposisi.status_pengajuan == 'DIAJUKAN' %}
+                            {% if not is_inbox %}
+                                {{ disposisi.get_status_pengajuan_display }}
+                            {% elif disposisi.status_pengajuan == 'DIAJUKAN' %}
                                 Menunggu Direktur
                             {% elif disposisi.status_pengajuan == 'DIISI' %}
                                 Menunggu Dibagikan
+                            {% elif disposisi.status_pengajuan == 'VERIFIKASI' %}
+                                Menunggu Persetujuan Sekretaris
                             {% else %}
                                 Disposisi Dibagikan
                             {% endif %}
@@ -86,7 +91,11 @@
                     {% empty %}
                     <tr>
                         <td colspan="8" class="py-6 text-center text-gray-500">
-                            Tidak ada disposisi untuk dimonitor.
+                            {% if is_inbox %}
+                                Tidak ada dokumen yang membutuhkan tindakan.
+                            {% else %}
+                                Tidak ada dokumen terkait.
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
