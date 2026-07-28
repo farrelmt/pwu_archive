@@ -175,10 +175,17 @@ class DocumentQueueTests(TestCase):
 class ActivityLogAccessTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
-        self.admin = user_model.objects.create_user(
+        self.it_user = user_model.objects.create_user(
+            username="it_pwu",
+            password="test-password",
+            role="admin",
+        )
+        self.other_admin = user_model.objects.create_user(
             username="audit-admin",
             password="test-password",
             role="admin",
+            is_superuser=True,
+            is_staff=True,
         )
         self.regular_user = user_model.objects.create_user(
             username="audit-viewer",
@@ -196,8 +203,8 @@ class ActivityLogAccessTests(TestCase):
             target_label="12/VII/2026",
         )
 
-    def test_activity_log_is_visible_to_admin(self):
-        self.client.force_login(self.admin)
+    def test_activity_log_is_visible_to_it_pwu(self):
+        self.client.force_login(self.it_user)
 
         response = self.client.get(reverse("homepage:activity_log"))
 
@@ -214,6 +221,13 @@ class ActivityLogAccessTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_activity_log_rejects_other_admin_and_superuser(self):
+        self.client.force_login(self.other_admin)
+
+        response = self.client.get(reverse("homepage:activity_log"))
+
+        self.assertEqual(response.status_code, 403)
+
     def test_activity_log_filters_by_category_and_result(self):
         ActivityLog.objects.create(
             actor_username="unknown-user",
@@ -222,7 +236,7 @@ class ActivityLogAccessTests(TestCase):
             description="Login attempt failed.",
             success=False,
         )
-        self.client.force_login(self.admin)
+        self.client.force_login(self.it_user)
 
         response = self.client.get(
             reverse("homepage:activity_log"),

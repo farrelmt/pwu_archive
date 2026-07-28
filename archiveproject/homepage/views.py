@@ -120,7 +120,7 @@ def divisi(request):
 
 @login_required(login_url='accounts:login')
 def activity_log(request):
-    if not (request.user.is_superuser or request.user.role == 'admin'):
+    if request.user.username != 'it_pwu':
         raise PermissionDenied
 
     logs = ActivityLog.objects.select_related('actor').all()
