@@ -6,7 +6,7 @@ from django.conf.urls.static import static
 app_name = 'homepage'
 
 urlpatterns = [
-    path('', views.dashboard, name='dashboard'),
+    path('', views.root, name='dashboard'),
     path('nota-dinas/', views.nota_dinas, name='notadinas'),
     path('surat-keluar/', views.surat_keluar, name='suratkeluar'),
     path('inbox/', views.inbox, name='inbox'),

@@ -17,6 +17,31 @@ from accounts.models import ActivityLog
 from django.core.exceptions import PermissionDenied
 import textwrap
 from datetime import date
+from archiveproject.host_routing import request_hostname
+
+
+def root(request):
+    hostname = request_hostname(request)
+    if hostname in settings.LANDING_HOSTS:
+        if hostname == "localhost":
+            requested_host = request.get_host()
+            port_suffix = (
+                f":{requested_host.rsplit(':', 1)[1]}"
+                if ":" in requested_host
+                else ""
+            )
+            archive_url = f"http://archive.localhost{port_suffix}"
+            koperasi_url = f"http://koperasi.localhost{port_suffix}"
+        else:
+            archive_url = settings.ARCHIVE_BASE_URL
+            koperasi_url = settings.KOPERASI_BASE_URL
+
+        return render(request, 'landing.html', {
+            'archive_url': archive_url,
+            'koperasi_url': koperasi_url,
+        })
+    return dashboard(request)
+
 
 @login_required(login_url='accounts:login')
 def dashboard(request):

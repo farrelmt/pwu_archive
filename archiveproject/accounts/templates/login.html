@@ -11,10 +11,10 @@
 
         <div class="relative z-10 max-w-xl pb-20">
             <h1 class="text-4xl font-bold uppercase leading-tight tracking-tight xl:text-5xl">
-                Sistem Arsip PWU
+                {{ system_name }}
             </h1>
             <p class="mt-6 max-w-lg text-lg leading-relaxed text-blue-200">
-                Kelola surat masuk, disposisi, dan pemantauan dokumen dalam satu ruang kerja yang aman.
+                {{ system_description }}
             </p>
         </div>
 
@@ -31,7 +31,7 @@
             <div class="mb-8 text-center lg:text-left">
                 <p class="text-sm font-semibold text-blue-700">Selamat datang kembali</p>
                 <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Masuk ke akun Anda</h2>
-                <p class="mt-2 text-sm leading-6 text-slate-500">Gunakan akun sistem arsip yang telah diberikan kepada Anda.</p>
+                <p class="mt-2 text-sm leading-6 text-slate-500">{{ account_description }}</p>
             </div>
 
             {% if messages %}
@@ -53,6 +53,9 @@
 
             <form method="POST" action="{% url 'accounts:login' %}" class="space-y-5">
                 {% csrf_token %}
+                {% if request.GET.next %}
+                <input type="hidden" name="next" value="{{ request.GET.next }}">
+                {% endif %}
                 <div>
                     <label for="username" class="mb-2 block text-sm font-semibold text-slate-700">Username</label>
                     <div class="relative">

@@ -16,6 +16,20 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env.bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
+LANDING_HOSTS = frozenset(
+    host.lower()
+    for host in env.list(
+        'LANDING_HOSTS',
+        default=['pwujatim.site', 'www.pwujatim.site'],
+    )
+)
+KOPERASI_HOSTS = frozenset(
+    host.lower()
+    for host in env.list(
+        'KOPERASI_HOSTS',
+        default=['koperasi.pwujatim.site', 'koperasi.localhost'],
+    )
+)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -30,6 +44,7 @@ INSTALLED_APPS = [
     'homepage',
     'disposisi',
     'pengaturan',
+    'koperasi.apps.KoperasiConfig',
 ]
 
 TAILWIND_APP_NAME = 'theme'
@@ -38,10 +53,13 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'archiveproject.security.SecurityHeadersMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'archiveproject.host_routing.KoperasiHostMiddleware',
+    'archiveproject.host_routing.LandingHostMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'archiveproject.host_routing.SystemBoundaryMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
@@ -161,7 +179,15 @@ EMAIL_TO_REPORT = os.getenv('EMAIL_TO_REPORT', EMAIL_HOST_USER)
 EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=15)
 SYSTEM_BASE_URL = env(
     'SYSTEM_BASE_URL',
-    default='https://pwujatim.site',
+    default='https://archive.pwujatim.site',
+).rstrip('/')
+ARCHIVE_BASE_URL = env(
+    'ARCHIVE_BASE_URL',
+    default='https://archive.pwujatim.site',
+).rstrip('/')
+KOPERASI_BASE_URL = env(
+    'KOPERASI_BASE_URL',
+    default='https://koperasi.pwujatim.site',
 ).rstrip('/')
 
 SESSION_COOKIE_AGE = env.int('SESSION_COOKIE_AGE', default=28800)

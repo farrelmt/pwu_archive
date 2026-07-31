@@ -9,6 +9,81 @@ from accounts.models import ActivityLog
 from disposisi.models import Disposisi, DisposisiRecipient
 
 
+@override_settings(
+    ALLOWED_HOSTS=[
+        "testserver",
+        "pwujatim.site",
+        "www.pwujatim.site",
+        "archive.pwujatim.site",
+        "localhost",
+        "archive.localhost",
+    ],
+    LANDING_HOSTS=frozenset({"pwujatim.site", "www.pwujatim.site", "localhost"}),
+    ARCHIVE_BASE_URL="https://archive.pwujatim.site",
+    KOPERASI_BASE_URL="https://koperasi.pwujatim.site",
+)
+class HostRoutingTests(TestCase):
+    def test_public_domain_shows_system_chooser_without_login(self):
+        response = self.client.get("/", HTTP_HOST="pwujatim.site")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sistem Arsip")
+        self.assertContains(response, "Sistem Koperasi")
+        self.assertContains(response, "https://archive.pwujatim.site")
+        self.assertContains(response, "https://koperasi.pwujatim.site")
+        self.assertNotContains(response, "Masuk ke akun Anda")
+
+    def test_public_domain_does_not_expose_archive_routes(self):
+        response = self.client.get(
+            reverse("accounts:login"),
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertRedirects(
+            response,
+            "/",
+            fetch_redirect_response=False,
+        )
+
+    def test_archive_domain_still_requires_login(self):
+        response = self.client.get(
+            reverse("homepage:dashboard"),
+            HTTP_HOST="archive.pwujatim.site",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("accounts:login"), response.url)
+
+    def test_localhost_shows_local_system_chooser(self):
+        response = self.client.get("/", HTTP_HOST="localhost:8000")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "http://archive.localhost:8000")
+        self.assertContains(response, "http://koperasi.localhost:8000")
+
+    def test_archive_localhost_still_requires_login(self):
+        response = self.client.get("/", HTTP_HOST="archive.localhost:8000")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("accounts:login"), response.url)
+
+    def test_authenticated_archive_domain_shows_dashboard(self):
+        user = get_user_model().objects.create_user(
+            username="archive-host-user",
+            password="test-password",
+            role="kadiv_keuangan",
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse("homepage:dashboard"),
+            HTTP_HOST="archive.pwujatim.site",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Akses Cepat")
+
+
 @override_settings(ALLOWED_HOSTS=["testserver"])
 class HomepageAuthenticationTests(TestCase):
     def test_feature_pages_require_login(self):

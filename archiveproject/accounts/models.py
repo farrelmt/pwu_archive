@@ -21,6 +21,7 @@ class SystemUser(AbstractUser):
         ('kadiv_legal_umum', 'Kepala Divisi Legal dan Umum'),
         ('kadiv_aset', 'Kepala Divisi Aset'),
         ('kadiv_spi', 'Kepala Divisi SPI'),
+        ('akuntan', 'Akuntan'),
     ]
 
     role = models.CharField(max_length=30, choices=ROLE_CHOICES)
@@ -59,6 +60,7 @@ class ActivityLog(models.Model):
         ('DISPOSISI', 'Disposisi'),
         ('ACCOUNT', 'Account'),
         ('SYSTEM', 'System'),
+        ('KOPERASI', 'Koperasi'),
     ]
 
     actor = models.ForeignKey(

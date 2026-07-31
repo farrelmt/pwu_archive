@@ -639,7 +639,7 @@ class DisposisiSecurityTests(TestCase):
             self.assertIn(self.disposisi.nomor_surat, notification.body)
             self.assertIn(self.disposisi.perihal, notification.body)
             self.assertIn(
-                "https://pwujatim.site/disposisi/",
+                "https://archive.pwujatim.site/disposisi/",
                 notification.body,
             )
         self.assertEqual(
