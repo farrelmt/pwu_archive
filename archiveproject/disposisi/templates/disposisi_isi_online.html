@@ -147,6 +147,22 @@
         overflow: hidden !important;
     }
 
+    /*
+     * This is a focused document workspace with its own Back/Preview/Send
+     * controls.  Keeping the application drawer active here can leave its
+     * full-screen backdrop above the content (notably after browser history
+     * restoration), which prevents the contenteditable area receiving input.
+     */
+    #menuBtn,
+    #sidebar,
+    #sidebarBackdrop {
+        display: none !important;
+    }
+
+    body main {
+        padding-left: 0 !important;
+    }
+
     body > div:first-of-type {
         display: flex;
         height: 100%;
@@ -165,7 +181,6 @@
         overflow: hidden;
     }
 
-    #sidebar,
     body main,
     #isiDisposisiForm {
         height: 100%;
