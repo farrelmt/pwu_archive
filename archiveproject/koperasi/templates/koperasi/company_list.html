@@ -1,0 +1,14 @@
+{% extends "koperasi/base.html" %}
+{% block content %}
+<div class="mb-6 flex items-end justify-between gap-4">
+    <div><h1 class="text-3xl font-extrabold">Perusahaan Grup</h1><p class="mt-2 text-sm text-slate-500">Kelola perusahaan induk dan seluruh anak perusahaan.</p></div>
+    {% if can_admin_access %}<a href="{% url 'koperasi:company_create' %}" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800">+ Perusahaan</a>{% endif %}
+</div>
+<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+<div class="overflow-x-auto"><table class="w-full text-left text-sm">
+<thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-4">Kode</th><th class="px-5 py-4">Nama</th><th class="px-5 py-4">Jenis</th><th class="px-5 py-4">Anggota</th><th class="px-5 py-4">Status</th><th class="px-5 py-4"></th></tr></thead>
+<tbody class="divide-y divide-slate-100">
+{% for company in companies %}<tr class="hover:bg-slate-50"><td class="px-5 py-4 font-bold text-blue-950">{{ company.code }}</td><td class="px-5 py-4"><p class="font-semibold">{{ company.name }}</p><p class="text-xs text-slate-400">{{ company.email|default:"-" }}</p></td><td class="px-5 py-4">{{ company.get_company_type_display }}</td><td class="px-5 py-4">{{ company.member_count }}</td><td class="px-5 py-4"><span class="rounded-full px-2.5 py-1 text-xs font-bold {% if company.is_active %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">{% if company.is_active %}Aktif{% else %}Nonaktif{% endif %}</span></td><td class="px-5 py-4 text-right">{% if can_manage %}<a href="{% url 'koperasi:company_edit' company.pk %}" class="font-bold text-blue-700 hover:underline">Edit</a>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="6" class="px-5 py-10 text-center text-slate-500">Belum ada perusahaan.</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}
