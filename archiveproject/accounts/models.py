@@ -20,8 +20,9 @@ class SystemUser(AbstractUser):
         ('kadiv_risiko', 'Kepala Divisi Manajemen Risiko'),
         ('kadiv_legal_umum', 'Kepala Divisi Legal dan Umum'),
         ('kadiv_aset', 'Kepala Divisi Aset'),
-        ('kadiv_spi', 'Kepala Divisi SPI'),
+        ('kadiv_spi', 'Kepala SPI'),
         ('akuntan', 'Akuntan'),
+        ('wirajatim_kso', 'Wirajatim KSO'),
     ]
 
     role = models.CharField(max_length=30, choices=ROLE_CHOICES)
@@ -33,6 +34,14 @@ class SystemUser(AbstractUser):
         if not (self.email or '').strip():
             self.email = PLACEHOLDER_EMAIL
         super().save(*args, **kwargs)
+
+    @property
+    def can_view_all_archive(self):
+        return self.is_superuser or self.role in {'sekretaris', 'kadiv_spi'}
+
+    @property
+    def can_view_activity_log(self):
+        return self.username == 'it_pwu'
 
     @property
     def can_edit_disposisi(self):

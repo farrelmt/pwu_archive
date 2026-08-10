@@ -5,14 +5,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#172554">
+    <meta name="theme-color" content="{% if is_koperasi %}#14532d{% else %}#172554{% endif %}">
     <title>Sistem Arsip PWU</title>
     <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
     <link rel="apple-touch-icon" href="{% static 'images/wirajatim-logo-stacked.png' %}">
     {% tailwind_css %}
 </head>
 
-<body class="min-h-screen bg-slate-100 antialiased">
+<body class="min-h-screen {% if is_koperasi %}bg-emerald-50{% else %}bg-slate-100{% endif %} antialiased">
     {% block content %}{% endblock %}
 </body>
 

@@ -190,6 +190,32 @@ class DisposisiForm(forms.ModelForm):
             "tanggal_surat": forms.DateInput(attrs={"type": "date"}),
             "perihal": forms.Textarea(attrs={"rows": 4}),
         }
+        labels = {
+            "tanggal_surat_diterima": "Tanggal Surat Diterima",
+            "tanggal_surat": "Tanggal Surat",
+            "nomor_surat": "Nomor Surat",
+            "pengirim": "Pengirim",
+            "lampiran": "Lampiran",
+            "tujuan": "Tujuan",
+            "tembusan": "Tembusan",
+            "perihal": "Perihal",
+            "dokumen_surat_masuk": "Dokumen Surat Masuk",
+        }
+        error_messages = {
+            "tanggal_surat_diterima": {
+                "required": "Tanggal surat diterima wajib diisi.",
+            },
+            "tanggal_surat": {"required": "Tanggal surat wajib diisi."},
+            "nomor_surat": {"required": "Nomor surat wajib diisi."},
+            "pengirim": {"required": "Pengirim wajib diisi."},
+            "lampiran": {"required": "Lampiran wajib diisi."},
+            "tujuan": {"required": "Tujuan wajib dipilih."},
+            "tembusan": {"required": "Tembusan wajib diisi."},
+            "perihal": {"required": "Perihal wajib diisi."},
+            "dokumen_surat_masuk": {
+                "required": "Dokumen surat masuk wajib diunggah.",
+            },
+        }
 
     def clean_dokumen_surat_masuk(self):
         file = self.cleaned_data.get('dokumen_surat_masuk')
@@ -274,6 +300,12 @@ class ShareDisposisiForm(forms.Form):
             "invalid_choice": "Tujuan disposisi tidak valid.",
         },
     )
+
+    def __init__(self, *args, choices=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["recipients"].choices = (
+            choices or Disposisi.ONLINE_SHARE_ROLE_CHOICES
+        )
 
 
 class RecipientActivityForm(forms.Form):

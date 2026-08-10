@@ -5,14 +5,37 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied
 from accounts.audit import record_activity
+from django.conf import settings
+
+from archiveproject.host_routing import request_hostname
+from koperasi.access import roles_for_user
+
+
+def _is_koperasi(request):
+    return request_hostname(request) in settings.KOPERASI_HOSTS
+
+
+def _template(request, archive_template, koperasi_template):
+    return koperasi_template if _is_koperasi(request) else archive_template
+
+
+def _ensure_koperasi_access(request):
+    if _is_koperasi(request) and not roles_for_user(request.user):
+        raise PermissionDenied("Anda tidak memiliki akses ke Sistem Koperasi.")
 
 @login_required(login_url='accounts:login')
 def home(request):
-    return render(request, 'pengaturan.html')
+    _ensure_koperasi_access(request)
+    return render(
+        request,
+        _template(request, 'pengaturan.html', 'koperasi/settings.html'),
+    )
 
 @login_required(login_url='accounts:login')
 def edit_profil(request, pk):
+    _ensure_koperasi_access(request)
     user = request.user
     if request.user.pk != pk:
         messages.error(request, "Unauthorized access")
@@ -80,4 +103,12 @@ def edit_profil(request, pk):
         messages.success(request, "Profil berhasil diperbarui!")
         return redirect('pengaturan:main')
 
-    return render(request, 'edit_profil.html', {'user': user})
+    return render(
+        request,
+        _template(
+            request,
+            'edit_profil.html',
+            'koperasi/settings_edit.html',
+        ),
+        {'user': user},
+    )

@@ -50,6 +50,26 @@ class KoperasiHostTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Ringkasan Koperasi Grup")
         self.assertContains(response, "SISTEM KOPERASI PWU")
+        self.assertContains(response, 'href="/report/"')
+        self.assertContains(response, 'href="/pengaturan/"')
+
+    def test_it_user_can_open_koperasi_report_and_settings(self):
+        self.client.force_login(self.user)
+
+        report_response = self.client.get(
+            "/report/",
+            HTTP_HOST="koperasi.localhost:8000",
+        )
+        settings_response = self.client.get(
+            "/pengaturan/",
+            HTTP_HOST="koperasi.localhost:8000",
+        )
+
+        self.assertEqual(report_response.status_code, 200)
+        self.assertContains(report_response, "Report Bug")
+        self.assertEqual(settings_response.status_code, 200)
+        self.assertContains(settings_response, "Pengaturan Profil")
+        self.assertContains(settings_response, "SISTEM KOPERASI PWU")
 
     def test_koperasi_login_uses_koperasi_branding(self):
         response = self.client.get(
@@ -82,6 +102,21 @@ class KoperasiHostTests(TestCase):
             "tidak memiliki akses ke Sistem Koperasi",
         )
         self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_archive_role_cannot_open_koperasi_settings(self):
+        archive_user = get_user_model().objects.create_user(
+            username="archive_settings_user",
+            password="test-password",
+            role="sekretaris",
+        )
+        self.client.force_login(archive_user)
+
+        response = self.client.get(
+            "/pengaturan/",
+            HTTP_HOST="koperasi.localhost:8000",
+        )
+
+        self.assertEqual(response.status_code, 403)
 
     def test_accountant_without_scope_assignment_can_open_dashboard(self):
         accountant = get_user_model().objects.create_user(

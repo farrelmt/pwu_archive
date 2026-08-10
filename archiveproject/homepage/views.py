@@ -46,7 +46,7 @@ def root(request):
 @login_required(login_url='accounts:login')
 def dashboard(request):
     links = []
-    if request.user.can_edit_disposisi:
+    if request.user.can_view_all_archive:
         links.extend([
             {"page": "disposisi", "url": "disposisi", "title": "Surat Masuk", "icon": "disposisi"},
             {"page": "nota_dinas", "url": "notadinas", "title": "Nota Dinas", "icon": "nota_dinas"},
@@ -66,13 +66,13 @@ def dashboard(request):
 
 @login_required(login_url='accounts:login')
 def nota_dinas(request):
-    if not request.user.can_edit_disposisi:
+    if not request.user.can_view_all_archive:
         raise PermissionDenied
     return render(request, 'nota_dinas.html')
 
 @login_required(login_url='accounts:login')
 def surat_keluar(request):
-    if not request.user.can_edit_disposisi:
+    if not request.user.can_view_all_archive:
         raise PermissionDenied
     return render(request, 'surat_keluar.html')
 
@@ -139,13 +139,19 @@ def monitoring(request):
 def divisi(request):
     if not request.user.can_edit_disposisi:
         raise PermissionDenied
-    users = get_user_model().objects.all().order_by('role', 'username')
-    return render(request, 'divisi.html', {'users': users})
+    hidden_usernames = {'dirut', 'it_pwu', 'akuntan1', 'akuntan2'}
+    users = get_user_model().objects.exclude(
+        username__in=hidden_usernames,
+    ).order_by('role', 'username')
+    return render(request, 'divisi.html', {
+        'users': users,
+        'directory_total': users.count(),
+    })
 
 
 @login_required(login_url='accounts:login')
 def activity_log(request):
-    if request.user.username != 'it_pwu':
+    if not request.user.can_view_activity_log:
         raise PermissionDenied
 
     logs = ActivityLog.objects.select_related('actor').all()

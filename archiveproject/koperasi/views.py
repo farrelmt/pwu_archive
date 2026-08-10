@@ -1,16 +1,21 @@
+import textwrap
 from datetime import date
 from decimal import Decimal
 
 from django.contrib import messages
+from django.conf import settings
+from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.audit import record_activity
+from homepage.forms import ReportForm
 
 from .access import (
     APPROVE_ROLES,
@@ -525,3 +530,59 @@ def report_csv(request):
             ]
         )
     return response
+
+
+@koperasi_required
+@never_cache
+@require_http_methods(["GET", "POST"])
+def bug_report(request):
+    form = ReportForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        title = form.cleaned_data["title"]
+        description = form.cleaned_data["description"]
+        steps = form.cleaned_data["steps"]
+        screenshot = form.cleaned_data.get("screenshot")
+        user = request.user
+
+        email_body = textwrap.dedent(
+            f"""
+            BUG REPORT - SISTEM KOPERASI
+
+            User: {user.username}
+            Email: {user.email}
+
+            Title: {title}
+
+            Description:
+            {description}
+
+            Steps:
+            {steps}
+            """
+        ).strip()
+        email = EmailMessage(
+            subject=f"Report Bug {title} from PWU KOPERASI",
+            body=email_body,
+            to=[settings.EMAIL_TO_REPORT],
+        )
+        if screenshot:
+            email.attach(
+                screenshot.name,
+                screenshot.read(),
+                screenshot.content_type,
+            )
+        email.send()
+        record_activity(
+            request=request,
+            category="KOPERASI",
+            action="BUG_REPORT_SENT",
+            description="Koperasi bug report sent by email.",
+            target_type="koperasi.Report",
+            target_label=title or "Untitled report",
+        )
+        messages.success(request, "Report berhasil dikirim.")
+        return redirect("koperasi:dashboard")
+
+    context = _base_context(request)
+    context["form"] = form
+    return render(request, "koperasi/bug_report.html", context)

@@ -35,5 +35,5 @@ urlpatterns = [
     path("akses/tambah/", views.access_create, name="access_create"),
     path("laporan/", views.report, name="report"),
     path("laporan/csv/", views.report_csv, name="report_csv"),
+    path("report/", views.bug_report, name="bug_report"),
 ]
-

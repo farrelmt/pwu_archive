@@ -3,13 +3,32 @@
 {% block content %}
 
 <div class="bg-gray-50/10 p-4 select-none w-full">
-    <form method="post" enctype="multipart/form-data">
+    <form id="createDisposisiForm" method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
+        <div id="formReminder"
+             class="mb-4 hidden rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+             role="alert" tabindex="-1"></div>
+        {% if form.errors %}
+        <div class="mb-4 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            <p class="font-semibold">Data belum lengkap atau belum valid. Periksa kembali:</p>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
         <div class="space-y-2">
             <div class="flex items-center justify-between">
                <div class="flex">
                    <p class="text-md font-semibold w-60 my-1">Tanggal Surat Diterima</p>
-                   <input type="date" name="tanggal_surat_diterima" id="date_tsd" style="color-scheme: light;"
+                   <input type="date" name="tanggal_surat_diterima" id="date_tsd"
+                            value="{{ form.tanggal_surat_diterima.value|default_if_none:'' }}" style="color-scheme: light;"
                             class="border border-black rounded-sm shadow-sm pl-1" required>
                </div>
             </div>
@@ -19,25 +38,26 @@
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Tanggal Surat</p>
                 <input type="date" name="tanggal_surat" id="date_ts" style="color-scheme: light;"
+                            value="{{ form.tanggal_surat.value|default_if_none:'' }}"
                             class="border border-black rounded-sm shadow-sm pl-1"
-                            name="tanggal_surat" required>
+                            required>
             </div>
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Nomor Surat</p>
-                <input name="nomor_surat" required autocomplete="off"
+                <input name="nomor_surat" value="{{ form.nomor_surat.value|default_if_none:'' }}" required autocomplete="off"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Pengirim</p>
-                <input name="pengirim" required autocomplete="off"
+                <input name="pengirim" value="{{ form.pengirim.value|default_if_none:'' }}" required autocomplete="off"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Lampiran</p>
-                <input name="lampiran" required autocomplete="off"
+                <input name="lampiran" value="{{ form.lampiran.value|default_if_none:'' }}" required autocomplete="off"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
@@ -45,15 +65,15 @@
                 <p class="text-md font-semibold w-60 my-1">Tujuan</p>
                 <select name="tujuan" required
                         class="border rounded-sm w-36 p-1 text-xs bg-white">
-                    <option value="DIRUT">Direktur Utama</option>
-                    <option value="DIR">Direktur</option>
-                    <option value="DIREKSI">Direksi</option>
+                    <option value="DIRUT" {% if form.tujuan.value == 'DIRUT' or not form.is_bound %}selected{% endif %}>Direktur Utama</option>
+                    <option value="DIR" {% if form.tujuan.value == 'DIR' %}selected{% endif %}>Direktur</option>
+                    <option value="DIREKSI" {% if form.tujuan.value == 'DIREKSI' %}selected{% endif %}>Direksi</option>
                 </select>
             </div>
 
             <div class="flex items-center">
                 <p class="text-md font-semibold w-60 my-1">Tembusan</p>
-                <input name="tembusan" required autocomplete="off"
+                <input name="tembusan" value="{{ form.tembusan.value|default_if_none:'' }}" required autocomplete="off"
                         class="border p-1 h-6 text-xs bg-white flex-grow" type="text">
             </div>
 
@@ -61,7 +81,7 @@
                 <p class="text-md font-semibold w-60 my-1">Perihal</p>
                 <textarea name="perihal" required autocomplete="off"
                     class="border p-1 h-20 text-xs bg-white flex-grow resize-none"
-                ></textarea>
+                >{{ form.perihal.value|default_if_none:'' }}</textarea>
             </div>
 
             <div class="flex items-center">
@@ -120,45 +140,14 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-    const dateInput = document.getElementById('date_tsd');
-    const nomorAgendaInput = document.getElementById('nomor_agenda_input');
-
-    const nomorAgenda = document.getElementById('nomor_agenda');
-    const bulanAgenda = document.getElementById('bulan_agenda');
-    const tahunAgenda = document.getElementById('tahun_agenda');
-
+    const createForm = document.getElementById('createDisposisiForm');
+    const formReminder = document.getElementById('formReminder');
     const fileInput = document.getElementById('dokumenInput');
     const btnFile = document.getElementById('btnFile');
     const fileName = document.getElementById('fileName');
 
     const btnPreview = document.getElementById('btnPreview');
     let previewURL = null;
-
-    const bulanRomawi = [
-        '', 'I', 'II', 'III', 'IV', 'V','VI',
-        'VII', 'VIII', 'IX', 'X', 'XI', 'XII'
-    ];
-
-    function updateAgenda() {
-        if(!dateInput.value){
-            nomorAgenda.textContent = '--';
-            bulanAgenda.textContent = '--';
-            tahunAgenda.textContent = '----';
-            return;
-        }
-
-        const [year, month, day] = dateInput.value.split('-');
-
-        const nomor = document.getElementById('nomor_agenda').textContent.trim();
-        const bulan = bulanRomawi[parseInt(month, 10)];
-
-        nomorAgenda.textContent = nomor;
-        bulanAgenda.textContent = bulan;
-        tahunAgenda.textContent = year;
-        nomorAgendaInput.value = `${nomor}/${bulan}/${year}`;
-    }
-
-    dateInput.addEventListener('change', updateAgenda);
 
     btnFile.addEventListener('click', () => {
         fileInput.click();
@@ -196,6 +185,58 @@
             return;
         }
         window.open(previewURL);
+    });
+
+    const requiredFields = [
+        ['tanggal_surat_diterima', 'Tanggal surat diterima'],
+        ['tanggal_surat', 'Tanggal surat'],
+        ['nomor_surat', 'Nomor surat'],
+        ['pengirim', 'Pengirim'],
+        ['lampiran', 'Lampiran'],
+        ['tujuan', 'Tujuan'],
+        ['tembusan', 'Tembusan'],
+        ['perihal', 'Perihal'],
+    ];
+
+    createForm.addEventListener('submit', (event) => {
+        const missingLabels = [];
+        let firstMissingField = null;
+
+        createForm.querySelectorAll('[data-create-invalid="true"]').forEach((field) => {
+            field.classList.remove('border-red-600', 'ring-1', 'ring-red-600');
+            field.removeAttribute('data-create-invalid');
+        });
+
+        requiredFields.forEach(([name, label]) => {
+            const field = createForm.elements[name];
+            if (!field || !String(field.value || '').trim()) {
+                missingLabels.push(label);
+                firstMissingField ||= field;
+                if (field) {
+                    field.dataset.createInvalid = 'true';
+                    field.classList.add('border-red-600', 'ring-1', 'ring-red-600');
+                }
+            }
+        });
+
+        if (!fileInput.files.length) {
+            missingLabels.push('Dokumen surat masuk');
+            firstMissingField ||= btnFile;
+            btnFile.dataset.createInvalid = 'true';
+            btnFile.classList.add('border-red-600', 'ring-1', 'ring-red-600');
+        }
+
+        if (missingLabels.length) {
+            event.preventDefault();
+            formReminder.innerHTML = '<strong>Data belum lengkap.</strong> Mohon isi atau unggah: '
+                + missingLabels.join(', ') + '.';
+            formReminder.classList.remove('hidden');
+            formReminder.focus();
+            if (firstMissingField) firstMissingField.focus();
+            return;
+        }
+
+        formReminder.classList.add('hidden');
     });
 
 </script>

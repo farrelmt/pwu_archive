@@ -76,17 +76,17 @@
                 </p>
             </div>
 
-            {% if disposisi.status_pengajuan == 'DIAJUKAN' or disposisi.status_pengajuan == 'DIISI' or disposisi.status_pengajuan == 'DIBAGIKAN' or disposisi.status_pengajuan == 'VERIFIKASI' or disposisi.status_pengajuan == 'SELESAI' %}
+            {% if disposisi.status_pengajuan == 'DIISI' or disposisi.status_pengajuan == 'DIBAGIKAN' or disposisi.status_pengajuan == 'VERIFIKASI' or disposisi.status_pengajuan == 'SELESAI' %}
             <div id="sharedRecipientDescription" class="flex items-start">
                 <p class="text-md font-semibold w-70 pt-2">Dibagikan Kepada</p>
                 <div class="my-1 flex flex-1 flex-wrap gap-2">
                     {% for recipient in disposisi.shared_recipients.all %}
                     <span class="rounded px-3 py-1 text-sm font-medium
-                                 {% if disposisi.tipe_disposisi == 'OFFLINE' or disposisi.status_pengajuan == 'DIAJUKAN' or disposisi.status_pengajuan == 'DIISI' %}bg-blue-100 text-blue-900{% elif recipient.agreed_at %}bg-green-100 text-green-800{% elif recipient.received_at %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                 {% if not recipient.requires_action or disposisi.tipe_disposisi == 'OFFLINE' or disposisi.status_pengajuan == 'DIISI' %}bg-blue-100 text-blue-900{% elif recipient.agreed_at %}bg-green-100 text-green-800{% elif recipient.received_at %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
                         {{ recipient.get_role_display }}
                         {% if disposisi.tipe_disposisi == 'ONLINE' %}
                         <span class="ml-1 text-xs font-semibold">
-                            {% if disposisi.status_pengajuan == 'DIAJUKAN' or disposisi.status_pengajuan == 'DIISI' %}(Dipilih){% elif recipient.agreed_at %}(Selesai){% elif recipient.received_at %}(Sudah diterima){% else %}(Belum diterima){% endif %}
+                            {% if recipient.requires_action %}{% if disposisi.status_pengajuan == 'DIISI' %}(Dipilih){% elif recipient.agreed_at %}(Selesai){% elif recipient.received_at %}(Sudah diterima){% else %}(Belum diterima){% endif %}{% endif %}
                         </span>
                         {% endif %}
                     </span>
@@ -155,7 +155,7 @@
                 {% endif %}
             </div>
             <div class="flex max-w-full flex-wrap items-center gap-2 lg:justify-end">
-                <a href="{% url 'disposisi:download_document' disposisi.pk 'surat-masuk' %}"
+                <a href="{% url 'disposisi:preview_document' disposisi.pk 'surat-masuk' %}"
                    id="btnPreview" target="_blank" rel="noopener noreferrer"
                    class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                           border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
@@ -277,7 +277,20 @@
                               hover:bg-blue-50">
                         Preview
                     </a>
-                    {% if is_share_recipient %}
+                    {% if can_share_this_disposisi %}
+                    <button type="button" id="openShareModal"
+                            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                                   bg-blue-950 px-5 text-sm font-semibold text-white
+                                   hover:bg-blue-900 cursor-pointer">
+                        Edit Penerima
+                    </button>
+                    {% endif %}
+                    {% if is_share_recipient and not is_actionable_share_recipient %}
+                    <span class="inline-flex min-h-10 max-w-md items-center justify-center rounded
+                                 bg-blue-100 px-4 py-2 text-center text-sm font-semibold text-blue-900">
+                        Telah Dibagikan
+                    </span>
+                    {% elif is_actionable_share_recipient %}
                     {% if share_recipient.agreed_at %}
                     <span class="inline-flex min-h-10 max-w-md items-center justify-center rounded
                                  bg-yellow-100 px-4 py-2 text-center text-sm font-semibold text-yellow-800">
@@ -384,7 +397,9 @@
             <div class="w-full max-w-xl rounded-lg bg-white shadow-2xl">
                 <div class="flex items-center justify-between border-b px-5 py-4">
                     <div>
-                        <h2 id="shareModalTitle" class="text-lg font-bold text-blue-950">Bagikan Disposisi</h2>
+                        <h2 id="shareModalTitle" class="text-lg font-bold text-blue-950">
+                            {% if disposisi.status_pengajuan == 'DIISI' %}Bagikan Disposisi{% else %}Edit Penerima Disposisi{% endif %}
+                        </h2>
                         <p class="mt-1 text-sm text-gray-600">Pilih satu atau beberapa penerima.</p>
                     </div>
                     <button type="button" id="closeShareModal" aria-label="Tutup"
@@ -395,6 +410,7 @@
                     {% for role_code, role_label in share_role_choices %}
                     <label class="flex cursor-pointer items-start gap-3 rounded border border-gray-200 p-3 hover:bg-blue-50">
                         <input type="checkbox" name="recipients" value="{{ role_code }}"
+                               {% if role_code in selected_recipient_roles %}checked{% endif %}
                                class="mt-1 h-4 w-4 accent-blue-900">
                         <span class="text-sm font-medium text-gray-900">{{ role_label }}</span>
                     </label>
@@ -409,7 +425,7 @@
                             formaction="{% url 'disposisi:shareonline' disposisi.id %}"
                             formmethod="post"
                             class="inline-flex h-10 items-center rounded bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900 cursor-pointer">
-                        Bagikan
+                        {% if disposisi.status_pengajuan == 'DIISI' %}Bagikan{% else %}Simpan Penerima{% endif %}
                     </button>
                 </div>
             </div>
@@ -468,7 +484,9 @@
                                     {% endif %}
                                 </td>
                                 <td class="border border-gray-300 px-3 py-2">
-                                    {% if recipient.agreed_at %}
+                                    {% if not recipient.requires_action %}
+                                    <span class="text-gray-500">-</span>
+                                    {% elif recipient.agreed_at %}
                                     <span class="rounded bg-green-100 px-2 py-1 font-semibold text-green-800">
                                         Selesai
                                     </span>
@@ -497,7 +515,7 @@
         </div>
         {% endif %}
 
-        {% if is_share_recipient and share_recipient.received_at and is_shared_online %}
+        {% if is_actionable_share_recipient and share_recipient.received_at and is_shared_online %}
         <div id="activityModal"
              class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4"
              role="dialog" aria-modal="true" aria-labelledby="activityModalTitle">

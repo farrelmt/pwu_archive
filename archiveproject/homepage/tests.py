@@ -112,6 +112,31 @@ class DivisionUserListTests(TestCase):
             role="kadiv_keuangan",
             is_active=False,
         )
+        self.spi_head = user_model.objects.create_user(
+            username="kadiv_spi_test",
+            password="test-password",
+            role="kadiv_spi",
+        )
+        for username, role in (
+            ("dirut", "direktur_utama"),
+            ("it_pwu", "admin"),
+            ("akuntan1", "akuntan"),
+            ("akuntan2", "akuntan"),
+        ):
+            user_model.objects.create_user(
+                username=username,
+                password="test-password",
+                role=role,
+            )
+        self.wirajatim_user, _ = user_model.objects.update_or_create(
+            username="wirajatim_kso",
+            defaults={
+                "role": "wirajatim_kso",
+                "first_name": "Wirajatim",
+                "last_name": "KSO",
+                "is_active": True,
+            },
+        )
 
     def test_division_page_lists_all_users_and_their_roles(self):
         self.client.force_login(self.secretary)
@@ -126,10 +151,30 @@ class DivisionUserListTests(TestCase):
         self.assertContains(response, "Sekretaris")
         self.assertContains(response, "kadiv_keuangan_test")
         self.assertContains(response, "Kepala Divisi Keuangan")
+        self.assertContains(response, "Kepala SPI")
+        self.assertNotContains(response, "Kepala Divisi SPI")
         self.assertContains(response, "Nonaktif")
-        total_users = get_user_model().objects.count()
-        self.assertEqual(response.context["users"].count(), total_users)
-        self.assertContains(response, f"Total pengguna: {total_users}")
+        self.assertContains(response, ">wirajatim_kso<")
+        self.assertContains(response, "Wirajatim KSO", count=2)
+        for hidden_username in ("dirut", "it_pwu", "akuntan1", "akuntan2"):
+            with self.subTest(hidden_username=hidden_username):
+                self.assertNotContains(response, f">{hidden_username}<")
+        visible_users = get_user_model().objects.exclude(
+            username__in={"dirut", "it_pwu", "akuntan1", "akuntan2"},
+        ).count()
+        self.assertEqual(response.context["users"].count(), visible_users)
+        self.assertEqual(response.context["directory_total"], visible_users)
+        self.assertContains(
+            response,
+            f"Total pengguna: {visible_users}",
+        )
+
+    def test_wirajatim_kso_login_role_and_password_are_created(self):
+        user = get_user_model().objects.get(username="wirajatim_kso")
+
+        self.assertEqual(user.role, "wirajatim_kso")
+        self.assertEqual(user.get_role_display(), "Wirajatim KSO")
+        self.assertTrue(user.check_password("wirajatim_kso"))
 
     def test_non_editor_cannot_list_user_directory(self):
         viewer = get_user_model().objects.create_user(
@@ -149,6 +194,31 @@ class DivisionUserListTests(TestCase):
         response = self.client.get(reverse("homepage:dashboard"))
 
         self.assertContains(response, "Surat Masuk")
+
+    def test_secretary_can_open_all_archive_pages_except_activity_log(self):
+        self.client.force_login(self.secretary)
+
+        allowed_pages = (
+            reverse("homepage:dashboard"),
+            reverse("disposisi:disposisi"),
+            reverse("homepage:notadinas"),
+            reverse("homepage:suratkeluar"),
+            reverse("homepage:inbox"),
+            reverse("homepage:monitor"),
+            reverse("homepage:divisi"),
+            reverse("homepage:report"),
+            reverse("pengaturan:main"),
+        )
+        for url in allowed_pages:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)
+
+        dashboard = self.client.get(reverse("homepage:dashboard"))
+        self.assertNotContains(dashboard, "Activity Log")
+        self.assertEqual(
+            self.client.get(reverse("homepage:activity_log")).status_code,
+            403,
+        )
 
     def test_non_secretary_cannot_open_archive_modules(self):
         viewer = get_user_model().objects.create_user(
@@ -172,6 +242,33 @@ class DivisionUserListTests(TestCase):
         self.assertNotContains(dashboard, "Surat Keluar")
         self.assertContains(dashboard, "Inbox")
         self.assertContains(dashboard, "Monitor")
+
+    def test_spi_can_open_archive_modules_as_read_only_monitor(self):
+        spi = get_user_model().objects.create_user(
+            username="spi-monitor",
+            password="test-password",
+            role="kadiv_spi",
+        )
+        self.client.force_login(spi)
+
+        for url in (
+            reverse("disposisi:disposisi"),
+            reverse("homepage:notadinas"),
+            reverse("homepage:suratkeluar"),
+            reverse("homepage:monitor"),
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)
+
+        dashboard = self.client.get(reverse("homepage:dashboard"))
+        self.assertContains(dashboard, "Surat Masuk")
+        self.assertContains(dashboard, "Nota Dinas")
+        self.assertContains(dashboard, "Surat Keluar")
+        self.assertNotContains(dashboard, "Divisi")
+        self.assertEqual(
+            self.client.get(reverse("homepage:divisi")).status_code,
+            403,
+        )
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"])

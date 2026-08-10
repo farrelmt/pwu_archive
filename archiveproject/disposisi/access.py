@@ -15,7 +15,7 @@ def visible_disposisi_for_user(user):
     if not user.is_authenticated:
         return queryset.none()
 
-    if user.is_superuser or user.can_edit_disposisi:
+    if user.can_view_all_archive:
         return queryset
 
     filters = Q()

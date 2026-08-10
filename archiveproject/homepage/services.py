@@ -36,7 +36,10 @@ def inbox_disposisi_for_user(user):
         if user.role == 'sekretaris':
             filters |= Q(status_pengajuan__in=['DIISI', 'VERIFIKASI'])
 
-        if user.role in dict(Disposisi.SHARE_ROLE_CHOICES):
+        if (
+            user.role in dict(Disposisi.SHARE_ROLE_CHOICES)
+            and user.role not in Disposisi.INFORMATIONAL_RECIPIENT_ROLES
+        ):
             filters |= Q(
                 status_pengajuan='DIBAGIKAN',
                 shared_recipients__role=user.role,
@@ -56,7 +59,7 @@ def related_disposisi_for_user(user):
     if not user.is_authenticated:
         return Disposisi.objects.none()
 
-    if user.is_superuser or user.role == 'sekretaris':
+    if user.can_view_all_archive:
         return Disposisi.objects.all()
 
     filters = Q()

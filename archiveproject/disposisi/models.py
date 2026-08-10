@@ -31,14 +31,44 @@ class Disposisi(models.Model):
 
     SHARE_ROLE_CHOICES = [
         ('direktur_utama', 'Direktur Utama'),
+        ('direktur', 'Direktur'),
         ('direktur_umum', 'Direktur Umum'),
         ('kadiv_akuntansi', 'Kepala Divisi Akuntansi'),
         ('kadiv_keuangan', 'Kepala Divisi Keuangan'),
         ('kadiv_risiko', 'Kepala Divisi Manajemen Risiko'),
         ('kadiv_legal_umum', 'Kepala Divisi Legal dan Umum'),
         ('kadiv_aset', 'Kepala Divisi Aset'),
-        ('kadiv_spi', 'Kepala Divisi SPI'),
+        ('kadiv_spi', 'Kepala SPI'),
+        ('wirajatim_kso', 'Wirajatim KSO'),
     ]
+    ONLINE_SHARE_ROLE_CHOICES = [
+        ('direktur_utama', 'Direktur Utama'),
+        ('direktur_umum', 'Direktur Umum'),
+        ('kadiv_akuntansi', 'Kepala Divisi Akuntansi'),
+        ('kadiv_keuangan', 'Kepala Divisi Keuangan'),
+        ('kadiv_risiko', 'Kepala Divisi Manajemen Risiko'),
+        ('kadiv_legal_umum', 'Kepala Divisi Legal dan Umum'),
+        ('kadiv_aset', 'Kepala Divisi Aset'),
+        ('kadiv_spi', 'Kepala SPI'),
+        ('wirajatim_kso', 'Wirajatim KSO'),
+    ]
+    OFFLINE_SHARE_ROLE_CHOICES = [
+        ('direktur_utama', 'Direktur Utama'),
+        ('direktur_umum', 'Direktur Umum'),
+        ('kadiv_akuntansi', 'Kepala Divisi Akuntansi'),
+        ('kadiv_keuangan', 'Kepala Divisi Keuangan'),
+        ('kadiv_risiko', 'Kepala Divisi Manajemen Risiko'),
+        ('kadiv_legal_umum', 'Kepala Divisi Legal dan Umum'),
+        ('kadiv_aset', 'Kepala Divisi Aset'),
+        ('kadiv_spi', 'Kepala SPI'),
+        ('wirajatim_kso', 'Wirajatim KSO'),
+    ]
+    INFORMATIONAL_RECIPIENT_ROLES = frozenset({
+        'direktur_utama',
+        'direktur',
+        'direktur_umum',
+        'kadiv_spi',
+    })
 
     BULAN_ROMAWI = ['', 'I', 'II', 'III', 'IV', 'V', 'VI',
                     'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
@@ -224,6 +254,10 @@ class DisposisiRecipient(models.Model):
         related_name='completed_disposisi_recipients',
     )
 
+    @property
+    def requires_action(self):
+        return self.role not in Disposisi.INFORMATIONAL_RECIPIENT_ROLES
+
     class Meta:
         ordering = ['role']
         constraints = [
@@ -265,4 +299,3 @@ class DisposisiLog(models.Model):
 
     def __str__(self):
         return f"{self.disposisi.nomor_surat} - {self.action_log}"
-

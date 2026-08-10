@@ -1,0 +1,113 @@
+{% extends 'home_base.html' %}
+{% block title %}Surat Masuk - Upload Disposisi Offline{% endblock %}
+{% block content %}
+
+<div class="w-full select-none bg-gray-50/10 p-4 pb-28">
+    <form id="offlineUploadForm" method="post" enctype="multipart/form-data"
+          action="{% url 'disposisi:uploadoffline' disposisi.id %}"
+          class="mx-auto max-w-4xl">
+        {% csrf_token %}
+
+        <div class="mb-6 text-center">
+            <h1 class="text-2xl font-bold text-blue-950">Upload Disposisi Offline</h1>
+            <p class="mt-2 text-sm text-gray-600">{{ disposisi.nomor_surat }} — {{ disposisi.perihal }}</p>
+        </div>
+
+        {% if form.errors or share_form.errors %}
+        <div class="mb-5 rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+            {{ form.dokumen_disposisi.errors }}
+            {{ share_form.recipients.errors }}
+        </div>
+        {% endif %}
+
+        <section class="rounded-lg bg-white p-6 shadow-[0_0_10px_0_rgba(0,0,0,0.1)]">
+            <h2 class="text-lg font-bold text-blue-950">File Disposisi</h2>
+            <p class="mt-1 text-sm text-gray-600">Format yang didukung: PDF, JPG, JPEG, atau PNG. Maksimal 10 MB.</p>
+
+            <input type="file" name="dokumen_disposisi" id="dokumenInput"
+                   accept=".pdf,.jpg,.jpeg,.png" class="hidden" required>
+            <div class="mt-5 flex flex-wrap items-center gap-3">
+                <button type="button" id="btnFile"
+                        class="inline-flex h-10 cursor-pointer items-center rounded bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900">
+                    Pilih File
+                </button>
+                <button type="button" id="btnPreview"
+                        class="hidden h-10 cursor-pointer items-center rounded border border-blue-950 px-5 text-sm font-semibold text-blue-950 hover:bg-blue-50">
+                    Preview
+                </button>
+                <span id="fileName" class="text-sm text-gray-600">Belum ada file dipilih.</span>
+            </div>
+        </section>
+
+        <section class="mt-6 rounded-lg bg-white p-6 shadow-[0_0_10px_0_rgba(0,0,0,0.1)]">
+            <h2 class="text-lg font-bold text-blue-950">Bagikan Kepada</h2>
+            <p class="mt-1 text-sm text-gray-600">Pilih satu atau beberapa penerima disposisi offline.</p>
+            <fieldset class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <legend class="sr-only">Penerima disposisi</legend>
+                {% for checkbox in share_form.recipients %}
+                <label class="flex cursor-pointer items-start gap-2 rounded border border-gray-200 p-3 hover:bg-blue-50">
+                    {{ checkbox.tag }}
+                    <span class="text-sm font-medium text-gray-900">{{ checkbox.choice_label }}</span>
+                </label>
+                {% endfor %}
+            </fieldset>
+        </section>
+
+        <div class="fixed bottom-0 left-0 right-0 z-20 flex justify-between bg-white/95 px-4 py-3 shadow-lg backdrop-blur lg:left-64">
+            <a href="{% url 'disposisi:uploaddisposisi' disposisi.id %}"
+               class="inline-flex h-10 items-center justify-center rounded border border-blue-950 bg-white px-5 text-sm font-semibold text-blue-950 hover:bg-blue-50">
+                Kembali
+            </a>
+            <button type="submit"
+                    class="inline-flex h-10 cursor-pointer items-center justify-center rounded bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900">
+                Upload dan Bagikan
+            </button>
+        </div>
+    </form>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+    const fileInput = document.getElementById('dokumenInput');
+    const fileButton = document.getElementById('btnFile');
+    const previewButton = document.getElementById('btnPreview');
+    const fileName = document.getElementById('fileName');
+    let previewURL = null;
+
+    fileButton.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+        if (previewURL) URL.revokeObjectURL(previewURL);
+        if (!fileInput.files.length) {
+            previewURL = null;
+            fileName.textContent = 'Belum ada file dipilih.';
+            previewButton.classList.add('hidden');
+            previewButton.classList.remove('inline-flex');
+            return;
+        }
+        const file = fileInput.files[0];
+        const extension = file.name.split('.').pop().toLowerCase();
+        if (!['pdf', 'jpg', 'jpeg', 'png'].includes(extension)) {
+            alert('Format file tidak diizinkan (PDF / JPG / PNG).');
+            fileInput.value = '';
+            return;
+        }
+        previewURL = URL.createObjectURL(file);
+        fileName.textContent = file.name;
+        previewButton.classList.remove('hidden');
+        previewButton.classList.add('inline-flex');
+    });
+    previewButton.addEventListener('click', () => {
+        if (previewURL) window.open(previewURL, '_blank', 'noopener,noreferrer');
+    });
+    document.getElementById('offlineUploadForm').addEventListener('submit', (event) => {
+        if (!document.querySelector('input[name="recipients"]:checked')) {
+            event.preventDefault();
+            alert('Pilih minimal satu tujuan disposisi.');
+            return;
+        }
+        if (!confirm('Upload dan bagikan disposisi offline kepada penerima yang dipilih?')) {
+            event.preventDefault();
+        }
+    });
+</script>
+
+{% endblock %}

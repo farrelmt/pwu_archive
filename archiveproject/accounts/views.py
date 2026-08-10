@@ -13,6 +13,7 @@ from archiveproject.host_routing import request_hostname
 def _login_context(request, **extra):
     is_koperasi = request_hostname(request) in settings.KOPERASI_HOSTS
     context = {
+        'is_koperasi': is_koperasi,
         'system_name': 'Sistem Koperasi PWU' if is_koperasi else 'Sistem Arsip PWU',
         'system_description': (
             'Kelola anggota, simpanan, pinjaman, dan keuangan koperasi '

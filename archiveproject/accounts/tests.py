@@ -107,3 +107,29 @@ class LoginSecurityTests(TestCase):
             response["Permissions-Policy"],
             "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
         )
+
+
+@override_settings(
+    ALLOWED_HOSTS=["archive.localhost", "koperasi.localhost"],
+    KOPERASI_HOSTS=frozenset({"koperasi.localhost"}),
+)
+class LoginThemeTests(TestCase):
+    def test_archive_login_uses_blue_theme(self):
+        response = self.client.get(
+            "/accounts/login/",
+            HTTP_HOST="archive.localhost",
+        )
+
+        self.assertContains(response, "bg-blue-950")
+        self.assertContains(response, "bg-blue-950 shadow-blue-950/15")
+        self.assertNotContains(response, "bg-green-950")
+
+    def test_koperasi_login_uses_green_theme(self):
+        response = self.client.get(
+            "/accounts/login/",
+            HTTP_HOST="koperasi.localhost",
+        )
+
+        self.assertContains(response, "bg-green-950")
+        self.assertContains(response, "bg-green-800 shadow-green-950/20")
+        self.assertNotContains(response, "bg-blue-950")

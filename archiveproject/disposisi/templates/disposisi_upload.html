@@ -1,251 +1,47 @@
 {% extends 'home_base.html' %}
-{% block title %}Surat Masuk - Proses Disposisi{% endblock %}
+{% block title %}Surat Masuk - Pilih Metode Disposisi{% endblock %}
 {% block content %}
 
-<div class="bg-gray-50/10 p-4 select-none w-full">
-    <form id="uploadDisposisiForm" method="post" enctype="multipart/form-data"
-        action="{% url 'disposisi:uploaddisposisi' disposisi.id %}">
-        {% csrf_token %}
-        <input type="hidden" name="metode" id="metodeInput" value="{{ request.POST.metode }}">
-        {% if form.errors %}
-            <div class="mx-auto mt-4 max-w-xl rounded bg-red-100 p-3 text-red-800">
-                {{ form.dokumen_disposisi.errors }}
-            </div>
-        {% endif %}
-        {% if share_form.errors %}
-            <div class="mx-auto mt-4 max-w-xl rounded bg-red-100 p-3 text-red-800">
-                {{ share_form.recipients.errors }}
-            </div>
-        {% endif %}
-        <div class="flex min-h-[calc(100vh-5rem)] flex-col items-center justify-center py-8">
-            <div class="flex items-center justify-center text-2xl text-blue-950 font-bold mb-6">
-                <p>Bagaimana Disposisi Ingin Di Proses?</p>
-            </div>
+<div class="flex min-h-[calc(100vh-5rem)] w-full select-none flex-col items-center justify-center bg-gray-50/10 p-4">
+    <div class="mb-8 text-center">
+        <h1 class="text-2xl font-bold text-blue-950">Bagaimana Disposisi Ingin Diproses?</h1>
+        <p class="mt-2 text-sm text-gray-600">Pilih metode disposisi untuk surat {{ disposisi.nomor_surat }}.</p>
+    </div>
 
-            <div class="flex items-center justify-center">
-                <div id="offlineCard" class="block bg-white shadow-[0_0_10px_0_rgba(0,0,0,0.1)] rounded-lg px-10 pt-4 pb-2 w-60 h-80 mx-4
-                          transition duration-200 text-center text-blue-950
-                          flex flex-col items-center justify-center  ">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
-                         class="w-20 h-20 text-blue-900 pt-4">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" />
-                    </svg>
+    <div class="grid w-full max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2">
+        <a href="{% url 'disposisi:uploadoffline' disposisi.id %}"
+           class="flex min-h-80 flex-col items-center justify-center rounded-lg bg-white px-10 py-6 text-center text-blue-950 shadow-[0_0_10px_0_rgba(0,0,0,0.1)] transition hover:-translate-y-1 hover:ring-2 hover:ring-blue-900">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-20 w-20 text-blue-900">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" />
+            </svg>
+            <h2 class="mt-5 text-xl font-semibold">Offline</h2>
+            <p class="my-2 text-sm text-gray-600">Buka halaman khusus untuk mengunggah file disposisi.</p>
+            <span class="mt-3 inline-flex h-10 items-center rounded-lg bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900">
+                Upload Offline
+            </span>
+        </a>
 
-                    <p class="text-xl font-semibold my-1 mt-5">Offline</p>
-                    <p class="text-md font-normal my-1">Unggah disposisi secara manual</p>
-
-                    <div class="flex flex-col items-center mt-2">
-                        <input
-                            type="file"
-                            name="dokumen_disposisi"
-                            id="dokumenInput"
-                            accept=".pdf,.jpg,.jpeg,.png"
-
-                            class="hidden"
-                        >
-
-                        <button
-                            type="button"
-                            id="btnFile"
-                            class="block bg-blue-950 shadow-sm hover:shadow-lg rounded-lg p-4 w-40 h-10
-                                  border hover:bg-blue-900 transition duration-200 mt-2 cursor-pointer
-                                  flex flex-col items-center justify-center text-center text-white"
-                        >
-                            Upload Disposisi
-                        </button>
-
-                        <button
-                            type="button"
-                            id="btnPreview"
-                            class="bg-white border border-gray-400 px-3 w-40 h-6 text-xs font-semibold rounded
-                            hover:bg-yellow-300 invisible cursor-pointer"
-                        >
-                            Preview
-                        </button>
-
-                        <span
-                            id="fileName"
-                            class="text-xs text-gray-600 mt-1 truncate max-w-xs invisible"
-                        >
-                            Belum ada File
-                        </span>
-                    </div>
-                </div>
-
-                <div id="onlineCard" class="block shadow-[0_0_10px_0_rgba(0,0,0,0.1)] rounded-lg px-10 pb-2 w-60 h-80 mx-4
-                          transition duration-200 text-center text-blue-950
-                          flex flex-col items-center justify-center  ">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
-                         class="w-20 h-20 text-blue-900 pt-4">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
-                    </svg>
-
-
-                    <p class="text-xl font-semibold my-1 mt-5">Online</p>
-                    <p class="text-md font-normal my-1">Ajukan disposisi kepada Direksi</p>
-
-                    <div class="flex flex-col items-center mt-2">
-                        <button
-                            type="button"
-                            id="btnOnline"
-                            class="block bg-blue-950 shadow-sm hover:shadow-lg rounded-lg p-4 w-40 h-10
-                                  border hover:bg-blue-900 transition duration-200 mt-2 cursor-pointer
-                                  flex flex-col items-center justify-center text-center text-white"
-                        >
-                            Pilih Online
-                        </button>
-
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-6 w-full max-w-4xl rounded-lg bg-white p-5 shadow-[0_0_10px_0_rgba(0,0,0,0.1)]">
-                <h2 class="text-center text-lg font-bold text-blue-950">Bagikan Kepada</h2>
-                <p class="mt-1 text-center text-sm text-gray-600">
-                    Pilih satu atau beberapa penerima setelah menentukan metode disposisi.
-                </p>
-                <fieldset class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    <legend class="sr-only">Penerima disposisi</legend>
-                    {% for checkbox in share_form.recipients %}
-                    <label class="flex cursor-pointer items-start gap-2 rounded border border-gray-200 p-3 hover:bg-blue-50">
-                        {{ checkbox.tag }}
-                        <span class="text-sm font-medium text-gray-900">{{ checkbox.choice_label }}</span>
-                    </label>
-                    {% endfor %}
-                </fieldset>
-            </div>
-        </div>
-
-
-        <br/>
-        <div class="fixed bottom-0 left-0 md:left-25 right-0 flex justify-between px-4 py-2 shadow-lg">
-            <a href="{% url 'disposisi:detaildisposisi' disposisi.id%}"
-               class="bg-blue-950 text-white font-semibold rounded ml-1 mb-1 w-30 h-10 text-md
-                      hover:bg-blue-900 flex items-center justify-center">
-                Kembali
-            </a>
-
-            <button type="submit"
-               class="inline-flex items-center justify-center mr-1
-                      bg-blue-950 text-white font-semibold rounded cursor-pointer
-                      w-40 h-10 text-md hover:bg-blue-900 invisible"
-                id="lanjutDisposisi"
-                >
-                Lanjutkan
+        <form method="post" action="{% url 'disposisi:uploaddisposisi' disposisi.id %}">
+            {% csrf_token %}
+            <button type="submit" name="metode" value="ONLINE"
+                    data-confirm="Ajukan disposisi online kepada Direksi/Direktur? Penerima akan dipilih setelah disposisi disetujui."
+                    class="flex min-h-80 w-full cursor-pointer flex-col items-center justify-center rounded-lg bg-white px-10 py-6 text-center text-blue-950 shadow-[0_0_10px_0_rgba(0,0,0,0.1)] transition hover:-translate-y-1 hover:ring-2 hover:ring-blue-900">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-20 w-20 text-blue-900">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
+                </svg>
+                <span class="mt-5 text-xl font-semibold">Online</span>
+                <span class="my-2 text-sm font-normal text-gray-600">Ajukan kepada Direksi/Direktur untuk diisi dan disetujui.</span>
+                <span class="mt-3 inline-flex h-10 items-center rounded-lg bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900">
+                    Ajukan Online
+                </span>
             </button>
-        </div>
-    </form>
+        </form>
+    </div>
+
+    <a href="{% url 'disposisi:detaildisposisi' disposisi.id %}"
+       class="mt-8 inline-flex h-10 items-center justify-center rounded border border-blue-950 bg-white px-6 text-sm font-semibold text-blue-950 hover:bg-blue-50">
+        Kembali
+    </a>
 </div>
-
-<script nonce="{{ request.csp_nonce }}">
-    const fileInput = document.getElementById('dokumenInput');
-    const btnFile = document.getElementById('btnFile');
-    const fileName = document.getElementById('fileName');
-    const btnPreview = document.getElementById('btnPreview');
-    let previewURL = null;
-
-    const lanjutDis = document.getElementById('lanjutDisposisi');
-    const metodeInput = document.getElementById('metodeInput');
-    const btnOnline = document.getElementById('btnOnline');
-    const offlineCard = document.getElementById('offlineCard');
-    const onlineCard = document.getElementById('onlineCard');
-
-    const showContinueButton = (label) => {
-        lanjutDis.textContent = label;
-        lanjutDis.classList.remove('invisible');
-        lanjutDis.classList.add('visible');
-    };
-
-    const markSelectedMethod = (method) => {
-        offlineCard.classList.toggle('ring-2', method === 'OFFLINE');
-        offlineCard.classList.toggle('ring-blue-900', method === 'OFFLINE');
-        onlineCard.classList.toggle('ring-2', method === 'ONLINE');
-        onlineCard.classList.toggle('ring-blue-900', method === 'ONLINE');
-    };
-
-    btnOnline.addEventListener('click', () => {
-        metodeInput.value = 'ONLINE';
-        markSelectedMethod('ONLINE');
-        showContinueButton('Ajukan Online');
-    });
-
-    btnFile.addEventListener('click', () => {
-        fileInput.click();
-    });
-
-    fileInput.addEventListener('change', () => {
-        if (!fileInput.files.length) {
-            fileName.textContent = 'Belum ada file';
-            btnPreview.classList.add('invisible');
-            btnPreview.classList.remove('visible');
-            fileName.classList.add('invisible');
-            fileName.classList.remove('visible');
-            lanjutDis.classList.add('invisible');
-            lanjutDis.classList.remove('visible');
-
-            previewURL = null;
-            return;
-        }
-
-        const file = fileInput.files[0];
-        const allowed = ['pdf', 'jpg', 'jpeg', 'png'];
-        const ext = file.name.split('.').pop().toLowerCase();
-
-        if (!allowed.includes(ext)) {
-            alert('Format file tidak diizinkan (PDF / JPG / PNG)');
-            fileInput.value = '';
-            fileName.textContent = 'Belum ada file';
-            btnPreview.classList.add('invisible');
-            btnPreview.classList.remove('visible');
-            fileName.classList.add('invisible');
-            fileName.classList.remove('visible');
-            lanjutDis.classList.add('invisible');
-            lanjutDis.classList.remove('visible');
-            previewURL = null;
-            return;
-        }
-
-        fileName.textContent = file.name;
-        metodeInput.value = 'OFFLINE';
-        markSelectedMethod('OFFLINE');
-        previewURL = URL.createObjectURL(file);
-        btnPreview.classList.remove('invisible');
-        btnPreview.classList.add('visible');
-        fileName.classList.remove('invisible');
-        fileName.classList.add('visible');
-        showContinueButton('Upload dan Bagikan');
-    });
-
-    btnPreview.addEventListener('click', () => {
-        if(!previewURL) {
-            alert('Belum ada URL');
-            return;
-        }
-        window.open(previewURL);
-    });
-
-    document.getElementById('uploadDisposisiForm').addEventListener('submit', (event) => {
-        if (!metodeInput.value) {
-            event.preventDefault();
-            alert('Pilih metode Online atau Offline terlebih dahulu.');
-            return;
-        }
-        if (!document.querySelector('input[name="recipients"]:checked')) {
-            event.preventDefault();
-            alert('Pilih minimal satu tujuan disposisi.');
-            return;
-        }
-        const message = metodeInput.value === 'ONLINE'
-            ? 'Ajukan disposisi online kepada Direktur dengan penerima yang dipilih?'
-            : 'Upload dan bagikan disposisi offline kepada penerima yang dipilih?';
-        if (!confirm(message)) event.preventDefault();
-    });
-
-    if (metodeInput.value === 'ONLINE') {
-        markSelectedMethod('ONLINE');
-        showContinueButton('Ajukan Online');
-    }
-
-</script>
 
 {% endblock %}

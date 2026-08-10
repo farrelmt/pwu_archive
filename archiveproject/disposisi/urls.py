@@ -17,11 +17,6 @@ urlpatterns = [
     path('preview/<disposisi_id:pk>/', views.preview_disposisi, name='previewdisposisi'),
     path('preview/<disposisi_id:pk>/pdf/', views.download_disposisi_pdf, name='disposisi_pdf'),
     path(
-        '<disposisi_id:pk>/document/<str:kind>/',
-        views.download_document,
-        name='download_document',
-    ),
-    path(
         '<disposisi_id:pk>/document/disposisi/preview/',
         views.preview_uploaded_disposisi,
         name='preview_uploaded_disposisi',
@@ -36,7 +31,27 @@ urlpatterns = [
         views.download_uploaded_disposisi,
         name='download_uploaded_disposisi',
     ),
+    path(
+        '<disposisi_id:pk>/document/<str:kind>/preview/',
+        views.preview_document,
+        name='preview_document',
+    ),
+    path(
+        '<disposisi_id:pk>/document/<str:kind>/view/',
+        views.view_document,
+        name='view_document',
+    ),
+    path(
+        '<disposisi_id:pk>/document/<str:kind>/',
+        views.download_document,
+        name='download_document',
+    ),
     path('<disposisi_id:pk>/upload/', views.upload_disposisi, name='uploaddisposisi'),
+    path(
+        '<disposisi_id:pk>/upload/offline/',
+        views.upload_offline_disposisi,
+        name='uploadoffline',
+    ),
     path('<disposisi_id:pk>/online/cancel/', views.cancel_online_disposisi, name='cancelonline'),
     path('<disposisi_id:pk>/online/decision/', views.decide_online_disposisi, name='decisiononline'),
     path('<disposisi_id:pk>/online/isi/', views.isi_online_disposisi, name='isionline'),
