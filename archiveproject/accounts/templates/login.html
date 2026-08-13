@@ -23,9 +23,9 @@
     <section class="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-white {% if is_koperasi %}via-emerald-50/40 to-green-100/60{% else %}via-blue-50/40 to-slate-100{% endif %} px-5 py-10 sm:px-10">
         <div class="w-full max-w-md">
             <div class="mb-8 flex justify-center lg:hidden">
-                <img src="{% static 'images/wirajatim-logo-horizontal.png' %}"
-                     alt="Wira Jatim Group"
-                     class="h-11 w-auto max-w-full object-contain">
+                <img src="{% if is_koperasi %}{% static 'images/koperasi-wira-jatim.png' %}{% else %}{% static 'images/wirajatim-logo-horizontal.png' %}{% endif %}"
+                     alt="{% if is_koperasi %}Koperasi Karyawan Wira Jatim{% else %}Wira Jatim Group{% endif %}"
+                     class="{% if is_koperasi %}koperasi-login-logo-mobile{% else %}h-11{% endif %} w-auto max-w-full object-contain">
             </div>
 
             <div class="mb-8 text-center lg:text-left">
@@ -108,9 +108,9 @@
             </form>
         </div>
 
-        <img src="{% static 'images/wirajatim-logo-horizontal.png' %}"
-             alt="Wira Jatim Group"
-             class="absolute right-8 top-8 hidden h-9 w-auto object-contain lg:block xl:right-10 xl:top-10 xl:h-10">
+        <img src="{% if is_koperasi %}{% static 'images/koperasi-wira-jatim.png' %}{% else %}{% static 'images/wirajatim-logo-horizontal.png' %}{% endif %}"
+             alt="{% if is_koperasi %}Koperasi Karyawan Wira Jatim{% else %}Wira Jatim Group{% endif %}"
+             class="absolute right-8 top-8 hidden {% if is_koperasi %}koperasi-login-logo-desktop{% else %}h-9 xl:h-10{% endif %} w-auto object-contain lg:block xl:right-10 xl:top-10">
     </section>
 </main>
 

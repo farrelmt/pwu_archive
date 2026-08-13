@@ -44,6 +44,14 @@ class Company(models.Model):
 
 class KoperasiAccess(models.Model):
     ROLE_CHOICES = [
+        ("chairman", "Ketua Koperasi"),
+        ("treasurer", "Bendahara"),
+        ("savings_treasurer", "Bendahara Sie Simpan Pinjam"),
+        ("business_treasurer", "Bendahara Sie Usaha"),
+        ("member_section", "Sie Anggota"),
+        ("secretary", "Sekretaris Koperasi"),
+        ("supervisor", "Pengawas"),
+        # Kept for backward compatibility with existing access records.
         ("admin", "Administrator Koperasi"),
         ("manager", "Manajer Koperasi"),
         ("finance", "Keuangan"),
@@ -87,9 +95,11 @@ class KoperasiAccess(models.Model):
 
 class Member(models.Model):
     STATUS_CHOICES = [
+        ("pending", "Menunggu Persetujuan"),
         ("active", "Aktif"),
         ("inactive", "Tidak Aktif"),
         ("resigned", "Keluar"),
+        ("rejected", "Ditolak"),
     ]
 
     member_number = models.CharField("Nomor anggota", max_length=30, unique=True)
@@ -119,6 +129,15 @@ class Member(models.Model):
         default=0,
         validators=[MinValueValidator(Decimal("0.00"))],
     )
+    approved_at = models.DateTimeField(blank=True, null=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="approved_koperasi_members",
+        blank=True,
+        null=True,
+    )
+    exit_date = models.DateField("Tanggal keluar", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -228,6 +247,22 @@ class Loan(models.Model):
     )
     term_months = models.PositiveIntegerField("Tenor (bulan)")
     purpose = models.TextField("Tujuan pinjaman")
+    PAYMENT_METHOD_CHOICES = [
+        ("cash", "Tunai"),
+        ("transfer", "Transfer"),
+        ("payroll", "Potong gaji (autodebet payroll)"),
+        ("meal_allowance", "Potong uang makan tanggal 10"),
+    ]
+    payment_method = models.CharField(
+        "Metode pembayaran",
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        default="payroll",
+    )
+    payment_due_day = models.PositiveSmallIntegerField(
+        "Tanggal jatuh tempo bulanan",
+        default=10,
+    )
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default="submitted"
     )
@@ -236,6 +271,22 @@ class Loan(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         related_name="approved_koperasi_loans",
+        blank=True,
+        null=True,
+    )
+    chairman_approved_at = models.DateTimeField(blank=True, null=True)
+    chairman_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="chairman_approved_koperasi_loans",
+        blank=True,
+        null=True,
+    )
+    savings_treasurer_approved_at = models.DateTimeField(blank=True, null=True)
+    savings_treasurer_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="treasurer_approved_koperasi_loans",
         blank=True,
         null=True,
     )
@@ -339,6 +390,15 @@ class CashTransaction(models.Model):
         ("income", "Pemasukan"),
         ("expense", "Pengeluaran"),
     ]
+    UNIT_CHOICES = [
+        ("savings_loan", "Sie Simpan Pinjam"),
+        ("business", "Sie Usaha"),
+        ("general", "Koperasi Umum"),
+    ]
+    ACCOUNT_CHOICES = [
+        ("cash", "Kas"),
+        ("bank", "Bank"),
+    ]
 
     transaction_number = models.CharField(
         "Nomor transaksi", max_length=40, unique=True
@@ -350,11 +410,28 @@ class CashTransaction(models.Model):
     transaction_type = models.CharField(
         "Jenis transaksi", max_length=20, choices=TYPE_CHOICES
     )
+    unit = models.CharField(
+        "Unit koperasi",
+        max_length=20,
+        choices=UNIT_CHOICES,
+        default="savings_loan",
+    )
+    account = models.CharField(
+        "Kas/Bank",
+        max_length=10,
+        choices=ACCOUNT_CHOICES,
+        default="cash",
+    )
     category = models.CharField("Kategori", max_length=100)
     amount = models.DecimalField(
         "Jumlah", max_digits=15, decimal_places=2, validators=MONEY_VALIDATORS
     )
     description = models.TextField("Keterangan")
+    counterparty = models.CharField(
+        "Diterima dari/Dibayar kepada",
+        max_length=200,
+        blank=True,
+    )
     reference = models.CharField("Referensi", max_length=100, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -370,3 +447,176 @@ class CashTransaction(models.Model):
 
     def __str__(self):
         return self.transaction_number
+
+    @property
+    def voucher_title(self):
+        direction = "Masuk" if self.transaction_type == "income" else "Keluar"
+        return f"{self.get_account_display()} {direction}"
+
+
+class PayrollDeduction(models.Model):
+    STATUS_CHOICES = [
+        ("draft", "Draf"),
+        ("posted", "Dibukukan"),
+    ]
+
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.PROTECT,
+        related_name="payroll_deductions",
+    )
+    period = models.DateField(
+        "Periode",
+        help_text="Gunakan tanggal pertama pada bulan potongan.",
+    )
+    principal_saving = models.DecimalField(
+        "Simpanan pokok", max_digits=15, decimal_places=2, default=0
+    )
+    mandatory_saving = models.DecimalField(
+        "Simpanan wajib", max_digits=15, decimal_places=2, default=0
+    )
+    voluntary_saving = models.DecimalField(
+        "Simpanan sukarela", max_digits=15, decimal_places=2, default=0
+    )
+    loan_principal = models.DecimalField(
+        "Angsuran pokok pinjaman", max_digits=15, decimal_places=2, default=0
+    )
+    loan_interest = models.DecimalField(
+        "Bunga pinjaman", max_digits=15, decimal_places=2, default=0
+    )
+    business_deduction = models.DecimalField(
+        "Potongan Sie Usaha", max_digits=15, decimal_places=2, default=0
+    )
+    notes = models.TextField("Catatan", blank=True)
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="draft",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_payroll_deductions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-period", "member__full_name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["member", "period"],
+                name="unique_member_payroll_period",
+            )
+        ]
+        verbose_name = "Potongan payroll"
+        verbose_name_plural = "Potongan payroll"
+
+    def __str__(self):
+        return f"{self.period:%m/%Y} - {self.member.full_name}"
+
+    @property
+    def total_amount(self):
+        return (
+            self.principal_saving
+            + self.mandatory_saving
+            + self.voluntary_saving
+            + self.loan_principal
+            + self.loan_interest
+            + self.business_deduction
+        )
+
+
+class BusinessTransaction(models.Model):
+    ACTIVITY_CHOICES = [
+        ("rice_purchase", "Pembelian beras anggota"),
+        ("office_procurement", "Pengadaan barang kantor"),
+        ("member_financing", "Pembiayaan barang anggota"),
+        ("other", "Usaha lainnya"),
+    ]
+    DIRECTION_CHOICES = [
+        ("income", "Pendapatan"),
+        ("expense", "Pembelian/Beban"),
+    ]
+    PAYMENT_METHOD_CHOICES = [
+        ("cash", "Tunai"),
+        ("transfer", "Transfer"),
+        ("payroll", "Potong gaji (autodebet payroll)"),
+        ("meal_allowance", "Potong uang makan tanggal 10"),
+    ]
+    STATUS_CHOICES = [
+        ("submitted", "Diajukan"),
+        ("approved", "Disetujui"),
+        ("rejected", "Ditolak"),
+        ("completed", "Selesai"),
+    ]
+
+    transaction_number = models.CharField(
+        "Nomor transaksi", max_length=40, unique=True
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="business_transactions",
+    )
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.PROTECT,
+        related_name="business_transactions",
+        blank=True,
+        null=True,
+    )
+    transaction_date = models.DateField("Tanggal")
+    activity_type = models.CharField(
+        "Kegiatan", max_length=30, choices=ACTIVITY_CHOICES
+    )
+    direction = models.CharField(
+        "Jenis pencatatan", max_length=10, choices=DIRECTION_CHOICES
+    )
+    description = models.TextField("Barang/Keterangan")
+    quantity = models.DecimalField(
+        "Jumlah", max_digits=12, decimal_places=2, default=1
+    )
+    unit = models.CharField("Satuan", max_length=30, default="unit")
+    unit_price = models.DecimalField(
+        "Harga satuan", max_digits=15, decimal_places=2, validators=MONEY_VALIDATORS
+    )
+    payment_method = models.CharField(
+        "Metode pembayaran",
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        default="payroll",
+    )
+    status = models.CharField(
+        max_length=15,
+        choices=STATUS_CHOICES,
+        default="submitted",
+    )
+    approved_at = models.DateTimeField(blank=True, null=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="approved_business_transactions",
+        blank=True,
+        null=True,
+    )
+    notes = models.TextField("Catatan", blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_business_transactions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-transaction_date", "-pk"]
+        verbose_name = "Transaksi Sie Usaha"
+        verbose_name_plural = "Transaksi Sie Usaha"
+
+    def __str__(self):
+        return self.transaction_number
+
+    @property
+    def total_amount(self):
+        return (self.quantity * self.unit_price).quantize(Decimal("0.01"))

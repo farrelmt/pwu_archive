@@ -1,7 +1,45 @@
 {% extends "koperasi/base.html" %}{% load koperasi_tags %}
 {% block content %}
-<div class="mb-6 flex items-end justify-between gap-4"><div><h1 class="text-3xl font-extrabold">Transaksi Simpanan</h1><p class="mt-2 text-sm text-slate-500">Simpanan pokok, wajib, dan sukarela.</p></div>{% if can_write %}<a href="{% url 'koperasi:saving_create' %}" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white">+ Transaksi</a>{% endif %}</div>
-<form method="get" class="mb-5 flex gap-3 rounded-2xl border bg-white p-4"><select name="company" class="min-w-60 rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua perusahaan</option>{% for company in companies %}<option value="{{ company.pk }}" {% if selected_company.pk == company.pk %}selected{% endif %}>{{ company.name }}</option>{% endfor %}</select><button class="rounded-xl bg-blue-950 px-4 text-sm font-bold text-white">Terapkan</button></form>
-<div class="overflow-hidden rounded-2xl border bg-white shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-4">Tanggal</th><th class="px-5 py-4">Nomor</th><th class="px-5 py-4">Anggota</th><th class="px-5 py-4">Jenis</th><th class="px-5 py-4">Transaksi</th><th class="px-5 py-4 text-right">Jumlah</th></tr></thead><tbody class="divide-y">{% for row in transactions %}<tr><td class="px-5 py-4">{{ row.transaction_date|date:"d M Y" }}</td><td class="px-5 py-4 font-semibold">{{ row.transaction_number }}</td><td class="px-5 py-4">{{ row.member.full_name }}<p class="text-xs text-slate-400">{{ row.member.company.code }}</p></td><td class="px-5 py-4">{{ row.get_saving_type_display }}</td><td class="px-5 py-4">{{ row.get_direction_display }}</td><td class="px-5 py-4 text-right font-bold {% if row.direction == 'withdrawal' %}text-red-600{% else %}text-emerald-700{% endif %}">{{ row.amount|rupiah }}</td></tr>{% empty %}<tr><td colspan="6" class="p-10 text-center text-slate-500">Belum ada transaksi.</td></tr>{% endfor %}</tbody></table></div></div>
-{% endblock %}
+<div class="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div><h1 class="text-3xl font-extrabold">Simpanan</h1><p class="mt-2 text-sm text-slate-500">Daftar transaksi dan rekapitulasi simpanan per perusahaan.</p></div>
+    {% if can_write %}<a href="{% url 'koperasi:saving_create' %}" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-center text-sm font-bold text-white">+ Transaksi</a>{% endif %}
+</div>
 
+<div class="mb-5 flex gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm" style="width:max-content">
+    <a href="?view=list{% if selected_company %}&company={{ selected_company.pk }}{% endif %}" class="rounded-lg px-4 py-2 text-sm font-bold {% if selected_view == 'list' %}bg-blue-950 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">Daftar Transaksi</a>
+    <a href="?view=table&year={{ selected_year }}{% if selected_company %}&company={{ selected_company.pk }}{% endif %}" class="rounded-lg px-4 py-2 text-sm font-bold {% if selected_view == 'table' %}bg-blue-950 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">Rekap Simpanan</a>
+</div>
+
+{% if selected_view == 'table' %}
+<form method="get" class="mb-5 rounded-2xl border bg-white p-4">
+    <input type="hidden" name="view" value="table">
+    <select name="company" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua perusahaan</option>{% for company in companies %}<option value="{{ company.pk }}" {% if selected_company.pk == company.pk %}selected{% endif %}>{{ company.name }}</option>{% endfor %}</select>
+    <select name="year" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm">{% for year in years %}<option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>Tahun {{ year }}</option>{% endfor %}</select>
+    <button class="rounded-xl bg-blue-950 px-4 py-2.5 text-sm font-bold text-white">Terapkan</button>
+</form>
+
+<div class="space-y-7">
+    {% for book in saving_books %}
+    <section class="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm">
+        <header class="border-b border-slate-300 bg-slate-50 px-5 py-4"><p class="text-sm font-extrabold">REKAPITULASI SIMPANAN KOPERASI DIREKSI &amp; KARYAWAN</p><h2 class="mt-1 text-lg font-extrabold text-blue-950">{{ book.company.name }}</h2><p class="mt-1 text-sm font-bold text-slate-500">UNTUK TAHUN {{ selected_year }}</p></header>
+        <div class="overflow-x-auto">
+            <table class="min-w-[850px] w-full border-collapse text-left text-sm">
+                <thead class="bg-slate-100 text-xs uppercase text-slate-600"><tr><th class="border px-3 py-3 text-center">No</th><th class="min-w-56 border px-3 py-3">Nama</th><th class="border px-3 py-3 text-right">Simp. Pokok</th><th class="border px-3 py-3 text-right">Simp. Wajib</th><th class="border px-3 py-3 text-right">Simp. Sukarela</th><th class="border px-3 py-3 text-right">Jumlah</th></tr></thead>
+                <tbody>{% for row in book.member_rows %}<tr class="hover:bg-slate-50"><td class="border px-3 py-3 text-center">{{ row.number }}</td><td class="border px-3 py-3"><a href="{% url 'koperasi:member_detail' row.member.pk %}" class="font-semibold text-blue-950 hover:text-emerald-700 hover:underline">{{ row.member.full_name }}</a><p class="text-[10px] text-slate-400">{{ row.member.member_number }}</p></td><td class="border px-3 py-3 text-right">{% if row.principal %}{{ row.principal|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right">{% if row.mandatory %}{{ row.mandatory|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right">{% if row.voluntary %}{{ row.voluntary|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right font-bold">{% if row.total %}{{ row.total|rupiah }}{% else %}-{% endif %}</td></tr>{% empty %}<tr><td colspan="6" class="border p-10 text-center text-slate-500">Belum ada anggota aktif pada perusahaan ini.</td></tr>{% endfor %}</tbody>
+                <tfoot class="bg-slate-50 font-extrabold"><tr><td colspan="2" class="border px-3 py-3 text-right">Total</td><td class="border px-3 py-3 text-right">{{ book.totals.principal|rupiah }}</td><td class="border px-3 py-3 text-right">{{ book.totals.mandatory|rupiah }}</td><td class="border px-3 py-3 text-right">{{ book.totals.voluntary|rupiah }}</td><td class="border px-3 py-3 text-right">{{ book.totals.total|rupiah }}</td></tr></tfoot>
+            </table>
+        </div>
+    </section>
+    {% empty %}<div class="rounded-2xl border bg-white p-10 text-center text-slate-500">Perusahaan tidak ditemukan.</div>{% endfor %}
+</div>
+{% else %}
+<form method="get" class="mb-5 rounded-2xl border bg-white p-4">
+    <input type="hidden" name="view" value="list">
+    <select name="company" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua perusahaan</option>{% for company in companies %}<option value="{{ company.pk }}" {% if selected_company.pk == company.pk %}selected{% endif %}>{{ company.name }}</option>{% endfor %}</select>
+    <select name="direction" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua transaksi</option>{% for value,label in directions %}<option value="{{ value }}" {% if selected_direction == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <select name="saving_type" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua jenis simpanan</option>{% for value,label in saving_types %}<option value="{{ value }}" {% if selected_saving_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <button class="rounded-xl bg-blue-950 px-4 py-2.5 text-sm font-bold text-white">Terapkan</button>
+</form>
+<div class="overflow-hidden rounded-2xl border bg-white shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-4">Tanggal</th><th class="px-5 py-4">Nomor</th><th class="px-5 py-4">Anggota</th><th class="px-5 py-4">Jenis</th><th class="px-5 py-4">Transaksi</th><th class="px-5 py-4 text-right">Jumlah</th><th class="px-5 py-4 text-right">Aksi</th></tr></thead><tbody class="divide-y">{% for row in transactions %}<tr><td class="px-5 py-4">{{ row.transaction_date|date:"d M Y" }}</td><td class="px-5 py-4"><a href="{% url 'koperasi:saving_detail' row.pk %}" class="font-semibold text-blue-900 hover:text-emerald-700 hover:underline">{{ row.transaction_number }}</a></td><td class="px-5 py-4">{{ row.member.full_name }}<p class="text-xs text-slate-400">{{ row.member.company.code }}</p></td><td class="px-5 py-4">{{ row.get_saving_type_display }}</td><td class="px-5 py-4">{{ row.get_direction_display }}</td><td class="px-5 py-4 text-right font-bold {% if row.direction == 'withdrawal' %}text-red-600{% else %}text-emerald-700{% endif %}">{{ row.amount|rupiah }}</td><td class="px-5 py-4 text-right"><a href="{% url 'koperasi:saving_detail' row.pk %}" class="inline-flex rounded-lg bg-blue-950 px-3 py-2 text-xs font-bold text-white hover:bg-blue-800">Detail</a></td></tr>{% empty %}<tr><td colspan="7" class="p-10 text-center text-slate-500">Belum ada transaksi.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endif %}
+{% endblock %}

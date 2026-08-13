@@ -123,11 +123,13 @@ class DivisionUserListTests(TestCase):
             ("akuntan1", "akuntan"),
             ("akuntan2", "akuntan"),
         ):
-            user_model.objects.create_user(
+            user, _created = user_model.objects.get_or_create(
                 username=username,
-                password="test-password",
-                role=role,
+                defaults={"role": role},
             )
+            user.role = role
+            user.set_password("test-password")
+            user.save(update_fields=["role", "password"])
         self.wirajatim_user, _ = user_model.objects.update_or_create(
             username="wirajatim_kso",
             defaults={
@@ -347,11 +349,10 @@ class DocumentQueueTests(TestCase):
 class ActivityLogAccessTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
-        self.it_user = user_model.objects.create_user(
-            username="it_pwu",
-            password="test-password",
-            role="admin",
-        )
+        self.it_user = user_model.objects.get(username="it_pwu")
+        self.it_user.role = "admin"
+        self.it_user.set_password("test-password")
+        self.it_user.save(update_fields=["role", "password"])
         self.other_admin = user_model.objects.create_user(
             username="audit-admin",
             password="test-password",

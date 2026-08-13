@@ -1,7 +1,47 @@
 {% extends "koperasi/base.html" %}{% load koperasi_tags %}
 {% block content %}
-<div class="mb-6 flex items-end justify-between gap-4"><div><h1 class="text-3xl font-extrabold">Kas &amp; Buku Besar</h1><p class="mt-2 text-sm text-slate-500">Pemasukan dan pengeluaran operasional per perusahaan.</p></div>{% if can_write %}<a href="{% url 'koperasi:cash_create' %}" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white">+ Transaksi Kas</a>{% endif %}</div>
-<form method="get" class="mb-5 flex gap-3 rounded-2xl border bg-white p-4"><select name="company" class="min-w-60 rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua perusahaan</option>{% for company in companies %}<option value="{{ company.pk }}" {% if selected_company.pk == company.pk %}selected{% endif %}>{{ company.name }}</option>{% endfor %}</select><button class="rounded-xl bg-blue-950 px-4 text-sm font-bold text-white">Terapkan</button></form>
-<div class="overflow-hidden rounded-2xl border bg-white"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-4">Tanggal</th><th class="px-5 py-4">Nomor</th><th class="px-5 py-4">Perusahaan</th><th class="px-5 py-4">Kategori</th><th class="px-5 py-4">Keterangan</th><th class="px-5 py-4 text-right">Jumlah</th></tr></thead><tbody class="divide-y">{% for row in transactions %}<tr><td class="px-5 py-4">{{ row.transaction_date|date:"d M Y" }}</td><td class="px-5 py-4 font-semibold">{{ row.transaction_number }}</td><td class="px-5 py-4">{{ row.company.code }}</td><td class="px-5 py-4">{{ row.category }}</td><td class="max-w-xs truncate px-5 py-4">{{ row.description }}</td><td class="px-5 py-4 text-right font-bold {% if row.transaction_type == 'expense' %}text-red-600{% else %}text-emerald-700{% endif %}">{% if row.transaction_type == 'expense' %}-{% else %}+{% endif %}{{ row.amount|rupiah }}</td></tr>{% empty %}<tr><td colspan="6" class="p-10 text-center text-slate-500">Belum ada transaksi kas.</td></tr>{% endfor %}</tbody></table></div></div>
-{% endblock %}
+<div class="mb-6">
+    <h1 class="text-3xl font-extrabold">Buku Kas &amp; Bank</h1>
+    <p class="mt-2 text-sm text-slate-500">Terisi otomatis dari Simpanan, Pinjaman, Angsuran, Payroll, dan transaksi Sie Usaha.</p>
+</div>
 
+<form method="get" class="mb-5 rounded-2xl border bg-white p-4">
+    <select name="company" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua perusahaan</option>{% for company in companies %}<option value="{{ company.pk }}" {% if selected_company.pk == company.pk %}selected{% endif %}>{{ company.name }}</option>{% endfor %}</select>
+    <select name="unit" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua unit</option>{% for value,label in units %}<option value="{{ value }}" {% if selected_unit == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <select name="year" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm">{% for year in years %}<option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>Tahun {{ year }}</option>{% endfor %}</select>
+    <select name="month" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua bulan</option>{% for value,label in months %}<option value="{{ value }}" {% if selected_month == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <button class="rounded-xl bg-blue-950 px-4 py-2.5 text-sm font-bold text-white">Terapkan</button>
+</form>
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-2xl border bg-white p-4 shadow-sm"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Saldo Awal Kas</p><p class="mt-2 text-lg font-extrabold">{{ opening_cash|rupiah }}</p></div>
+    <div class="rounded-2xl border bg-white p-4 shadow-sm"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Saldo Awal Bank</p><p class="mt-2 text-lg font-extrabold">{{ opening_bank|rupiah }}</p></div>
+    <div class="rounded-2xl border bg-white p-4 shadow-sm"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Saldo Akhir Kas</p><p class="mt-2 text-lg font-extrabold text-emerald-700">{{ closing_cash|rupiah }}</p></div>
+    <div class="rounded-2xl border bg-white p-4 shadow-sm"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Saldo Akhir Bank</p><p class="mt-2 text-lg font-extrabold text-blue-800">{{ closing_bank|rupiah }}</p></div>
+</div>
+
+<div class="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm">
+    <div class="border-b border-slate-300 bg-slate-50 px-5 py-4">
+        <p class="font-extrabold">BUKU KAS DAN BANK KOPERASI WIRA JATIM</p>
+        <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-500">{% if selected_month %}{% for value,label in months %}{% if selected_month == value %}{{ label }}{% endif %}{% endfor %} {% endif %}{{ selected_year }}{% if selected_unit %} · {{ selected_unit|title }}{% endif %}</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-[1100px] w-full border-collapse text-left text-xs">
+            <thead>
+                <tr class="bg-slate-100 text-slate-600"><th rowspan="2" class="border px-3 py-3">Unit</th><th rowspan="2" class="border px-3 py-3">Bln</th><th rowspan="2" class="border px-3 py-3">Tgl</th><th rowspan="2" class="min-w-72 border px-3 py-3">Keterangan</th><th colspan="2" class="border px-3 py-2 text-center">KAS</th><th colspan="2" class="border px-3 py-2 text-center">BANK</th><th rowspan="2" class="border px-3 py-3 text-right">Saldo</th><th rowspan="2" class="border px-3 py-3 text-center">Bukti</th></tr>
+                <tr class="bg-slate-50 text-slate-500"><th class="border px-3 py-2 text-right">Debet</th><th class="border px-3 py-2 text-right">Kredit</th><th class="border px-3 py-2 text-right">Debet</th><th class="border px-3 py-2 text-right">Kredit</th></tr>
+            </thead>
+            <tbody>
+                {% for row in ledger_rows %}
+                <tr class="hover:bg-slate-50"><td class="border px-3 py-3">{% if row.unit == 'savings_loan' %}SP{% elif row.unit == 'business' %}Usaha{% else %}Umum{% endif %}</td><td class="border px-3 py-3">{{ row.date|date:"m" }}</td><td class="border px-3 py-3">{{ row.date|date:"d" }}</td><td class="border px-3 py-3"><p class="font-semibold">{{ row.description }}</p><p class="mt-1 text-[10px] text-slate-400">{{ row.number }} &middot; {{ row.source }}</p></td><td class="border px-3 py-3 text-right">{% if row.cash_debit %}{{ row.cash_debit|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right">{% if row.cash_credit %}{{ row.cash_credit|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right">{% if row.bank_debit %}{{ row.bank_debit|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right">{% if row.bank_credit %}{{ row.bank_credit|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right font-bold">{{ row.running_balance|rupiah }}</td><td class="border px-3 py-3 text-center"><a href="{% url 'koperasi:cash_voucher' row.source_type row.source_pk %}" class="rounded-lg bg-blue-950 px-3 py-2 text-xs font-bold text-white">Buat Bukti</a></td></tr>
+                {% empty %}
+                <tr><td colspan="10" class="border p-10 text-center text-slate-500">Belum ada transaksi otomatis pada periode ini.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="font-bold">
+                <tr class="bg-slate-50"><td colspan="4" class="border px-3 py-3 text-right">Mutasi Periode</td><td class="border px-3 py-3 text-right">{{ totals.cash_debit|rupiah }}</td><td class="border px-3 py-3 text-right">{{ totals.cash_credit|rupiah }}</td><td class="border px-3 py-3 text-right">{{ totals.bank_debit|rupiah }}</td><td class="border px-3 py-3 text-right">{{ totals.bank_credit|rupiah }}</td><td class="border px-3 py-3 text-right">{{ closing_cash|add:closing_bank|rupiah }}</td><td class="border"></td></tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

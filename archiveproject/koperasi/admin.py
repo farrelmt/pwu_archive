@@ -1,12 +1,14 @@
 from django.contrib import admin
 
 from .models import (
+    BusinessTransaction,
     CashTransaction,
     Company,
     KoperasiAccess,
     Loan,
     LoanInstallment,
     Member,
+    PayrollDeduction,
     SavingTransaction,
 )
 
@@ -68,9 +70,31 @@ class CashTransactionAdmin(admin.ModelAdmin):
         "transaction_number",
         "company",
         "transaction_type",
+        "unit",
+        "account",
         "category",
         "amount",
         "transaction_date",
     )
-    list_filter = ("company", "transaction_type", "transaction_date")
+    list_filter = ("company", "unit", "account", "transaction_type", "transaction_date")
 
+
+@admin.register(PayrollDeduction)
+class PayrollDeductionAdmin(admin.ModelAdmin):
+    list_display = ("period", "member", "total_amount", "status")
+    list_filter = ("period", "status", "member__company")
+    search_fields = ("member__member_number", "member__full_name")
+
+
+@admin.register(BusinessTransaction)
+class BusinessTransactionAdmin(admin.ModelAdmin):
+    list_display = (
+        "transaction_number",
+        "transaction_date",
+        "activity_type",
+        "direction",
+        "total_amount",
+        "status",
+    )
+    list_filter = ("activity_type", "direction", "status", "company")
+    search_fields = ("transaction_number", "description", "member__full_name")

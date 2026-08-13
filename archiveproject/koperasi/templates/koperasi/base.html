@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#14532d">
-    <title>{% block title %}Sistem Koperasi PWU{% endblock %}</title>
-    <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
+    <meta name="theme-color" content="#064e3b">
+    <title>{% block title %}Koperasi Karyawan Wira Jatim{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'images/koperasi-wira-jatim.png' %}">
     {% tailwind_css %}
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
@@ -14,11 +14,19 @@
         <button id="koperasiMenu" type="button" class="mr-3 inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/10 lg:hidden" aria-label="Buka menu">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-6 w-6"><path stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
-        <a href="{% url 'koperasi:dashboard' %}" class="truncate text-xl font-extrabold tracking-wide sm:text-2xl">SISTEM KOPERASI PWU</a>
+        <a href="{% url 'koperasi:dashboard' %}" class="flex min-w-0 items-center gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow-sm">
+                <img src="{% static 'images/koperasi-wira-jatim.png' %}" alt="Logo Koperasi Karyawan Wira Jatim" class="h-full w-full object-contain">
+            </span>
+            <span class="min-w-0">
+                <span class="block truncate text-base font-extrabold tracking-wide sm:text-xl">KOPERASI KARYAWAN WIRA JATIM</span>
+                <span class="hidden text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-200 sm:block">Bersama Membangun Kesejahteraan</span>
+            </span>
+        </a>
         <div class="ml-auto flex items-center gap-3">
             <div class="hidden text-right sm:block">
                 <p class="text-sm font-semibold">{{ request.user.get_full_name|default:request.user.username }}</p>
-                <p class="text-xs text-emerald-200">Koperasi Grup</p>
+                <p class="text-xs text-emerald-200">{{ request.user.get_role_display }}</p>
             </div>
             <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-700 font-bold uppercase">{{ request.user.username|slice:":1" }}</span>
         </div>
@@ -27,16 +35,22 @@
     <div id="koperasiBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 lg:hidden"></div>
     <aside id="koperasiSidebar" class="fixed bottom-0 left-0 top-16 z-50 flex w-64 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform lg:translate-x-0">
         <nav class="flex-1 overflow-y-auto p-3 py-5">
-            <p class="mb-2 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Operasional</p>
+            <p class="mb-2 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Utama</p>
             <a class="koperasi-nav {% if request.path == '/' %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:dashboard' %}">Ringkasan</a>
-            <a class="koperasi-nav {% if '/perusahaan/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:companies' %}">Perusahaan</a>
+            <p class="mb-2 mt-6 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Sie Anggota</p>
             <a class="koperasi-nav {% if '/anggota/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:members' %}">Anggota</a>
+            <p class="mb-2 mt-6 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Sie Simpan Pinjam</p>
             <a class="koperasi-nav {% if '/simpanan/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:savings' %}">Simpanan</a>
             <a class="koperasi-nav {% if '/pinjaman/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:loans' %}">Pinjaman</a>
-            <a class="koperasi-nav {% if '/kas/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:cash' %}">Kas &amp; Buku Besar</a>
-            <a class="koperasi-nav {% if '/laporan/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:report' %}">Laporan Konsolidasi</a>
+            <a class="koperasi-nav {% if '/potongan-payroll/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:payroll' %}">Potongan Payroll</a>
+            <p class="mb-2 mt-6 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Sie Usaha</p>
+            <a class="koperasi-nav {% if '/sie-usaha/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:business' %}">Transaksi Usaha</a>
+            <p class="mb-2 mt-6 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Keuangan</p>
+            <a class="koperasi-nav {% if '/kas/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:cash' %}">Kas &amp; Bank</a>
+            <a class="koperasi-nav {% if '/laporan/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:report' %}">Laporan Keuangan &amp; SHU</a>
             {% if can_admin_access %}
             <p class="mb-2 mt-7 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Administrasi</p>
+            <a class="koperasi-nav {% if '/perusahaan/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:companies' %}">Unit Perusahaan</a>
             <a class="koperasi-nav {% if '/akses/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:access' %}">Hak Akses</a>
             {% endif %}
             <p class="mb-2 mt-7 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Lainnya</p>
@@ -66,6 +80,23 @@
         .koperasi-nav { display:block; margin:.125rem 0; border-radius:.75rem; padding:.7rem .8rem; color:#475569; font-size:.875rem; font-weight:600; transition:.15s; }
         .koperasi-nav:hover { background:#ecfdf5; color:#047857; }
         .koperasi-nav-active { background:#d1fae5; color:#065f46; }
+        .bg-amber-50 { background-color:#fffbeb; }
+        .bg-amber-100 { background-color:#fef3c7; }
+        .border-amber-200 { border-color:#fde68a; }
+        .border-amber-400 { border-color:#fbbf24; }
+        .text-amber-700 { color:#b45309; }
+        .text-amber-800 { color:#92400e; }
+        .text-amber-900 { color:#78350f; }
+        .text-yellow-300 { color:#fde047; }
+        main form[method="get"] { display:flex !important; flex-wrap:nowrap !important; gap:.75rem; overflow-x:auto; }
+        main form[method="get"] input, main form[method="get"] select { min-width:13rem; flex:1 0 13rem; }
+        main form[method="get"] button { flex:0 0 auto; min-width:7.5rem; white-space:nowrap; }
+        @media print {
+            .print\:hidden, header, aside { display:none !important; }
+            main { padding:0 !important; }
+            main > div { max-width:none !important; padding:0 !important; }
+            body { background:#fff !important; }
+        }
     </style>
     <script nonce="{{ request.csp_nonce }}">
         const menu = document.getElementById("koperasiMenu");

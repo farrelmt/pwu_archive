@@ -14,10 +14,14 @@ def _login_context(request, **extra):
     is_koperasi = request_hostname(request) in settings.KOPERASI_HOSTS
     context = {
         'is_koperasi': is_koperasi,
-        'system_name': 'Sistem Koperasi PWU' if is_koperasi else 'Sistem Arsip PWU',
+        'system_name': (
+            'Koperasi Karyawan Wira Jatim'
+            if is_koperasi
+            else 'Sistem Arsip PWU'
+        ),
         'system_description': (
-            'Kelola anggota, simpanan, pinjaman, dan keuangan koperasi '
-            'seluruh grup perusahaan.'
+            'Kelola anggota, simpan pinjam, Sie Usaha, kas dan bank, '
+            'laporan keuangan, serta pembagian SHU.'
             if is_koperasi
             else 'Kelola surat masuk, disposisi, dan pemantauan dokumen '
             'dalam satu ruang kerja yang aman.'

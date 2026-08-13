@@ -1,7 +1,7 @@
 {% extends "koperasi/base.html" %}
 {% block content %}
 <div class="mb-6 flex items-end justify-between gap-4">
-    <div><h1 class="text-3xl font-extrabold">Perusahaan Grup</h1><p class="mt-2 text-sm text-slate-500">Kelola perusahaan induk dan seluruh anak perusahaan.</p></div>
+    <div><h1 class="text-3xl font-extrabold">Unit Perusahaan Anggota</h1><p class="mt-2 text-sm text-slate-500">Kelola perusahaan asal anggota untuk rekap potongan dan laporan.</p></div>
     {% if can_admin_access %}<a href="{% url 'koperasi:company_create' %}" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800">+ Perusahaan</a>{% endif %}
 </div>
 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

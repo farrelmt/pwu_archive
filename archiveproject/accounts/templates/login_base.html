@@ -6,10 +6,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="{% if is_koperasi %}#14532d{% else %}#172554{% endif %}">
-    <title>Sistem Arsip PWU</title>
-    <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
-    <link rel="apple-touch-icon" href="{% static 'images/wirajatim-logo-stacked.png' %}">
+    <title>{% if is_koperasi %}Koperasi Karyawan Wira Jatim{% else %}Sistem Arsip PWU{% endif %}</title>
+    <link rel="icon" type="image/png" href="{% if is_koperasi %}{% static 'images/koperasi-wira-jatim.png' %}{% else %}{% static 'images/wirajatim-logo-stacked.png' %}{% endif %}">
+    <link rel="apple-touch-icon" href="{% if is_koperasi %}{% static 'images/koperasi-wira-jatim.png' %}{% else %}{% static 'images/wirajatim-logo-stacked.png' %}{% endif %}">
     {% tailwind_css %}
+    <style nonce="{{ request.csp_nonce }}">
+        .koperasi-login-logo-mobile { height:7rem; width:auto; }
+        .koperasi-login-logo-desktop { height:7rem; width:auto; }
+    </style>
 </head>
 
 <body class="min-h-screen {% if is_koperasi %}bg-emerald-50{% else %}bg-slate-100{% endif %} antialiased">

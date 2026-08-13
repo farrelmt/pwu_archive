@@ -6,9 +6,33 @@ from django.core.exceptions import PermissionDenied
 from .models import Company, KoperasiAccess
 
 
-WRITE_ROLES = {"admin", "manager", "finance", "officer"}
-MANAGE_ROLES = {"admin", "manager"}
-APPROVE_ROLES = {"admin", "manager"}
+WRITE_ROLES = {
+    "admin",
+    "manager",
+    "chairman",
+    "finance",
+    "officer",
+    "treasurer",
+    "savings_treasurer",
+    "business_treasurer",
+    "member_section",
+    "secretary",
+}
+MANAGE_ROLES = {
+    "admin",
+    "manager",
+    "chairman",
+    "treasurer",
+    "savings_treasurer",
+    "business_treasurer",
+}
+APPROVE_ROLES = {
+    "admin",
+    "manager",
+    "chairman",
+    "savings_treasurer",
+    "business_treasurer",
+}
 
 
 def access_rows_for_user(user):
@@ -37,7 +61,7 @@ def roles_for_user(user):
     if user.role != "akuntan":
         return set()
     roles = set(access_rows_for_user(user).values_list("role", flat=True))
-    return roles or {"finance"}
+    return roles or {"treasurer"}
 
 
 def can_manage_global_access(user):

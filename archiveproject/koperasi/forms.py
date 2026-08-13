@@ -2,12 +2,14 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from .models import (
+    BusinessTransaction,
     CashTransaction,
     Company,
     KoperasiAccess,
     Loan,
     LoanInstallment,
     Member,
+    PayrollDeduction,
     SavingTransaction,
 )
 
@@ -73,8 +75,10 @@ class MemberForm(StyledModelForm):
             "join_date": forms.DateInput(attrs={"type": "date"}),
         }
 
-    def __init__(self, *args, companies=None, **kwargs):
+    def __init__(self, *args, companies=None, include_user=True, **kwargs):
         super().__init__(*args, **kwargs)
+        if not include_user:
+            self.fields.pop("user", None)
         if companies is not None:
             self.fields["company"].queryset = companies
 
@@ -89,7 +93,6 @@ class SavingTransactionForm(StyledModelForm):
             "direction",
             "transaction_date",
             "amount",
-            "reference",
             "notes",
         ]
         widgets = {
@@ -129,6 +132,8 @@ class LoanForm(StyledModelForm):
             "principal_amount",
             "interest_rate",
             "term_months",
+            "payment_method",
+            "payment_due_day",
             "purpose",
             "notes",
         ]
@@ -151,7 +156,6 @@ class LoanInstallmentForm(StyledModelForm):
             "principal_amount",
             "interest_amount",
             "penalty_amount",
-            "reference",
             "notes",
         ]
         widgets = {
@@ -185,10 +189,12 @@ class CashTransactionForm(StyledModelForm):
             "company",
             "transaction_date",
             "transaction_type",
+            "unit",
+            "account",
             "category",
             "amount",
+            "counterparty",
             "description",
-            "reference",
         ]
         widgets = {
             "transaction_date": forms.DateInput(attrs={"type": "date"}),
@@ -199,3 +205,85 @@ class CashTransactionForm(StyledModelForm):
         if companies is not None:
             self.fields["company"].queryset = companies
 
+
+class PayrollDeductionForm(StyledModelForm):
+    class Meta:
+        model = PayrollDeduction
+        fields = [
+            "member",
+            "period",
+            "principal_saving",
+            "mandatory_saving",
+            "voluntary_saving",
+            "loan_principal",
+            "loan_interest",
+            "business_deduction",
+            "notes",
+        ]
+        widgets = {
+            "period": forms.DateInput(attrs={"type": "month"}),
+        }
+
+    def __init__(self, *args, members=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if members is not None:
+            self.fields["member"].queryset = members.filter(status="active")
+
+    def clean_period(self):
+        period = self.cleaned_data["period"]
+        return period.replace(day=1)
+
+    def clean(self):
+        cleaned = super().clean()
+        amount_fields = (
+            "principal_saving",
+            "mandatory_saving",
+            "voluntary_saving",
+            "loan_principal",
+            "loan_interest",
+            "business_deduction",
+        )
+        if any((cleaned.get(field) or 0) < 0 for field in amount_fields):
+            raise ValidationError("Nilai potongan tidak boleh negatif.")
+        if not any((cleaned.get(field) or 0) > 0 for field in amount_fields):
+            raise ValidationError("Isi setidaknya satu nilai potongan.")
+        return cleaned
+
+
+class BusinessTransactionForm(StyledModelForm):
+    class Meta:
+        model = BusinessTransaction
+        fields = [
+            "transaction_number",
+            "company",
+            "member",
+            "transaction_date",
+            "activity_type",
+            "direction",
+            "description",
+            "quantity",
+            "unit",
+            "unit_price",
+            "payment_method",
+            "notes",
+        ]
+        widgets = {
+            "transaction_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, companies=None, members=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if companies is not None:
+            self.fields["company"].queryset = companies
+        if members is not None:
+            self.fields["member"].queryset = members.filter(status="active")
+
+    def clean(self):
+        cleaned = super().clean()
+        company = cleaned.get("company")
+        member = cleaned.get("member")
+        if member and company and member.company_id != company.pk:
+            raise ValidationError(
+                "Perusahaan anggota harus sama dengan perusahaan transaksi."
+            )
+        return cleaned
