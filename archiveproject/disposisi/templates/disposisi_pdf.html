@@ -1,59 +1,65 @@
 <!DOCTYPE html>
 <html lang="id">
-{% load static %}
 <head>
     <meta charset="UTF-8">
     <title>Disposisi</title>
-    <link rel="stylesheet" href="{% static 'css/disposisi_file.css' %}">
+    <style>
+        @page { size: A4 portrait; margin: 0; background: #fff9c4; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 210mm; min-height: 297mm; background: #fff9c4; color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 14px; }
+        .page { display: flex; flex-direction: column; width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; background: #fff9c4; overflow: hidden; }
+        .header { padding: 30px 0 10px; text-align: center; }
+        .header h1 { padding: 10px; font-size: 20px; font-weight: 600; letter-spacing: 2px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; font-size: 15px; }
+        .cell, .tujuan-container { padding: 10px; }
+        .border-top { border-top: 2px solid #000; }
+        .border-right { border-right: 2px solid #000; }
+        .border-bottom { border-bottom: 2px solid #000; }
+        .border-left { border-left: 2px solid #000; }
+        .label-row, .tujuan-title, .checkbox-row { display: flex; }
+        .label { width: 100px; font-weight: 500; }
+        .colon { width: 16px; text-align: center; }
+        .value { flex: 1; }
+        .perihal { min-height: 180px; }
+        .tujuan-title { margin-bottom: 10px; font-weight: 700; }
+        .checkbox-row { align-items: center; margin-bottom: 8px; }
+        .checkbox { display: flex; width: 16px; height: 16px; margin-right: 8px; align-items: center; justify-content: center; border: 1px solid #000; font-size: 13px; font-weight: 700; line-height: 1; }
+        .checkbox-text { font-size: 14px; }
+        .section-title { margin-top: 30px; text-align: center; font-size: 20px; font-weight: 400; text-decoration: underline; text-underline-offset: .3em; }
+        .disposisi-content { position: relative; min-height: 0; flex: 1 1 auto; margin: 12px 24px 24px; padding: 14px; background: transparent; font-size: 14px; line-height: 1.55; overflow: hidden; overflow-wrap: anywhere; }
+        .disposisi-content > svg[data-signature-overlay="true"] { position: absolute; top: 0; left: 0; z-index: 2; width: 100%; height: 100%; }
+        .disposisi-content ul { padding-left: 24px; list-style: disc; }
+        .disposisi-content ol { padding-left: 24px; list-style: decimal; }
+        .disposisi-content blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid #777; }
+        .disposisi-content h2 { font-size: 19px; }
+        .disposisi-content h3 { font-size: 17px; }
+        .empty-content { color: #666; font-style: italic; }
+    </style>
 </head>
-
 <body>
-
 <div class="page">
-    <div class="header">
-        <h1>PT. PANCA WIRA USAHA JAWA TIMUR</h1>
-        <h1>LEMBAR DISPOSISI</h1>
-    </div>
-
+    <div class="header"><h1>PT. PANCA WIRA USAHA JAWA TIMUR</h1><h1>LEMBAR DISPOSISI</h1></div>
     <div class="grid">
-        <div class="cell border-bottom border-right border-top border-left">
-            <div class="label-row"><div class="label">Surat Dari</div><div class="colon">:</div><div class="value">{{ disposisi.pengirim }}</div></div>
-        </div>
-        <div class="cell border-bottom border-top border-right">
-            <div class="label-row"><div class="label" style="width: 150px;">Diterima tanggal</div><div class="colon">:</div><div class="value">{{ disposisi.tanggal_surat_diterima|date:"d F Y" }}</div></div>
-        </div>
-        <div class="cell border-bottom border-right border-left">
-            <div class="label-row"><div class="label">Tanggal Surat</div><div class="colon">:</div><div class="value">{{ disposisi.tanggal_surat|date:"d F Y" }}</div></div>
-        </div>
-        <div class="cell border-bottom border-right">
-            <div class="label-row"><div class="label" style="width: 150px;">Nomor Agenda</div><div class="colon">:</div><div class="value">{{ disposisi.nomor_agenda }}</div></div>
-        </div>
-        <div class="cell perihal border-right border-bottom border-left">
-            <div class="label-row"><div class="label">Perihal</div><div class="colon">:</div><div class="value">{{ disposisi.perihal }}</div></div>
-        </div>
+        <div class="cell border-bottom border-right border-top border-left"><div class="label-row"><div class="label">Surat Dari</div><div class="colon">:</div><div class="value">{{ disposisi.pengirim }}</div></div></div>
+        <div class="cell border-bottom border-top border-right"><div class="label-row"><div class="label" style="width:150px">Diterima tanggal</div><div class="colon">:</div><div class="value">{{ disposisi.tanggal_surat_diterima|date:"d F Y" }}</div></div></div>
+        <div class="cell border-bottom border-right border-left"><div class="label-row"><div class="label">Tanggal Surat</div><div class="colon">:</div><div class="value">{{ disposisi.tanggal_surat|date:"d F Y" }}</div></div></div>
+        <div class="cell border-bottom border-right"><div class="label-row"><div class="label" style="width:150px">Nomor Agenda</div><div class="colon">:</div><div class="value">{{ disposisi.nomor_agenda }}</div></div></div>
+        <div class="cell perihal border-right border-bottom border-left"><div class="label-row"><div class="label">Perihal</div><div class="colon">:</div><div class="value">{{ disposisi.perihal }}</div></div></div>
         <div class="tujuan-container border-bottom border-right">
-            <div class="tujuan-title"><div class="label" style="width: 150px;">Diteruskan Kepada</div><div class="colon">:</div></div>
-            <div class="checkbox-row"><div class="checkbox">{% if 'direktur_utama' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Direktur Utama</span></div>
-            <div class="checkbox-row"><div class="checkbox">{% if 'direktur_umum' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Direktur Umum</span></div>
-            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_akuntansi' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Akuntansi</span></div>
-            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_risiko' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Manajemen Risiko</span></div>
-            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_keuangan' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Keuangan</span></div>
-            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_legal_umum' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Legal & Umum / Sekretaris Perusahaan</span></div>
-            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_aset' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala Divisi Aset</span></div>
-            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_spi' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Kepala SPI</span></div>
-            <div class="checkbox-row"><div class="checkbox">{% if 'wirajatim_kso' in selected_recipient_roles %}✓{% endif %}</div><span class="checkbox-text">Wirajatim KSO</span></div>
+            <div class="tujuan-title"><div class="label" style="width:150px">Diteruskan Kepada</div><div class="colon">:</div></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'direktur_utama' in selected_recipient_roles %}&#10003;{% endif %}</div><span class="checkbox-text">Direktur Utama</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'direktur_umum' in selected_recipient_roles %}&#10003;{% endif %}</div><span class="checkbox-text">Direktur Umum</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_akuntansi' in selected_recipient_roles %}&#10003;{% endif %}</div><span class="checkbox-text">Kepala Divisi Akuntansi</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_risiko' in selected_recipient_roles %}&#10003;{% endif %}</div><span class="checkbox-text">Kepala Divisi Manajemen Risiko</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_keuangan' in selected_recipient_roles %}&#10003;{% endif %}</div><span class="checkbox-text">Kepala Divisi Keuangan</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_legal_umum' in selected_recipient_roles %}&#10003;{% endif %}</div><span class="checkbox-text">Kepala Divisi Legal &amp; Umum / Sekretaris Perusahaan</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_aset' in selected_recipient_roles %}&#10003;{% endif %}</div><span class="checkbox-text">Kepala Divisi Aset</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'kadiv_spi' in selected_recipient_roles %}&#10003;{% endif %}</div><span class="checkbox-text">Kepala SPI</span></div>
+            <div class="checkbox-row"><div class="checkbox">{% if 'wirajatim_kso' in selected_recipient_roles %}&#10003;{% endif %}</div><span class="checkbox-text">Wirajatim KSO</span></div>
         </div>
     </div>
-
     <div class="section-title">Isi Disposisi</div>
-    <div class="disposisi-content">
-        {% if disposisi.isi_disposisi %}
-            {{ disposisi.isi_disposisi|safe }}
-        {% else %}
-            <span class="empty-content">Belum ada isi disposisi.</span>
-        {% endif %}
-    </div>
+    <div class="disposisi-content">{% if disposisi.isi_disposisi %}{{ disposisi.isi_disposisi|safe }}{% else %}<span class="empty-content">Belum ada isi disposisi.</span>{% endif %}</div>
 </div>
-
 </body>
 </html>

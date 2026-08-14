@@ -17,6 +17,11 @@ urlpatterns = [
     path('preview/<disposisi_id:pk>/', views.preview_disposisi, name='previewdisposisi'),
     path('preview/<disposisi_id:pk>/pdf/', views.download_disposisi_pdf, name='disposisi_pdf'),
     path(
+        '<disposisi_id:pk>/document/combined/',
+        views.combined_director_document,
+        name='combined_director_document',
+    ),
+    path(
         '<disposisi_id:pk>/document/disposisi/preview/',
         views.preview_uploaded_disposisi,
         name='preview_uploaded_disposisi',

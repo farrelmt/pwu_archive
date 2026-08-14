@@ -155,6 +155,31 @@
                 {% endif %}
             </div>
             <div class="flex max-w-full flex-wrap items-center gap-2 lg:justify-end">
+                {% if disposisi.status_pengajuan == 'DIAJUKAN' and request.user.role == 'direktur_utama' %}
+                <a href="{% url 'disposisi:combined_director_document' disposisi.pk %}"
+                   id="btnPreview" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                          border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                          hover:bg-blue-50">
+                    Lihat Isi Disposisi
+                </a>
+                {% elif disposisi.status_pengajuan == 'DIAJUKAN' and request.user.role == 'direktur' %}
+                <a href="{% url 'disposisi:combined_director_document' disposisi.pk %}"
+                   id="btnPreview" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                          border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                          hover:bg-blue-50">
+                    Lihat Isi Disposisi
+                </a>
+                {% elif disposisi.status_pengajuan == 'DIAJUKAN' and request.user.role == 'direktur_umum' %}
+                <a href="{% url 'disposisi:combined_director_document' disposisi.pk %}"
+                   id="btnPreview" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                          border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
+                          hover:bg-blue-50">
+                    Lihat Isi Disposisi
+                </a>
+                {% else %}
                 <a href="{% url 'disposisi:preview_document' disposisi.pk 'surat-masuk' %}"
                    id="btnPreview" target="_blank" rel="noopener noreferrer"
                    class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
@@ -162,6 +187,7 @@
                           hover:bg-blue-50">
                     Dokumen Surat
                 </a>
+                {% endif %}
                 {% if disposisi.status_pengajuan == 'DIBUAT' %}
                     <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
@@ -177,12 +203,14 @@
                     </a>
                     {% endif %}
                 {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIAJUKAN' %}
+                    {% if request.user.role != 'direktur_utama' and request.user.role != 'direktur' and request.user.role != 'direktur_umum' %}
                     <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                               hover:bg-blue-50">
                         Preview
                     </a>
+                    {% endif %}
                     {% if can_approve_this_disposisi %}
                     <a href="{% url 'disposisi:isionline' disposisi.id %}"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
@@ -265,12 +293,6 @@
                     </span>
                     {% endif %}
                 {% elif is_shared_online %}
-                    <a href="{% url 'disposisi:isionline' disposisi.id %}"
-                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
-                              border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
-                              hover:bg-blue-50">
-                        Lihat Isi Disposisi
-                    </a>
                     <a href="{% url 'disposisi:previewdisposisi' disposisi.id %}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
@@ -450,12 +472,13 @@
                             class="rounded px-3 py-1 text-2xl text-gray-500 hover:bg-gray-100 cursor-pointer">&times;</button>
                 </div>
                 <div class="overflow-auto p-5">
-                    <table class="w-full min-w-[700px] border-collapse text-left text-sm">
+                    <table class="w-full min-w-[850px] border-collapse text-left text-sm">
                         <thead class="bg-gray-200 text-gray-900">
                             <tr>
                                 <th class="border border-gray-300 px-3 py-2">User</th>
                                 <th class="border border-gray-300 px-3 py-2">Role</th>
                                 <th class="border border-gray-300 px-3 py-2">Activity</th>
+                                <th class="border border-gray-300 px-3 py-2">Receive Time</th>
                                 <th class="border border-gray-300 px-3 py-2">Done Time</th>
                                 <th class="border border-gray-300 px-3 py-2">Status</th>
                             </tr>
@@ -475,6 +498,13 @@
                                 </td>
                                 <td class="max-w-md whitespace-pre-wrap break-words border border-gray-300 px-3 py-2">
                                     {{ recipient.activity_description|default:"-" }}
+                                </td>
+                                <td class="whitespace-nowrap border border-gray-300 px-3 py-2">
+                                    {% if recipient.received_at %}
+                                        {{ recipient.received_at|date:"d/m/Y H:i" }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
                                 </td>
                                 <td class="whitespace-nowrap border border-gray-300 px-3 py-2">
                                     {% if recipient.agreed_at %}

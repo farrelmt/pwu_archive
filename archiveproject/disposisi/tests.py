@@ -1,9 +1,13 @@
 from datetime import date
+from io import BytesIO
 
 from django.core import mail
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
+from pypdf import PdfReader, PdfWriter
 
 from accounts.models import ActivityLog, SystemUser
 from .models import Disposisi, DisposisiRecipient
@@ -633,6 +637,82 @@ class DisposisiSecurityTests(TestCase):
         )
         self.assertTrue(self.disposisi.can_be_approved_by(self.director))
 
+    def test_both_directors_get_one_combined_document_button_when_submitted(self):
+        valid_letter = BytesIO()
+        letter_writer = PdfWriter()
+        letter_writer.add_blank_page(width=595, height=842)
+        letter_writer.write(valid_letter)
+        self.disposisi.dokumen_surat_masuk.save(
+            "valid-letter.pdf",
+            ContentFile(valid_letter.getvalue()),
+            save=True,
+        )
+        self.disposisi.tujuan = "DIREKSI"
+        self.disposisi.save(update_fields=["tujuan"])
+        self.submit_online()
+
+        combined_url = reverse(
+            "disposisi:combined_director_document",
+            args=[self.disposisi.pk],
+        )
+        preview_url = reverse(
+            "disposisi:previewdisposisi",
+            args=[self.disposisi.pk],
+        )
+        for user in (self.main_director, self.regular_director):
+            with self.subTest(role=user.role):
+                self.client.force_login(user)
+                detail_response = self.client.get(
+                    reverse(
+                        "disposisi:detaildisposisi",
+                        args=[self.disposisi.pk],
+                    )
+                )
+                self.assertContains(detail_response, combined_url)
+                self.assertContains(
+                    detail_response,
+                    "Lihat Isi Disposisi",
+                    count=1,
+                )
+                self.assertNotContains(detail_response, "Dokumen Surat")
+                self.assertNotContains(detail_response, preview_url)
+
+                combined_response = self.client.get(combined_url)
+                self.assertEqual(combined_response.status_code, 200)
+                self.assertEqual(
+                    combined_response["Content-Type"],
+                    "application/pdf",
+                )
+                self.assertIn(
+                    "inline",
+                    combined_response["Content-Disposition"],
+                )
+                merged_pdf = PdfReader(BytesIO(combined_response.content))
+                self.assertGreaterEqual(len(merged_pdf.pages), 2)
+                self.assertIn(
+                    "LEMBAR DISPOSISI",
+                    merged_pdf.pages[0].extract_text(),
+                )
+                self.assertNotIn(
+                    "LEMBAR DISPOSISI",
+                    merged_pdf.pages[-1].extract_text() or "",
+                )
+
+    def test_non_director_cannot_open_combined_submitted_document(self):
+        self.disposisi.tujuan = "DIREKSI"
+        self.disposisi.save(update_fields=["tujuan"])
+        self.submit_online()
+        self.client.force_login(self.editor)
+
+        response = self.client.get(
+            reverse(
+                "disposisi:combined_director_document",
+                args=[self.disposisi.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_editor_can_cancel_pending_online_request(self):
         self.submit_online()
         self.disposisi.isi_disposisi = "<p>Draft yang harus dihapus.</p>"
@@ -818,6 +898,11 @@ class DisposisiSecurityTests(TestCase):
         )
         self.disposisi.refresh_from_db()
         self.assertEqual(self.disposisi.status_pengajuan, "DIBAGIKAN")
+        shared_detail = self.client.get(
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
+        )
+        self.assertContains(shared_detail, "Preview")
+        self.assertNotContains(shared_detail, "Lihat Isi Disposisi")
         self.assertSetEqual(
             set(self.disposisi.shared_recipients.values_list("role", flat=True)),
             {"kadiv_akuntansi", "kadiv_keuangan"},
@@ -1237,6 +1322,13 @@ class DisposisiSecurityTests(TestCase):
         )
         self.assertContains(received_detail, "Sudah diterima")
         self.assertContains(received_detail, "Belum diterima")
+        self.assertContains(received_detail, "Receive Time")
+        self.assertContains(
+            received_detail,
+            timezone.localtime(accounting_recipient.received_at).strftime(
+                "%d/%m/%Y %H:%M"
+            ),
+        )
         self.assertContains(received_detail, "bg-yellow-100")
         self.assertContains(received_detail, "Done")
         self.assertContains(received_detail, complete_url)
@@ -1666,7 +1758,8 @@ class DisposisiSecurityTests(TestCase):
             reverse(
                 "disposisi:download_document",
                 args=[self.disposisi.pk, "surat-masuk"],
-            )
+            ),
+            HTTP_X_FORWARDED_FOR="203.0.113.10",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -1701,8 +1794,9 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(preview_response, download_url)
         self.assertContains(preview_response, "Download")
         self.assertEqual(inline_response.status_code, 200)
+        self.assertNotIn("X-Accel-Redirect", inline_response)
         self.assertTrue(
-            inline_response["X-Accel-Redirect"].startswith("/protected-media/")
+            b"".join(inline_response.streaming_content).startswith(b"%PDF-1.4")
         )
         self.assertIn("inline", inline_response["Content-Disposition"])
 
@@ -1733,3 +1827,27 @@ class DisposisiSecurityTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["page_limit"], "20")
+
+    def test_list_filters_by_current_workflow_status_without_sender_filter(self):
+        self.disposisi.status_pengajuan = "DIAJUKAN"
+        self.disposisi.save(update_fields=["status_pengajuan"])
+        completed = self.make_disposisi()
+        completed.status_pengajuan = "SELESAI"
+        completed.nomor_surat = "002/TEST"
+        completed.save(update_fields=["status_pengajuan", "nomor_surat"])
+        self.client.force_login(self.editor)
+
+        response = self.client.get(
+            reverse("disposisi:disposisi"),
+            {"status": "diajukan", "pengirim": "Tidak Ada"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context["page_obj"].object_list),
+            [self.disposisi],
+        )
+        self.assertEqual(response.context["selected_status"], "DIAJUKAN")
+        self.assertContains(response, "Disposisi Telah Diajukan")
+        self.assertContains(response, "Menunggu Persetujuan Sekretaris")
+        self.assertNotContains(response, 'id="filterPengirim"')

@@ -1,6 +1,7 @@
 import mimetypes
 from urllib.parse import quote
 import os
+from io import BytesIO
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.exceptions import PermissionDenied
@@ -27,6 +28,9 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 from django.contrib import messages
 from weasyprint import HTML
+from PIL import Image
+from pypdf import PdfReader, PdfWriter
+from pypdf.errors import PdfReadError
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
@@ -76,9 +80,11 @@ def list_disposisi(request):
     diterima_month = request.GET.get('diterima_month')
     diterima_year = request.GET.get('diterima_year')
 
-    pengirim = request.GET.get('pengirim')
     tujuan = request.GET.get('tujuan')
-    status = request.GET.get('status')
+    status = request.GET.get('status', '').strip().upper()
+    status_choices = dict(Disposisi.STATUS_CHOICES)
+    if status not in status_choices:
+        status = ''
 
     #Get Disposisi Data
     sortDisposisi = request.GET.get('sort', 'tanggal_surat_diterima')
@@ -179,9 +185,6 @@ def list_disposisi(request):
     if diterima_day:
         data = data.filter(tanggal_surat_diterima__day=diterima_day)
 
-    if pengirim:
-        data = data.filter(pengirim__icontains=pengirim)
-
     if tujuan:
         data = data.filter(tujuan=tujuan)
 
@@ -195,6 +198,8 @@ def list_disposisi(request):
         'page_obj': page_obj,
         'page_limit': str(page_limit),
         'search': search,
+        'status_choices': Disposisi.STATUS_CHOICES,
+        'selected_status': status,
     }
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1078,6 +1083,89 @@ def download_disposisi_pdf(request, pk):
     return response
 
 
+def _render_disposisi_pdf(request, disposisi):
+    html_string = render_to_string(
+        'disposisi_pdf.html',
+        {
+            'disposisi': disposisi,
+            'selected_recipient_roles': list(
+                disposisi.shared_recipients.values_list('role', flat=True)
+            ),
+        },
+    )
+    return HTML(
+        string=html_string,
+        base_url=request.build_absolute_uri('/'),
+    ).write_pdf()
+
+
+def _incoming_letter_pdf(document):
+    filename = document.name.rsplit('/', 1)[-1]
+    content_type = mimetypes.guess_type(filename)[0]
+    with document.open('rb') as source:
+        document_bytes = source.read()
+    if content_type == 'application/pdf' or filename.lower().endswith('.pdf'):
+        return document_bytes
+
+    with Image.open(BytesIO(document_bytes)) as image:
+        if image.mode not in {'RGB', 'L'}:
+            image = image.convert('RGB')
+        output = BytesIO()
+        image.save(output, format='PDF', resolution=150.0)
+        return output.getvalue()
+
+
+@login_required
+@require_GET
+@never_cache
+def combined_director_document(request, pk):
+    if request.user.role not in {'direktur_utama', 'direktur', 'direktur_umum'}:
+        raise PermissionDenied
+    disposisi = get_object_or_404(
+        visible_disposisi_for_user(request.user),
+        pk=pk,
+        status_pengajuan='DIAJUKAN',
+    )
+    if not disposisi.dokumen_surat_masuk:
+        raise Http404
+
+    writer = PdfWriter()
+    try:
+        letter_reader = PdfReader(BytesIO(
+            _incoming_letter_pdf(disposisi.dokumen_surat_masuk)
+        ))
+        preview_reader = PdfReader(BytesIO(
+            _render_disposisi_pdf(request, disposisi)
+        ))
+        for page in preview_reader.pages:
+            writer.add_page(page)
+        for page in letter_reader.pages:
+            writer.add_page(page)
+    except (OSError, ValueError, PdfReadError) as exc:
+        raise Http404('Dokumen PDF tidak dapat diproses.') from exc
+
+    output = BytesIO()
+    writer.write(output)
+    response = HttpResponse(output.getvalue(), content_type='application/pdf')
+    filename = f'Dokumen-Surat-{disposisi.nomor_agenda}.pdf'
+    response['Content-Disposition'] = content_disposition_header(
+        as_attachment=False,
+        filename=filename,
+    )
+    response['Cache-Control'] = 'private, no-store, max-age=0'
+    response['X-Content-Type-Options'] = 'nosniff'
+    record_activity(
+        request=request,
+        category='DISPOSISI',
+        action='VIEW_COMBINED_PDF',
+        description='Incoming letter and disposition preview opened as one PDF.',
+        target_type='disposisi.Disposisi',
+        target_id=disposisi.pk,
+        target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
+    )
+    return response
+
+
 def _document_or_404(user, pk, kind):
     field_name = {
         "surat-masuk": "dokumen_surat_masuk",
@@ -1096,18 +1184,29 @@ def _document_or_404(user, pk, kind):
     return disposisi, document
 
 
-def _protected_document_response(document, *, as_attachment):
-    """Let Nginx serve an authorized document inline or as a download."""
+def _protected_document_response(request, document, *, as_attachment):
+    """Serve an authorized document through Nginx or directly in local use."""
     filename = document.name.rsplit("/", 1)[-1]
     content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-    response = HttpResponse(content_type=content_type)
-    response["Content-Disposition"] = content_disposition_header(
-        as_attachment=as_attachment,
-        filename=filename,
-    )
-    response["X-Accel-Redirect"] = (
-        f"/protected-media/{quote(document.name, safe='/')}"
-    )
+    if request.META.get("HTTP_X_FORWARDED_FOR"):
+        response = HttpResponse(content_type=content_type)
+        response["Content-Disposition"] = content_disposition_header(
+            as_attachment=as_attachment,
+            filename=filename,
+        )
+        response["X-Accel-Redirect"] = (
+            f"/protected-media/{quote(document.name, safe='/')}"
+        )
+    else:
+        try:
+            response = FileResponse(
+                document.open("rb"),
+                as_attachment=as_attachment,
+                filename=filename,
+                content_type=content_type,
+            )
+        except (OSError, ValueError) as exc:
+            raise Http404("Dokumen tidak dapat dibuka.") from exc
     response["Cache-Control"] = "private, no-store, max-age=0"
     response["X-Content-Type-Options"] = "nosniff"
     return response
@@ -1133,16 +1232,24 @@ def preview_document(request, pk, kind):
 @never_cache
 def view_document(request, pk, kind):
     _, document = _document_or_404(request.user, pk, kind)
-    return _protected_document_response(document, as_attachment=False)
+    return _protected_document_response(
+        request,
+        document,
+        as_attachment=False,
+    )
 
 
 @login_required
 @require_GET
 @never_cache
 def download_document(request, pk, kind):
-    """Authorize a document and download it through Nginx."""
+    """Authorize a document and return it as a download."""
     _, document = _document_or_404(request.user, pk, kind)
-    return _protected_document_response(document, as_attachment=True)
+    return _protected_document_response(
+        request,
+        document,
+        as_attachment=True,
+    )
 
 
 def _uploaded_disposisi_or_404(user, pk):
