@@ -1,0 +1,51 @@
+{% extends "koperasi/base.html" %}{% load koperasi_tags %}
+{% block title %}Buku Pinjaman {{ loan.loan_number }}{% endblock %}
+{% block content %}
+<div class="loan-book-actions mb-5 flex items-center justify-between gap-3 print:hidden">
+    <a href="{% url 'koperasi:loan_detail' loan.pk %}" class="text-sm font-bold text-emerald-700">&larr; Detail pinjaman</a>
+    <button type="button" onclick="window.print()" class="rounded-xl bg-blue-950 px-4 py-2 text-sm font-bold text-white">Cetak Buku Pinjaman</button>
+</div>
+
+<article class="loan-book mx-auto bg-white p-8 text-slate-950 shadow-sm">
+    <h1>Buku Pinjaman Anggota Simpan Pinjam / Usaha</h1>
+    <table class="loan-identity">
+        <tr><th>Nama</th><td>: {{ loan.member.full_name }}</td></tr>
+        <tr><th>Unit Usaha</th><td>: {{ loan.member.company.name }}</td></tr>
+        <tr><th>No. Anggota</th><td>: {{ loan.member.member_number }}</td></tr>
+    </table>
+    <div class="loan-terms">
+        <span>Pinjaman: {{ loan.principal_amount|rupiah }}</span>
+        <span>Tenor: {{ loan.term_months }} bulan</span>
+        <span>Bunga: {{ loan.interest_rate }}%</span>
+        <span>Angsuran/bulan: {{ monthly_due|rupiah }}</span>
+    </div>
+
+    <table class="loan-ledger">
+        <thead><tr><th rowspan="2">Tanggal</th><th rowspan="2">Keterangan</th><th colspan="2">Mutasi</th><th rowspan="2">Saldo</th></tr><tr><th>Debet</th><th>Kredit</th></tr></thead>
+        <tbody>
+            {% for row in ledger_rows %}
+            <tr><td>{{ row.date|date:"d M Y" }}</td><td>{{ row.description }}</td><td class="money">{% if row.debit %}{{ row.debit|rupiah }}{% else %}-{% endif %}</td><td class="money">{% if row.credit %}{{ row.credit|rupiah }}{% else %}-{% endif %}</td><td class="money">{{ row.balance|rupiah }}</td></tr>
+            {% endfor %}
+            {% for unused in "12345" %}<tr class="empty"><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>{% endfor %}
+        </tbody>
+    </table>
+
+    <div class="loan-summary">
+        <p>Total bunga: <strong>{{ loan.total_interest|rupiah }}</strong></p>
+        <p>Bunga/bulan: <strong>{{ monthly_interest|rupiah }}</strong></p>
+        <p>Pokok + bunga/bulan: <strong>{{ monthly_due|rupiah }}</strong></p>
+        <p>Status: <strong>{{ loan.get_status_display }}</strong></p>
+    </div>
+</article>
+
+<style nonce="{{ request.csp_nonce }}">
+    .loan-book{width:297mm;max-width:100%;min-height:190mm;font-family:Arial,sans-serif;font-size:12px;position:relative}
+    .loan-book h1{font-size:22px;font-weight:700;margin:0 0 24px}
+    .loan-identity{width:60%;border-collapse:collapse;margin-bottom:10px}.loan-identity th{width:115px;text-align:left}.loan-identity th,.loan-identity td{padding:2px 5px}
+    .loan-terms{display:flex;gap:32px;border-top:1px solid #111;border-bottom:1px solid #111;padding:7px 5px;margin-bottom:0;font-weight:600}
+    .loan-ledger{width:82%;border-collapse:collapse}.loan-ledger th,.loan-ledger td{border:1px solid #111;padding:7px 8px}.loan-ledger th{text-align:center;font-weight:700}.loan-ledger th:first-child{width:110px}.loan-ledger th:nth-child(2){width:420px}.loan-ledger .money{text-align:right;white-space:nowrap}.loan-ledger tr.empty td{height:27px}
+    .loan-summary{position:absolute;right:24px;top:178px;width:185px;line-height:1.8}.loan-summary p{display:flex;justify-content:space-between;gap:8px}.loan-summary strong{white-space:nowrap}
+    @page{size:A4 landscape;margin:12mm}
+    @media print{.loan-book{width:100%;min-height:auto;padding:0!important;box-shadow:none}.loan-book-actions{display:none!important}}
+</style>
+{% endblock %}

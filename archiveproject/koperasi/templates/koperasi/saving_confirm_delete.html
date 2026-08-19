@@ -1,0 +1,29 @@
+{% extends "koperasi/base.html" %}{% load koperasi_tags %}
+{% block title %}Hapus Transaksi Simpanan - Koperasi Karyawan Wira Jatim{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+    <a href="{% url 'koperasi:saving_edit' transaction.pk %}" class="text-sm font-semibold text-emerald-700 hover:text-emerald-900">&larr; Kembali ke Edit Transaksi</a>
+    <section class="mt-5 rounded-2xl border border-red-200 bg-white p-6 shadow-sm sm:p-8">
+        <div class="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-700">!</div>
+        <h1 class="mt-5 text-2xl font-extrabold text-slate-900">Hapus Transaksi Simpanan?</h1>
+        <p class="mt-3 text-sm leading-6 text-slate-600">Tindakan ini akan menghapus transaksi secara permanen dan menghitung ulang saldo simpanan anggota.</p>
+
+        <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+            <dl class="grid gap-3 sm:grid-cols-2">
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Nomor</dt><dd class="mt-1 font-semibold">{{ transaction.transaction_number }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Tanggal</dt><dd class="mt-1 font-semibold">{{ transaction.transaction_date|date:"d M Y" }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Anggota</dt><dd class="mt-1 font-semibold">{{ transaction.member.full_name }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Jumlah</dt><dd class="mt-1 font-bold">{{ transaction.amount|rupiah }}</dd></div>
+            </dl>
+        </div>
+
+        <div class="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <a href="{% url 'koperasi:saving_edit' transaction.pk %}" class="rounded-xl border border-slate-300 px-5 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">Batal</a>
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="w-full rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-700">Ya, Hapus Transaksi</button>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}

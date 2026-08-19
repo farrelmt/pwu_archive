@@ -1,0 +1,29 @@
+{% extends "koperasi/base.html" %}{% load koperasi_tags %}
+{% block title %}Detail Transaksi Simpanan - Koperasi Karyawan Wira Jatim{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div>
+        <a href="{% url 'koperasi:savings' %}" class="text-sm font-bold text-emerald-700 hover:text-emerald-900">&larr; Transaksi Simpanan</a>
+        <h1 class="mt-2 text-3xl font-extrabold">Detail Transaksi Simpanan</h1>
+        <p class="mt-1 text-sm text-slate-500">{{ transaction.transaction_number }}</p>
+    </div>
+</div>
+
+<section class="max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="grid gap-px bg-slate-200 sm:grid-cols-2">
+        <div class="bg-white p-5"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Nomor Transaksi</p><p class="mt-2 font-bold text-blue-950">{{ transaction.transaction_number }}</p></div>
+        <div class="bg-white p-5"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Tanggal</p><p class="mt-2 font-semibold">{{ transaction.transaction_date|date:"d F Y" }}</p></div>
+        <div class="bg-white p-5"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Anggota</p><p class="mt-2 font-semibold">{{ transaction.member.full_name }}</p><p class="text-xs text-slate-500">{{ transaction.member.member_number }} - {{ transaction.member.company.name }}</p></div>
+        <div class="bg-white p-5"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Jenis Simpanan</p><p class="mt-2 font-semibold">{{ transaction.get_saving_type_display }}</p></div>
+        <div class="bg-white p-5"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Jenis Transaksi</p><p class="mt-2 font-semibold">{{ transaction.get_direction_display }}</p></div>
+        <div class="bg-white p-5"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Jumlah</p><p class="mt-2 text-xl font-extrabold {% if transaction.direction == 'withdrawal' %}text-red-600{% else %}text-emerald-700{% endif %}">{{ transaction.amount|rupiah }}</p></div>
+        <div class="bg-white p-5 sm:col-span-2"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Catatan</p><p class="mt-2 whitespace-pre-line text-sm text-slate-700">{{ transaction.notes|default:"-" }}</p></div>
+        <div class="bg-white p-5 sm:col-span-2"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Dicatat Oleh</p><p class="mt-2 text-sm font-semibold">{{ transaction.created_by.get_full_name|default:transaction.created_by.username }}</p></div>
+    </div>
+    {% if can_write %}
+    <div class="flex justify-end border-t border-slate-200 bg-white p-5">
+        <a href="{% url 'koperasi:saving_edit' transaction.pk %}" class="rounded-xl px-5 py-2.5 text-center text-sm font-bold text-white" style="background-color:#d97706">Edit Transaksi</a>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

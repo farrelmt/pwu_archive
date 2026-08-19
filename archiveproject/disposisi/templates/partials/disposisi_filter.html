@@ -1,103 +1,157 @@
-<div id="filterDisposisi" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
-    <div class="bg-blue-950 rounded-lg shadow-md w-[80vw] md:w-[65vw] lg:w-[50vw] p-6 px-8">
-        <h2 class="text-2xl font-bold text-white">FILTER DISPOSISI</h2>
-
-        <br/>
-        <div class="mb-4">
-            <label class="block text-md text-white font-medium mb-2">Tanggal Surat</label>
-            <div class="grid grid-cols-3 gap-2">
-                <input id="filterSuratDay" type="number" min="1" max="31"
-                       placeholder="Hari" class="border rounded p-2 bg-gray-100">
-
-                <select id="filterSuratMonth" class="border rounded p-2 bg-gray-100">
-                    <option value="">Bulan</option>
-                    <option value="1">Januari</option>
-                    <option value="2">Februari</option>
-                    <option value="3">Maret</option>
-                    <option value="4">April</option>
-                    <option value="5">Mei</option>
-                    <option value="6">Juni</option>
-                    <option value="7">Juli</option>
-                    <option value="8">Agustus</option>
-                    <option value="9">September</option>
-                    <option value="10">Oktober</option>
-                    <option value="11">November</option>
-                    <option value="12">Desember</option>
-                </select>
-
-                <input id="filterSuratYear" type="number"
-                       placeholder="Tahun" class="border rounded p-2 bg-gray-100">
+<div id="filterDisposisi"
+     class="fixed inset-0 z-[70] hidden flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+    <div role="dialog"
+         aria-modal="true"
+         aria-labelledby="filterDisposisiTitle"
+         class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div class="flex items-start justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+            <div class="flex items-center gap-3">
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                         stroke-width="1.8" stroke="currentColor" class="h-5 w-5">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M10.5 6h9.75M10.5 12h9.75m-9.75 6h9.75M3.75 6H6m-2.25 6H6m-2.25 6H6" />
+                    </svg>
+                </span>
+                <div>
+                    <h2 id="filterDisposisiTitle" class="text-lg font-bold text-slate-900 sm:text-xl">
+                        Filter Surat Masuk
+                    </h2>
+                    <p class="mt-0.5 text-sm text-slate-500">
+                        Saring dokumen berdasarkan tanggal, tujuan, dan status proses.
+                    </p>
+                </div>
             </div>
-        </div>
-
-        <div class="mb-4">
-            <label class="block text-md text-white font-medium mb-2">Tanggal Diterima</label>
-
-            <div class="grid grid-cols-3 gap-2">
-                <input id="filterDiterimaDay" type="number" min="1" max="31"
-                       placeholder="Hari" class="border rounded p-2 bg-gray-100">
-
-                <select id="filterDiterimaMonth" class="border rounded p-2 bg-gray-100">
-                    <option value="">Bulan</option>
-                    <option value="1">Januari</option>
-                    <option value="2">Februari</option>
-                    <option value="3">Maret</option>
-                    <option value="4">April</option>
-                    <option value="5">Mei</option>
-                    <option value="6">Juni</option>
-                    <option value="7">Juli</option>
-                    <option value="8">Agustus</option>
-                    <option value="9">September</option>
-                    <option value="10">Oktober</option>
-                    <option value="11">November</option>
-                    <option value="12">Desember</option>
-                </select>
-
-                <input id="filterDiterimaYear" type="number"
-                       placeholder="Tahun" class="border rounded p-2 bg-gray-100">
-            </div>
-
-        </div>
-
-        <div class="mb-3">
-            <label class="block text-md text-white font-medium mb-2">Pengirim</label>
-            <input id="filterPengirim"
-                   type="text" style="color-scheme: light;"
-                   class="w-full border rounded p-2 bg-gray-100">
-        </div>
-
-        <div class="mb-3">
-            <label class="block text-md text-white font-medium mb-2">Tujuan</label>
-            <select id="filterTujuan" class="w-full border rounded p-2 bg-gray-100">
-                <option value="">Pilih Tujuan</option>
-                <option value="DIRUT">Direktur Utama</option>
-                <option value="DIR">Direktur</option>
-                <option value="DIREKSI">Direksi</option>
-            </select>
-        </div>
-
-        <div class="mb-3">
-            <label class="block text-md text-white font-medium mb-2">Status</label>
-            <select id="filterStatus" class="w-full border bg-gray-100 rounded p-2 pr-10">
-                <option value="">Pilih Status</option>
-                <option value="BELUM">Belum Selesai</option>
-                <option value="SUDAH">Sudah Selesai</option>
-            </select>
-        </div>
-
-        <br/>
-        <div class="flex justify-between">
             <button id="closeFilter"
                     type="button"
-                    class="px-4 py-2 font-semibold w-[150px]
-                    rounded bg-gray-100 hover:bg-yellow-300">
-                KEMBALI
+                    aria-label="Tutup filter"
+                    class="ml-4 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                     stroke-width="1.8" stroke="currentColor" class="h-5 w-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="overflow-y-auto px-5 py-5 sm:px-6">
+            <div class="grid gap-4 md:grid-cols-2">
+                <section class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                    <div class="mb-3">
+                        <h3 class="text-sm font-bold text-slate-800">Tanggal Surat</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">Tanggal yang tercantum pada surat.</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="block">
+                            <span class="mb-1 block text-xs font-medium text-slate-600">Hari</span>
+                            <input id="filterSuratDay" type="number" min="1" max="31" placeholder="--"
+                                   class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-xs font-medium text-slate-600">Bulan</span>
+                            <select id="filterSuratMonth"
+                                    class="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                                <option value="">Semua</option>
+                                <option value="1">Jan</option>
+                                <option value="2">Feb</option>
+                                <option value="3">Mar</option>
+                                <option value="4">Apr</option>
+                                <option value="5">Mei</option>
+                                <option value="6">Jun</option>
+                                <option value="7">Jul</option>
+                                <option value="8">Agu</option>
+                                <option value="9">Sep</option>
+                                <option value="10">Okt</option>
+                                <option value="11">Nov</option>
+                                <option value="12">Des</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-xs font-medium text-slate-600">Tahun</span>
+                            <input id="filterSuratYear" type="number" min="1900" max="2100" placeholder="2026"
+                                   class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                        </label>
+                    </div>
+                </section>
+
+                <section class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                    <div class="mb-3">
+                        <h3 class="text-sm font-bold text-slate-800">Tanggal Diterima</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">Tanggal surat diterima perusahaan.</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="block">
+                            <span class="mb-1 block text-xs font-medium text-slate-600">Hari</span>
+                            <input id="filterDiterimaDay" type="number" min="1" max="31" placeholder="--"
+                                   class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-xs font-medium text-slate-600">Bulan</span>
+                            <select id="filterDiterimaMonth"
+                                    class="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                                <option value="">Semua</option>
+                                <option value="1">Jan</option>
+                                <option value="2">Feb</option>
+                                <option value="3">Mar</option>
+                                <option value="4">Apr</option>
+                                <option value="5">Mei</option>
+                                <option value="6">Jun</option>
+                                <option value="7">Jul</option>
+                                <option value="8">Agu</option>
+                                <option value="9">Sep</option>
+                                <option value="10">Okt</option>
+                                <option value="11">Nov</option>
+                                <option value="12">Des</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-xs font-medium text-slate-600">Tahun</span>
+                            <input id="filterDiterimaYear" type="number" min="1900" max="2100" placeholder="2026"
+                                   class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                        </label>
+                    </div>
+                </section>
+            </div>
+
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-semibold text-slate-700">Tujuan</span>
+                    <select id="filterTujuan"
+                            class="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                        <option value="">Semua tujuan</option>
+                        <option value="DIRUT">Direktur Utama</option>
+                        <option value="DIR">Direktur</option>
+                        <option value="DIREKSI">Direksi</option>
+                    </select>
+                </label>
+
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-semibold text-slate-700">Status Disposisi</span>
+                    <select id="filterStatus"
+                            class="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                        <option value="">Semua status</option>
+                        {% for value, label in status_choices %}
+                            <option value="{{ value }}"{% if selected_status == value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+        </div>
+
+        <div class="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+            <button id="cancelFilter"
+                    type="button"
+                    class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                Batal
             </button>
             <button id="applyFilter"
                     type="button"
-                    class="px-4 py-2 font-semibold w-[150px]
-                    bg-blue-950 text-black bg-gray-100 rounded hover:bg-yellow-300">
-                FILTER
+                    class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                     stroke-width="1.8" stroke="currentColor" class="h-4 w-4">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.012L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+                </svg>
+                Terapkan Filter
             </button>
         </div>
     </div>

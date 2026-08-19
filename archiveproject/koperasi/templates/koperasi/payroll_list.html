@@ -1,0 +1,40 @@
+{% extends "koperasi/base.html" %}{% load koperasi_tags %}
+{% block content %}
+<div class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div><h1 class="text-3xl font-extrabold">Potongan Payroll</h1><p class="mt-2 text-sm text-slate-500">Daftar transaksi dan buku rekap potongan per perusahaan.</p></div>
+    {% if can_write %}<a href="{% url 'koperasi:payroll_create' %}" class="rounded-xl bg-emerald-700 px-4 py-2.5 text-center text-sm font-bold text-white">+ Input Potongan</a>{% endif %}
+</div>
+
+<div class="mb-5 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+    <a href="?view=list&amp;month={{ selected_month }}&amp;year={{ selected_year }}{% if selected_company %}&amp;company={{ selected_company.pk }}{% endif %}" class="rounded-lg px-4 py-2 text-sm font-bold {% if selected_view == 'list' %}bg-blue-950 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">Daftar Potongan</a>
+    <a href="?view=table&amp;month={{ selected_month }}&amp;year={{ selected_year }}{% if selected_company %}&amp;company={{ selected_company.pk }}{% endif %}" class="rounded-lg px-4 py-2 text-sm font-bold {% if selected_view == 'table' %}bg-blue-950 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}">Buku Rekap</a>
+</div>
+
+<form method="get" class="mb-5 rounded-2xl border bg-white p-4">
+    <input type="hidden" name="view" value="{{ selected_view }}">
+    <select name="company" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"><option value="">Semua perusahaan</option>{% for company in companies %}<option value="{{ company.pk }}" {% if selected_company.pk == company.pk %}selected{% endif %}>{{ company.name }}</option>{% endfor %}</select>
+    <select name="month" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm">{% for value,label in months %}<option value="{{ value }}" {% if selected_month == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <select name="year" class="rounded-xl border border-slate-300 px-3 py-2.5 text-sm">{% for year in years %}<option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>{{ year }}</option>{% endfor %}</select>
+    <button class="rounded-xl bg-blue-950 px-4 py-2.5 text-sm font-bold text-white">Terapkan</button>
+</form>
+
+{% if selected_view == 'table' %}
+<div class="space-y-7">
+    {% for book in company_books %}
+    <section class="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm">
+        <header class="border-b border-slate-300 bg-slate-50 px-5 py-4"><p class="text-sm font-extrabold">DAFTAR POTONGAN KOPERASI DIREKSI &amp; KARYAWAN</p><h2 class="mt-1 text-lg font-extrabold text-blue-950">{{ book.company.name }}</h2><p class="mt-1 text-sm font-bold text-slate-500">UNTUK BULAN: {% for value,label in months %}{% if selected_month == value %}{{ label }}{% endif %}{% endfor %} {{ selected_year }}</p></header>
+        <div class="overflow-x-auto"><table class="min-w-[1000px] w-full border-collapse text-left text-sm">
+            <thead class="bg-slate-100 text-xs uppercase text-slate-600"><tr><th class="border px-3 py-3 text-center">No</th><th class="min-w-56 border px-3 py-3">Nama</th><th class="border px-3 py-3 text-right">Simp. Pokok</th><th class="border px-3 py-3 text-right">Simp. Wajib</th><th class="border px-3 py-3 text-right">Simp. Sukarela</th><th class="border px-3 py-3 text-right">Pot. Pinjaman</th><th class="border px-3 py-3 text-right">Jumlah</th><th class="border px-3 py-3">Status / Tindakan</th></tr></thead>
+            <tbody>{% for row in book.member_rows %}<tr class="hover:bg-slate-50"><td class="border px-3 py-3 text-center">{{ row.number }}</td><td class="border px-3 py-3"><p class="font-semibold">{{ row.member.full_name }}</p><p class="text-[10px] text-slate-400">{{ row.member.member_number }}</p></td><td class="border px-3 py-3 text-right">{% if row.principal %}{{ row.principal|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right">{% if row.mandatory %}{{ row.mandatory|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right">{% if row.voluntary %}{{ row.voluntary|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right">{% if row.loan %}{{ row.loan|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3 text-right font-bold">{% if row.total %}{{ row.total|rupiah }}{% else %}-{% endif %}</td><td class="border px-3 py-3">{% if row.deduction %}<span class="rounded-full px-2 py-1 text-xs font-bold {% if row.deduction.status == 'posted' %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ row.deduction.get_status_display }}</span>{% if can_write and row.deduction.status == 'draft' %}<form method="post" action="{% url 'koperasi:payroll_post' row.deduction.pk %}" class="mt-2">{% csrf_token %}<button class="text-xs font-bold text-blue-700">Bukukan</button></form>{% endif %}{% else %}<span class="text-xs text-slate-400">Belum diinput</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="8" class="border p-10 text-center text-slate-500">Belum ada anggota aktif pada perusahaan ini.</td></tr>{% endfor %}</tbody>
+            <tfoot class="bg-slate-50 font-extrabold"><tr><td colspan="2" class="border px-3 py-3 text-right">Total</td><td class="border px-3 py-3 text-right">{{ book.totals.principal|rupiah }}</td><td class="border px-3 py-3 text-right">{{ book.totals.mandatory|rupiah }}</td><td class="border px-3 py-3 text-right">{{ book.totals.voluntary|rupiah }}</td><td class="border px-3 py-3 text-right">{{ book.totals.loan|rupiah }}</td><td class="border px-3 py-3 text-right">{{ book.totals.total|rupiah }}</td><td class="border"></td></tr></tfoot>
+        </table></div>
+    </section>
+    {% empty %}<div class="rounded-2xl border bg-white p-10 text-center text-slate-500">Perusahaan tidak ditemukan.</div>{% endfor %}
+</div>
+{% else %}
+<div class="overflow-hidden rounded-2xl border bg-white shadow-sm"><div class="overflow-x-auto"><table class="min-w-[1050px] w-full text-left text-sm">
+    <thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-4 py-4">Periode</th><th class="px-4 py-4">Anggota</th><th class="px-4 py-4 text-right">Pokok</th><th class="px-4 py-4 text-right">Wajib</th><th class="px-4 py-4 text-right">Sukarela</th><th class="px-4 py-4 text-right">Pinjaman</th><th class="px-4 py-4 text-right">Sie Usaha</th><th class="px-4 py-4 text-right">Jumlah</th><th class="px-4 py-4">Status</th></tr></thead>
+    <tbody class="divide-y">{% for row in deductions %}<tr class="hover:bg-slate-50"><td class="px-4 py-4">{{ row.period|date:"F Y" }}</td><td class="px-4 py-4"><p class="font-semibold">{{ row.member.full_name }}</p><p class="text-xs text-slate-400">{{ row.member.company.code }}</p></td><td class="px-4 py-4 text-right">{{ row.principal_saving|rupiah }}</td><td class="px-4 py-4 text-right">{{ row.mandatory_saving|rupiah }}</td><td class="px-4 py-4 text-right">{{ row.voluntary_saving|rupiah }}</td><td class="px-4 py-4 text-right">{{ row.loan_principal|add:row.loan_interest|rupiah }}</td><td class="px-4 py-4 text-right">{{ row.business_deduction|rupiah }}</td><td class="px-4 py-4 text-right font-extrabold">{{ row.total_amount|rupiah }}</td><td class="px-4 py-4"><span class="rounded-full px-2 py-1 text-xs font-bold {% if row.status == 'posted' %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ row.get_status_display }}</span>{% if can_write and row.status == 'draft' %}<form method="post" action="{% url 'koperasi:payroll_post' row.pk %}" class="mt-2">{% csrf_token %}<button class="text-xs font-bold text-blue-700">Bukukan</button></form>{% endif %}</td></tr>{% empty %}<tr><td colspan="9" class="p-10 text-center text-slate-500">Belum ada potongan payroll pada periode ini.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+{% endblock %}

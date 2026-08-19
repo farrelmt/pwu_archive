@@ -1,0 +1,32 @@
+{% extends "koperasi/base.html" %}{% load koperasi_tags %}
+{% block title %}Bukti {{ voucher.title }} {{ voucher.number }}{% endblock %}
+{% block content %}
+<div class="voucher-actions mb-5 flex items-center justify-between gap-3 print:hidden">
+    <a href="{% url 'koperasi:cash' %}" class="text-sm font-bold text-emerald-700">&larr; Buku kas &amp; bank</a>
+    <button type="button" onclick="window.print()" class="rounded-xl bg-blue-950 px-4 py-2 text-sm font-bold text-white">Cetak Bukti</button>
+</div>
+
+<article class="cash-voucher mx-auto bg-white text-slate-950 shadow-sm">
+    <div class="voucher-header"><p>KOPERASI WIRA JATIM</p><p>{{ voucher.unit }}</p></div>
+    <section class="voucher-meta"><h1>{{ voucher.title }}</h1><dl><div><dt>Nomor</dt><dd>: {{ voucher.number }}</dd></div><div><dt>Tanggal</dt><dd>: {{ voucher.date|date:"d F Y" }}</dd></div></dl></section>
+    <table class="voucher-table">
+        <thead><tr><th>Perkiraan</th><th>Keterangan</th><th>Rupiah</th></tr></thead>
+        <tbody><tr><td>{{ voucher.category }}</td><td><p>{{ voucher.description }}</p>{% if voucher.counterparty %}<p class="counterparty">{% if voucher.direction == 'income' %}Diterima dari{% else %}Dibayar kepada{% endif %}: {{ voucher.counterparty }}</p>{% endif %}</td><td class="money">{{ voucher.amount|rupiah }}</td></tr></tbody>
+        <tfoot><tr><td colspan="2">Jumlah</td><td class="money">{{ voucher.amount|rupiah }}</td></tr></tfoot>
+    </table>
+    <p class="amount-words"><span>Terbilang</span>: {{ voucher.amount_words }}</p>
+    <p class="voucher-place">Surabaya, {{ voucher.date|date:"d F Y" }}</p>
+    <section class="signatures"><div><p>Menyetujui,<br>Ketua</p><span>............................</span></div><div><p>Mengetahui,<br>Bendahara</p><span>............................</span></div><div><p>Yang<br>{% if voucher.direction == 'income' %}Menyerahkan{% else %}Menerima{% endif %}</p><span>{% if voucher.counterparty %}{{ voucher.counterparty }}{% else %}............................{% endif %}</span></div></section>
+</article>
+
+<style nonce="{{ request.csp_nonce }}">
+    .cash-voucher{width:190mm;min-height:260mm;padding:14mm;font-family:Arial,sans-serif;font-size:12px;position:relative}
+    .voucher-header{border-top:2px solid #1d4ed8;padding-top:4px;font-size:17px;font-weight:800;line-height:1.25}
+    .voucher-meta{width:42%;margin:12px 0 16px auto}.voucher-meta h1{color:#ef0000;font-size:17px;font-weight:800;margin-bottom:3px}.voucher-meta dl div{display:flex}.voucher-meta dt{width:72px}.voucher-meta dd{font-weight:600}
+    .voucher-table{width:100%;border-collapse:collapse}.voucher-table th,.voucher-table td{border-left:1px solid #111;border-right:1px solid #111;padding:6px 8px}.voucher-table thead th{border-top:2px solid #111;border-bottom:2px solid #111;font-weight:500}.voucher-table th:first-child{width:110px}.voucher-table th:last-child{width:135px}.voucher-table tbody td{height:120px;vertical-align:middle}.voucher-table tbody td:nth-child(2){text-align:center}.voucher-table .counterparty{margin-top:16px;font-size:11px}.voucher-table .money{text-align:right;white-space:nowrap}.voucher-table tfoot td{height:auto;border-top:2px solid #111;border-bottom:2px solid #111;font-size:14px;font-weight:800}.voucher-table tfoot td:first-child{text-align:center;letter-spacing:8px}
+    .amount-words{margin-top:14px;border-bottom:1px solid #cbd5e1;padding:5px 0}.amount-words span{display:inline-block;width:75px}.voucher-place{text-align:right;margin-top:34px}
+    .signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:36px;text-align:center;margin-top:8px}.signatures div{display:flex;min-height:120px;flex-direction:column;justify-content:space-between}.signatures span{border-bottom:1px dotted #111;padding-bottom:3px}
+    @page{size:A4 portrait;margin:10mm}
+    @media print{.cash-voucher{width:100%;min-height:auto;padding:0!important;box-shadow:none}.voucher-actions{display:none!important}}
+</style>
+{% endblock %}
