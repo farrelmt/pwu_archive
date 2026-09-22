@@ -1,6 +1,7 @@
 {% extends 'home_base.html' %}
+{% load disposisi_extras %}
 
-{% block title %}{% if read_only %}Isi Disposisi{% else %}Isi Disposisi Direktur{% endif %}{% endblock %}
+{% block title %}{% if read_only %}Isi Disposisi{% else %}Isi Disposisi {{ stage_label }}{% endif %}{% endblock %}
 
 {% block content %}
 <form method="post" id="isiDisposisiForm" class="flex min-h-[calc(100vh-36px)] w-full flex-col bg-blue-950 lg:flex-row">
@@ -69,6 +70,16 @@
                         Isi Disposisi
                     </div>
 
+                    {% if is_dual_director and read_only %}
+                    <div id="isiEditor" class="dual-director-results">
+                        <section class="director-result">
+                            <div class="director-content">{{ disposisi.isi_disposisi_dirut|normalize_signature_layout }}</div>
+                        </section>
+                        <section class="director-result">
+                            <div class="director-content">{{ disposisi.isi_disposisi_direktur|normalize_signature_layout }}</div>
+                        </section>
+                    </div>
+                    {% else %}
                     {% if not read_only %}
                     <div id="editorToolbar" class="editor-toolbar border-b border-gray-500 bg-gray-100 text-gray-900"
                          aria-label="Format isi disposisi">
@@ -95,14 +106,21 @@
                     </div>
                     {% endif %}
 
+                    {% if is_dual_director and prior_director_content and stage_label == 'Direktur' %}
+                    <section class="prior-director-result" aria-label="Isi disposisi Direktur Utama yang terkunci">
+                        <div class="director-content">{{ prior_director_content|normalize_signature_layout }}</div>
+                    </section>
+                    {% endif %}
+
                     <div id="isiEditor"
-                         class="isi-editor"
+                         class="isi-editor{% if is_dual_director and prior_director_content and stage_label == 'Direktur' %} continuation-editor{% endif %}"
                          {% if not read_only %}contenteditable="true" role="textbox" aria-multiline="true" aria-label="Isi disposisi"{% endif %}
-                         data-placeholder="Tulis isi disposisi di sini...">{% if disposisi.isi_disposisi %}{{ disposisi.isi_disposisi|safe }}{% endif %}</div>
+                         data-placeholder="Tulis isi disposisi di sini...">{{ editor_content|normalize_signature_layout }}</div>
                     {% if not read_only %}
                     <p id="contentLimitWarning" class="content-limit-warning hidden" role="alert">
                         Batas satu halaman A4 tercapai. Kurangi isi sebelum menambah teks.
                     </p>
+                    {% endif %}
                     {% endif %}
                 </div>
             </article>
@@ -386,6 +404,72 @@
         pointer-events: none;
     }
 
+    .isi-editor > svg[data-signature-overlay="true"][data-signature-layout="positioned"],
+    .director-content > svg[data-signature-overlay="true"][data-signature-layout="positioned"] {
+        position: absolute !important;
+        z-index: 30;
+        display: block;
+        max-width: calc(100% - 4px);
+        pointer-events: none;
+    }
+
+    .dual-director-results {
+        display: flex;
+        min-height: 0;
+        flex: 1;
+        flex-direction: column;
+        margin: 10px 24px 24px;
+        overflow: visible;
+    }
+
+    .director-result,
+    .prior-director-result {
+        position: relative;
+        min-height: 0;
+        overflow: visible;
+    }
+
+    .director-result {
+        flex: 0 1 auto;
+    }
+
+    .director-content {
+        position: relative;
+        min-height: 0;
+        height: auto;
+        padding: 4px 14px;
+        overflow: visible;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+
+    .director-content > svg[data-signature-overlay="true"] {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .prior-director-result {
+        z-index: 20;
+        flex: 0 1 auto;
+        margin: 8px 24px 0;
+        pointer-events: none;
+    }
+
+    .isi-editor.continuation-editor {
+        margin-top: 0;
+        padding-top: 4px;
+    }
+
+    .isi-editor.continuation-editor:focus {
+        outline: none;
+    }
+
     .preview-document .editor-toolbar { display: none; }
     .preview-document .isi-editor {
         background: transparent !important;
@@ -538,6 +622,22 @@
         const parseOverlayStrokes = (overlay, targetWidth, targetHeight) => {
             const viewBox = (overlay.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
             if (viewBox.length !== 4 || !viewBox[2] || !viewBox[3]) return [];
+            if (['inline', 'positioned'].includes(overlay.dataset.signatureLayout)) {
+                const originX = Number(overlay.dataset.signatureOriginX || 0);
+                const originY = Number(overlay.dataset.signatureOriginY || 0);
+                return Array.from(overlay.querySelectorAll('path')).map((path) => {
+                    const tokens = (path.getAttribute('d') || '').match(/[MLml]|-?\d+(?:\.\d+)?/g) || [];
+                    const points = [];
+                    for (let index = 0; index + 2 < tokens.length; index += 3) {
+                        const x = Number(tokens[index + 1]);
+                        const y = Number(tokens[index + 2]);
+                        if (Number.isFinite(x) && Number.isFinite(y)) {
+                            points.push({x: x + originX, y: y + originY});
+                        }
+                    }
+                    return points;
+                }).filter((stroke) => stroke.length > 1);
+            }
             const proportionalScale = Math.min(
                 targetWidth / viewBox[2],
                 targetHeight / viewBox[3]
@@ -582,19 +682,50 @@
             if (!drawingCanvas) return;
             const usableStrokes = strokes.filter((stroke) => stroke.length > 1);
             if (usableStrokes.length) {
+                const allPoints = usableStrokes.flat();
+                const padding = 6;
+                const minimumX = Math.max(
+                    0,
+                    Math.floor(Math.min(...allPoints.map((point) => point.x)) - padding),
+                );
+                const minimumY = Math.max(
+                    0,
+                    Math.floor(Math.min(...allPoints.map((point) => point.y)) - padding),
+                );
+                const maximumX = Math.min(
+                    drawingCanvas.width,
+                    Math.ceil(Math.max(...allPoints.map((point) => point.x)) + padding),
+                );
+                const maximumY = Math.min(
+                    drawingCanvas.height,
+                    Math.ceil(Math.max(...allPoints.map((point) => point.y)) + padding),
+                );
+                const signatureWidth = Math.max(10, maximumX - minimumX);
+                const signatureHeight = Math.max(10, maximumY - minimumY);
                 const svgNamespace = 'http://www.w3.org/2000/svg';
                 const overlay = document.createElementNS(svgNamespace, 'svg');
-                overlay.setAttribute('viewBox', `0 0 ${drawingCanvas.width} ${drawingCanvas.height}`);
+                overlay.setAttribute('viewBox', `0 0 ${signatureWidth} ${signatureHeight}`);
                 overlay.setAttribute('data-signature-overlay', 'true');
-                overlay.setAttribute('preserveAspectRatio', 'xMidYMax meet');
+                overlay.setAttribute('data-signature-layout', 'positioned');
+                overlay.setAttribute('data-signature-width', signatureWidth);
+                overlay.setAttribute('data-signature-height', signatureHeight);
+                overlay.setAttribute('data-signature-margin-left', minimumX);
+                overlay.setAttribute('data-signature-margin-top', 0);
+                overlay.setAttribute('data-signature-origin-x', minimumX);
+                overlay.setAttribute('data-signature-origin-y', minimumY);
+                overlay.setAttribute('preserveAspectRatio', 'xMinYMin meet');
                 overlay.setAttribute('role', 'img');
                 overlay.setAttribute('aria-label', 'Tanda tangan digital');
+                overlay.style.width = `${signatureWidth}px`;
+                overlay.style.height = `${signatureHeight}px`;
+                overlay.style.left = `${minimumX}px`;
+                overlay.style.top = `${minimumY}px`;
 
                 usableStrokes.forEach((stroke) => {
                     const path = document.createElementNS(svgNamespace, 'path');
                     const pathData = stroke.map((point, index) => {
                         const command = index === 0 ? 'M' : 'L';
-                        return `${command} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+                        return `${command} ${(point.x - minimumX).toFixed(1)} ${(point.y - minimumY).toFixed(1)}`;
                     }).join(' ');
                     path.setAttribute('d', pathData);
                     path.setAttribute('fill', 'none');
@@ -604,7 +735,7 @@
                     path.setAttribute('stroke-linejoin', 'round');
                     overlay.appendChild(path);
                 });
-                editor.prepend(overlay);
+                editor.append(overlay);
             }
             originalOverlays = [];
             leaveDrawingMode();
@@ -613,7 +744,13 @@
 
         const cancelDrawing = () => {
             if (!drawingCanvas) return;
-            originalOverlays.forEach((overlay) => editor.prepend(overlay));
+            originalOverlays.forEach((overlay) => {
+                if (['inline', 'positioned'].includes(overlay.dataset.signatureLayout)) {
+                    editor.append(overlay);
+                } else {
+                    editor.prepend(overlay);
+                }
+            });
             originalOverlays = [];
             leaveDrawingMode();
         };

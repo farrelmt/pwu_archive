@@ -4,10 +4,22 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 from django.conf import settings
-from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from urllib.parse import urlsplit
 
 from archiveproject.host_routing import request_hostname
+
+
+def _can_follow_login_next(user, next_url):
+    """Avoid landing a valid login directly on a known forbidden page."""
+    path = urlsplit(next_url).path
+    if path == '/disposisi/':
+        return user.can_view_all_archive
+    if path == '/disposisi/tambah/':
+        return user.can_edit_disposisi
+    if path.startswith('/disposisi/edit/'):
+        return user.can_edit_disposisi
+    return True
 
 
 def _login_context(request, **extra):
@@ -71,7 +83,7 @@ def login_view(request):
                 next_url,
                 allowed_hosts={request.get_host()},
                 require_https=request.is_secure(),
-            ):
+            ) and _can_follow_login_next(user, next_url):
                 return redirect(next_url)
             if request_hostname(request) in settings.KOPERASI_HOSTS:
                 return redirect('koperasi:dashboard')

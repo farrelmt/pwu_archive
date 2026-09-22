@@ -1,7 +1,10 @@
 import mimetypes
+import re
 from urllib.parse import quote
 import os
 from io import BytesIO
+from math import ceil
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.exceptions import PermissionDenied
@@ -11,6 +14,8 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.db import transaction
 from django.db.models import Q, Max
+from django.urls import reverse
+from django.utils.html import strip_tags
 from .models import Disposisi, DisposisiLog, DisposisiRecipient
 from .forms import (
     DisposisiForm,
@@ -36,6 +41,9 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 from django.utils.http import content_disposition_header
 from accounts.audit import record_activity
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 
 
 def notify_shared_recipients(request, disposisi, selected_roles):
@@ -53,26 +61,8 @@ def notify_shared_recipients(request, disposisi, selected_roles):
     return sent_count
 
 
-@login_required
-@never_cache
-def list_disposisi(request):
-    if not request.user.can_view_all_archive:
-        raise PermissionDenied
-
+def _filtered_disposisi_queryset(request):
     search = request.GET.get('search', '')
-    try:
-        page_limit = int(request.GET.get('limit', 20))
-    except ValueError:
-        page_limit = 20
-    if page_limit not in {20, 50, 100}:
-        page_limit = 20
-
-    try:
-        page_number = int(request.GET.get('page', 1))
-    except ValueError:
-        page_number = 1
-
-    #Get Filter From User
     surat_day = request.GET.get('surat_day')
     surat_month = request.GET.get('surat_month')
     surat_year = request.GET.get('surat_year')
@@ -191,6 +181,29 @@ def list_disposisi(request):
     if status:
         data = data.filter(status_pengajuan=status)
 
+    return data, search, status
+
+
+@login_required
+@never_cache
+def list_disposisi(request):
+    if not request.user.can_view_all_archive:
+        raise PermissionDenied
+
+    data, search, status = _filtered_disposisi_queryset(request)
+
+    try:
+        page_limit = int(request.GET.get('limit', 20))
+    except ValueError:
+        page_limit = 20
+    if page_limit not in {20, 50, 100}:
+        page_limit = 20
+
+    try:
+        page_number = int(request.GET.get('page', 1))
+    except ValueError:
+        page_number = 1
+
     paginator = Paginator(data, page_limit)
     page_obj = paginator.get_page(page_number)
 
@@ -212,6 +225,319 @@ def list_disposisi(request):
         })
 
     return render(request, 'disposisi.html', context)
+
+
+def _style_export_sheet(
+    worksheet,
+    header_row,
+    widths,
+    left_aligned_columns=(),
+):
+    dark_blue = '172554'
+    light_blue = 'DBEAFE'
+    thin_gray = Side(style='thin', color='CBD5E1')
+    table_border = Border(
+        left=thin_gray,
+        right=thin_gray,
+        top=thin_gray,
+        bottom=thin_gray,
+    )
+    left_aligned_columns = set(left_aligned_columns)
+
+    worksheet.freeze_panes = f'A{header_row + 1}'
+    worksheet.sheet_view.showGridLines = False
+    worksheet.row_dimensions[1].height = 28
+
+    for cell in worksheet[1]:
+        cell.fill = PatternFill('solid', fgColor=dark_blue)
+        cell.font = Font(color='FFFFFF', bold=True, size=14)
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    for cell in worksheet[header_row]:
+        cell.fill = PatternFill('solid', fgColor=light_blue)
+        cell.font = Font(color=dark_blue, bold=True)
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = table_border
+
+    for row in worksheet.iter_rows(
+        min_row=header_row + 1,
+        max_row=worksheet.max_row,
+        min_col=1,
+        max_col=len(widths),
+    ):
+        wrapped_line_count = 1
+        for cell in row:
+            cell.border = table_border
+            cell.alignment = Alignment(
+                horizontal=(
+                    'left'
+                    if cell.column in left_aligned_columns
+                    else 'center'
+                ),
+                vertical='center',
+                wrap_text=True,
+            )
+            if cell.column in left_aligned_columns:
+                column_width = max(int(widths[cell.column - 1]), 1)
+                text_lines = str(cell.value or '').splitlines() or ['']
+                wrapped_line_count = max(
+                    wrapped_line_count,
+                    sum(
+                        max(1, ceil(len(line) / column_width))
+                        for line in text_lines
+                    ),
+                )
+        worksheet.row_dimensions[row[0].row].height = min(
+            409,
+            max(34, wrapped_line_count * 15 + 8),
+        )
+
+    for index, width in enumerate(widths, start=1):
+        worksheet.column_dimensions[get_column_letter(index)].width = width
+
+    worksheet.row_dimensions[header_row].height = 34
+    worksheet.auto_filter.ref = f'A{header_row}:{get_column_letter(len(widths))}{worksheet.max_row}'
+
+
+def _excel_safe_text(value):
+    text = str(value or '')
+    if text.startswith(('=', '+', '-', '@')):
+        return f"'{text}"
+    return text
+
+
+def _excel_document_label(document):
+    extension = os.path.splitext(document.name)[1].lower()
+    return 'PDF' if extension == '.pdf' else 'IMG'
+
+
+_INVALID_ARCHIVE_COMPONENT = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def _safe_archive_component(value, fallback):
+    component = _INVALID_ARCHIVE_COMPONENT.sub('-', str(value or '')).strip(' .')
+    return component or fallback
+
+
+def _document_extension(document):
+    return os.path.splitext(document.name)[1].lower() or '.bin'
+
+
+def _stored_document_bytes(document):
+    try:
+        with document.open('rb') as source:
+            return source.read()
+    except (OSError, ValueError):
+        return None
+
+
+@login_required
+@never_cache
+@require_GET
+def export_disposisi_archive(request):
+    if not request.user.can_view_all_archive:
+        raise PermissionDenied
+
+    disposisi_list = list(
+        _filtered_disposisi_queryset(request)[0].prefetch_related(
+            'shared_recipients',
+        )
+    )
+    disposisi_by_year = defaultdict(list)
+    for disposisi in disposisi_list:
+        disposisi_by_year[disposisi.tanggal_surat_diterima.year].append(disposisi)
+
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    archive_entries = []
+    used_archive_folders = set()
+    generated_at = localtime(timezone.now()).replace(tzinfo=None)
+    detail_headers = [
+        'No', 'Tanggal Diterima', 'Nomor Agenda', 'Tanggal Surat',
+        'Nomor Surat', 'Pengirim', 'Lampiran', 'Tujuan', 'Tembusan',
+        'Perihal', 'Tujuan Disposisi', 'Metode Disposisi', 'Status',
+        'Isi Disposisi', 'Dibagikan Kepada', 'Dokumen Surat Masuk',
+        'Dokumen Disposisi', 'Waktu Dibuat', 'Waktu Diedit', 'Link Detail',
+    ]
+    yearly_groups = [
+        (year, disposisi_by_year[year])
+        for year in sorted(disposisi_by_year, reverse=True)
+    ]
+    if not yearly_groups:
+        yearly_groups = [(None, [])]
+
+    for year, yearly_disposisi in yearly_groups:
+        sheet_suffix = str(year) if year is not None else ''
+        worksheet = workbook.create_sheet(
+            f'Surat Masuk {sheet_suffix}'.strip()
+        )
+        worksheet.append([
+            f'DETAIL SURAT MASUK {sheet_suffix}'.strip()
+        ])
+        worksheet.merge_cells(
+            start_row=1,
+            start_column=1,
+            end_row=1,
+            end_column=len(detail_headers),
+        )
+        worksheet.append(['Diekspor pada', generated_at])
+        worksheet['B2'].number_format = 'dd/mm/yyyy hh:mm'
+        worksheet.append([])
+        worksheet.append(detail_headers)
+
+        for number, disposisi in enumerate(yearly_disposisi, start=1):
+            agenda_folder = _safe_archive_component(
+                disposisi.nomor_agenda,
+                f'Agenda-{disposisi.pk}',
+            )
+            relative_folder = f'{year}/{agenda_folder}'
+            if relative_folder.casefold() in used_archive_folders:
+                agenda_folder = f'{agenda_folder}-{disposisi.pk}'
+                relative_folder = f'{year}/{agenda_folder}'
+            used_archive_folders.add(relative_folder.casefold())
+
+            incoming_document_path = None
+            incoming_document_label = 'Tidak tersedia'
+            incoming_document_bytes = _stored_document_bytes(
+                disposisi.dokumen_surat_masuk
+            )
+            if incoming_document_bytes is not None:
+                incoming_document_label = _excel_document_label(
+                    disposisi.dokumen_surat_masuk
+                )
+                incoming_document_path = (
+                    f'{relative_folder}/Dokumen-Surat-Masuk'
+                    f'{_document_extension(disposisi.dokumen_surat_masuk)}'
+                )
+                archive_entries.append((
+                    f'Surat Masuk/{incoming_document_path}',
+                    incoming_document_bytes,
+                ))
+
+            disposition_document_path = None
+            disposition_document_label = 'Tidak tersedia'
+            if disposisi.dokumen_disposisi:
+                disposition_document_bytes = _stored_document_bytes(
+                    disposisi.dokumen_disposisi
+                )
+                if disposition_document_bytes is not None:
+                    disposition_document_label = _excel_document_label(
+                        disposisi.dokumen_disposisi
+                    )
+                    disposition_document_path = (
+                        f'{relative_folder}/Disposisi'
+                        f'{_document_extension(disposisi.dokumen_disposisi)}'
+                    )
+            else:
+                disposition_document_bytes = _render_disposisi_pdf(
+                    request,
+                    disposisi,
+                )
+                disposition_document_label = 'PDF'
+                disposition_document_path = f'{relative_folder}/Disposisi.pdf'
+            if disposition_document_path and disposition_document_bytes is not None:
+                archive_entries.append((
+                    f'Surat Masuk/{disposition_document_path}',
+                    disposition_document_bytes,
+                ))
+
+            recipient_names = ', '.join(
+                recipient.get_role_display()
+                for recipient in disposisi.shared_recipients.all()
+            )
+            if disposisi.tujuan == 'DIREKSI':
+                isi_disposisi = '\n'.join(filter(None, [
+                    'Direktur Utama: ' + ' '.join(strip_tags(
+                        disposisi.isi_disposisi_dirut or ''
+                    ).split()),
+                    'Direktur: ' + ' '.join(strip_tags(
+                        disposisi.isi_disposisi_direktur or ''
+                    ).split()),
+                ]))
+            else:
+                isi_disposisi = ' '.join(
+                    strip_tags(disposisi.isi_disposisi or '').split()
+                )
+            detail_url = request.build_absolute_uri(
+                reverse('disposisi:detaildisposisi', args=[disposisi.pk])
+            )
+            worksheet.append([
+                number,
+                disposisi.tanggal_surat_diterima,
+                disposisi.nomor_agenda,
+                disposisi.tanggal_surat,
+                _excel_safe_text(disposisi.nomor_surat),
+                _excel_safe_text(disposisi.pengirim),
+                _excel_safe_text(disposisi.lampiran),
+                disposisi.get_tujuan_display(),
+                _excel_safe_text(disposisi.tembusan),
+                _excel_safe_text(disposisi.perihal),
+                _excel_safe_text(disposisi.tujuan_disposisi),
+                disposisi.get_tipe_disposisi_display(),
+                disposisi.get_status_pengajuan_display(),
+                _excel_safe_text(isi_disposisi),
+                recipient_names,
+                incoming_document_label,
+                disposition_document_label,
+                localtime(disposisi.waktu_dibuat).replace(tzinfo=None),
+                localtime(disposisi.waktu_diedit).replace(tzinfo=None),
+                detail_url,
+            ])
+            incoming_document_cell = worksheet.cell(
+                row=worksheet.max_row,
+                column=16,
+            )
+            if incoming_document_path:
+                incoming_document_cell.hyperlink = incoming_document_path
+                incoming_document_cell.style = 'Hyperlink'
+            disposition_document_cell = worksheet.cell(
+                row=worksheet.max_row,
+                column=17,
+            )
+            if disposition_document_path:
+                disposition_document_cell.hyperlink = disposition_document_path
+                disposition_document_cell.style = 'Hyperlink'
+            detail_link_cell = worksheet.cell(
+                row=worksheet.max_row,
+                column=20,
+            )
+            detail_link_cell.hyperlink = detail_url
+            detail_link_cell.style = 'Hyperlink'
+
+        for row in worksheet.iter_rows(min_row=5):
+            row[1].number_format = 'dd/mm/yyyy'
+            row[3].number_format = 'dd/mm/yyyy'
+            row[17].number_format = 'dd/mm/yyyy hh:mm'
+            row[18].number_format = 'dd/mm/yyyy hh:mm'
+
+        _style_export_sheet(
+            worksheet,
+            header_row=4,
+            widths=[
+                7, 17, 18, 17, 24, 24, 12, 20, 22, 45,
+                24, 25, 28, 55, 35, 32, 32, 20, 20, 48,
+            ],
+            left_aligned_columns={10, 14},
+        )
+    workbook_output = BytesIO()
+    workbook.save(workbook_output)
+
+    archive_output = BytesIO()
+    with ZipFile(archive_output, 'w', compression=ZIP_DEFLATED) as archive:
+        archive.writestr(
+            'Surat Masuk/Daftar-Surat-Masuk.xlsx',
+            workbook_output.getvalue(),
+        )
+        for archive_path, document_bytes in archive_entries:
+            archive.writestr(archive_path, document_bytes)
+
+    filename = f'surat-masuk-{generated_at:%Y%m%d-%H%M}.zip'
+    response = HttpResponse(
+        archive_output.getvalue(),
+        content_type='application/zip',
+    )
+    response['Content-Disposition'] = content_disposition_header(True, filename)
+    return response
 
 def create_log(disposisi, user, action, desc=""):
     log = DisposisiLog.objects.create(
@@ -268,7 +594,10 @@ def update_disposisi(request, pk):
             if disposisi.status_pengajuan == "DIISI" and disposisi.dokumen_disposisi:
                 disposisi.dokumen_disposisi = None
             disposisi.isi_disposisi = ''
+            disposisi.isi_disposisi_dirut = ''
+            disposisi.isi_disposisi_direktur = ''
             disposisi.status_pengajuan = 'DIBUAT'
+            disposisi.deadline = None
             disposisi.save()
             disposisi.shared_recipients.all().delete()
 
@@ -343,6 +672,11 @@ def detail_disposisi(request, pk):
             )
         )
     )
+    show_combined_director_document = (
+        request.user.role in {'direktur_utama', 'direktur', 'direktur_umum'}
+        and disposisi.tipe_disposisi == 'ONLINE'
+        and disposisi.status_pengajuan in {'DIAJUKAN', 'DIISI'}
+    )
 
     grouped_logs = defaultdict(list)
 
@@ -361,10 +695,13 @@ def detail_disposisi(request, pk):
         hari_en = local_time.strftime('%A')
         hari_id = HARI_ID.get(hari_en, hari_en)
         date_key = f"{hari_id}, {local_time.strftime('%d/%m/%Y')}"
+        user_name = log.user_log.get_full_name().strip()
+        if not user_name:
+            user_name = log.user_log.username.replace('_', ' ').replace('-', ' ').title()
 
         grouped_logs[date_key].append({
             'time': local_time.strftime('%H:%M'),
-            'user': log.user_log.username,
+            'user': user_name,
             'action': log.get_action_log_display(),
             'desc': log.keterangan_log
         })
@@ -374,8 +711,17 @@ def detail_disposisi(request, pk):
         'disposisi': disposisi,
         'grouped_logs': dict(grouped_logs),
         'share_role_choices': Disposisi.ONLINE_SHARE_ROLE_CHOICES,
-        'can_approve_this_disposisi': disposisi.can_be_approved_by(
+        'can_approve_this_disposisi': disposisi.can_fill_online_disposition(
             request.user,
+        ),
+        'online_waiting_label': (
+            'Menunggu Direktur'
+            if (
+                disposisi.tujuan == 'DIREKSI'
+                and disposisi.isi_disposisi_dirut
+                and not disposisi.isi_disposisi_direktur
+            )
+            else 'Menunggu Persetujuan'
         ),
         'is_share_recipient': share_recipient is not None,
         'is_actionable_share_recipient': (
@@ -393,8 +739,20 @@ def detail_disposisi(request, pk):
             and request.user.can_share_disposisi
         ),
         'can_share_this_disposisi': can_share_this_disposisi,
+        'show_combined_director_document': show_combined_director_document,
+        'combined_director_document_label': (
+            'Preview'
+            if disposisi.status_pengajuan == 'DIISI'
+            else 'Lihat Isi Disposisi'
+        ),
         'selected_recipient_roles': list(
             disposisi.shared_recipients.values_list('role', flat=True)
+        ),
+        'today_date': timezone.localdate().isoformat(),
+        'is_deadline_overdue': (
+            disposisi.deadline is not None
+            and disposisi.deadline < timezone.localdate()
+            and disposisi.status_pengajuan != 'SELESAI'
         ),
     })
 
@@ -431,10 +789,15 @@ def upload_disposisi(request, pk):
                     return redirect('disposisi:detaildisposisi', pk=pk)
                 disposisi.dokumen_disposisi = None
                 disposisi.isi_disposisi = ''
+                disposisi.isi_disposisi_dirut = ''
+                disposisi.isi_disposisi_direktur = ''
+                disposisi.deadline = None
                 disposisi.tipe_disposisi = 'ONLINE'
                 disposisi.status_pengajuan = 'DIAJUKAN'
                 disposisi.save(update_fields=[
-                    'dokumen_disposisi', 'isi_disposisi', 'tipe_disposisi',
+                    'dokumen_disposisi', 'isi_disposisi',
+                    'isi_disposisi_dirut', 'isi_disposisi_direktur',
+                    'deadline', 'tipe_disposisi',
                     'status_pengajuan', 'waktu_diedit'
                 ])
                 disposisi.shared_recipients.all().delete()
@@ -470,6 +833,7 @@ def upload_offline_disposisi(request, pk):
     share_form = ShareDisposisiForm(
         request.POST or None,
         choices=Disposisi.OFFLINE_SHARE_ROLE_CHOICES,
+        include_deadline=False,
     )
 
     if request.method == "POST":
@@ -558,8 +922,12 @@ def cancel_online_disposisi(request, pk):
         disposisi.tipe_disposisi = 'BELUM'
         disposisi.status_pengajuan = 'DIBUAT'
         disposisi.isi_disposisi = ''
+        disposisi.isi_disposisi_dirut = ''
+        disposisi.isi_disposisi_direktur = ''
+        disposisi.deadline = None
         disposisi.save(update_fields=[
             'tipe_disposisi', 'status_pengajuan', 'isi_disposisi',
+            'isi_disposisi_dirut', 'isi_disposisi_direktur', 'deadline',
             'waktu_diedit'
         ])
         disposisi.shared_recipients.all().delete()
@@ -579,7 +947,7 @@ def cancel_online_disposisi(request, pk):
 @require_POST
 def decide_online_disposisi(request, pk):
     requested_disposisi = get_object_or_404(Disposisi, pk=pk)
-    if not requested_disposisi.can_be_approved_by(request.user):
+    if not requested_disposisi.can_fill_online_disposition(request.user):
         raise PermissionDenied
 
     keputusan = request.POST.get('keputusan')
@@ -593,7 +961,7 @@ def decide_online_disposisi(request, pk):
         disposisi = get_object_or_404(
             Disposisi.objects.select_for_update(), pk=pk
         )
-        if not disposisi.can_be_approved_by(request.user):
+        if not disposisi.can_fill_online_disposition(request.user):
             raise PermissionDenied
         if not (
             disposisi.tipe_disposisi == 'ONLINE'
@@ -606,12 +974,16 @@ def decide_online_disposisi(request, pk):
         disposisi.tipe_disposisi = 'BELUM'
         disposisi.status_pengajuan = 'DIBUAT'
         disposisi.isi_disposisi = ''
+        disposisi.isi_disposisi_dirut = ''
+        disposisi.isi_disposisi_direktur = ''
+        disposisi.deadline = None
         action = 'TOLAK_DISPOSISI'
         description = alasan or 'Pengajuan online ditolak oleh Direktur.'
         success_message = "Pengajuan online ditolak."
 
         disposisi.save(update_fields=[
             'tipe_disposisi', 'status_pengajuan', 'isi_disposisi',
+            'isi_disposisi_dirut', 'isi_disposisi_direktur', 'deadline',
             'waktu_diedit'
         ])
         disposisi.shared_recipients.all().delete()
@@ -643,7 +1015,7 @@ def isi_online_disposisi(request, pk):
         messages.error(request, "Disposisi online ini tidak tersedia untuk diisi.")
         return redirect('disposisi:detaildisposisi', pk=pk)
 
-    can_approve_this = disposisi.can_be_approved_by(request.user)
+    can_approve_this = disposisi.can_fill_online_disposition(request.user)
     if is_pending and not can_approve_this:
         raise PermissionDenied
 
@@ -652,7 +1024,15 @@ def isi_online_disposisi(request, pk):
         if read_only or not can_approve_this:
             raise PermissionDenied
 
-        form = OnlineDisposisiIsiForm(request.POST)
+        stage = disposisi.online_input_stage_for(request.user)
+        if stage is None:
+            raise PermissionDenied
+        stage_field, stage_label = stage
+        form = OnlineDisposisiIsiForm(
+            request.POST,
+            max_layout_units=1100 if disposisi.tujuan == 'DIREKSI' else 2400,
+            require_signature=disposisi.tujuan == 'DIREKSI',
+        )
         if form.is_valid():
             with transaction.atomic():
                 locked_disposisi = get_object_or_404(
@@ -664,29 +1044,80 @@ def isi_online_disposisi(request, pk):
                 ):
                     messages.error(request, "Pengajuan ini sudah diproses.")
                     return redirect('homepage:monitor')
-                if not locked_disposisi.can_be_approved_by(request.user):
+                locked_stage = locked_disposisi.online_input_stage_for(
+                    request.user,
+                )
+                if locked_stage is None or locked_stage[0] != stage_field:
                     raise PermissionDenied
 
-                locked_disposisi.isi_disposisi = form.cleaned_data['isi_disposisi']
-                locked_disposisi.status_pengajuan = 'DIISI'
+                setattr(
+                    locked_disposisi,
+                    stage_field,
+                    form.cleaned_data['isi_disposisi'],
+                )
+                if (
+                    locked_disposisi.tujuan != 'DIREKSI'
+                    or stage_field == 'isi_disposisi_direktur'
+                ):
+                    locked_disposisi.status_pengajuan = 'DIISI'
                 locked_disposisi.save(update_fields=[
-                    'isi_disposisi', 'status_pengajuan', 'waktu_diedit'
+                    stage_field, 'status_pengajuan', 'waktu_diedit'
                 ])
                 create_log(
                     locked_disposisi,
                     request.user,
                     'SETUJUI_DISPOSISI',
-                    'Isi disposisi online dikirim dan disetujui oleh Direktur.',
+                    f'Isi disposisi online dan tanda tangan {stage_label} '
+                    'berhasil dikirim.',
                 )
-            messages.success(request, "Isi disposisi berhasil dikirim dan disetujui.")
+            if disposisi.tujuan == 'DIREKSI' and stage_field == 'isi_disposisi_dirut':
+                messages.success(
+                    request,
+                    "Isi Direktur Utama berhasil dikirim. Menunggu Direktur.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "Isi disposisi berhasil dikirim dan disetujui.",
+                )
             return redirect('disposisi:detaildisposisi', pk=pk)
     else:
-        form = OnlineDisposisiIsiForm(instance=disposisi)
+        stage = disposisi.online_input_stage_for(request.user)
+        stage_field, stage_label = stage or (None, 'Direktur')
+        if read_only:
+            if disposisi.tujuan == 'DIREKSI':
+                editor_content = ''
+            else:
+                editor_content = disposisi.isi_disposisi
+        else:
+            editor_content = getattr(disposisi, stage_field, '')
+            if disposisi.tujuan == 'DIREKSI' and not editor_content:
+                heading = (
+                    'Direktur Utama:'
+                    if stage_field == 'isi_disposisi_dirut'
+                    else 'Direktur :'
+                )
+                editor_content = (
+                    f'<div>{heading}</div>'
+                    '<div>- </div>'
+                    '<div><br></div>'
+                    '<div><br></div>'
+                )
+        form = OnlineDisposisiIsiForm(
+            instance=disposisi,
+            initial={'isi_disposisi': editor_content},
+            max_layout_units=1100 if disposisi.tujuan == 'DIREKSI' else 2400,
+            require_signature=disposisi.tujuan == 'DIREKSI',
+        )
 
     return render(request, 'disposisi_isi_online.html', {
         'disposisi': disposisi,
         'form': form,
         'read_only': read_only,
+        'editor_content': editor_content if request.method != 'POST' else request.POST.get('isi_disposisi', ''),
+        'stage_label': stage_label,
+        'is_dual_director': disposisi.tujuan == 'DIREKSI',
+        'prior_director_content': disposisi.isi_disposisi_dirut,
         'selected_recipient_roles': list(
             disposisi.shared_recipients.values_list('role', flat=True)
         ),
@@ -705,9 +1136,13 @@ def share_online_disposisi(request, pk):
     if not can_share:
         raise PermissionDenied
 
-    form = ShareDisposisiForm(request.POST)
+    form = ShareDisposisiForm(
+        request.POST,
+        existing_deadline=requested_disposisi.deadline,
+    )
     if not form.is_valid():
-        messages.error(request, form.errors['recipients'][0])
+        first_error = next(iter(form.errors.values()))[0]
+        messages.error(request, first_error)
         return redirect('disposisi:detaildisposisi', pk=pk)
 
     with transaction.atomic():
@@ -739,6 +1174,7 @@ def share_online_disposisi(request, pk):
             raise PermissionDenied
 
         selected_roles = form.cleaned_data['recipients']
+        deadline = form.cleaned_data['deadline']
         existing_roles = set(
             disposisi.shared_recipients.values_list('role', flat=True)
         )
@@ -768,7 +1204,10 @@ def share_online_disposisi(request, pk):
             disposisi.status_pengajuan = 'DIBAGIKAN'
         else:
             disposisi.status_pengajuan = 'VERIFIKASI'
-        disposisi.save(update_fields=['status_pengajuan', 'waktu_diedit'])
+        disposisi.deadline = deadline
+        disposisi.save(update_fields=[
+            'status_pengajuan', 'deadline', 'waktu_diedit'
+        ])
 
         role_labels = dict(Disposisi.SHARE_ROLE_CHOICES)
         recipient_names = ', '.join(role_labels[role] for role in selected_roles)
@@ -777,9 +1216,11 @@ def share_online_disposisi(request, pk):
             request.user,
             'BAGI_DISPOSISI',
             (
-                f'Penerima disposisi diperbarui menjadi: {recipient_names}.'
+                f'Penerima disposisi diperbarui menjadi: {recipient_names}. '
+                f'Deadline: {deadline:%d/%m/%Y}.'
                 if recipients_were_updated
-                else f'Disposisi dibagikan kepada: {recipient_names}.'
+                else f'Disposisi dibagikan kepada: {recipient_names}. '
+                f'Deadline: {deadline:%d/%m/%Y}.'
             ),
         )
         if is_offline:
@@ -864,7 +1305,8 @@ def receive_shared_disposisi(request, pk):
     )
     messages.success(
         request,
-        "Disposisi berhasil diterima. Selesaikan pekerjaan lalu isi aktivitas.",
+        "Disposisi berhasil diterima. Selesaikan pekerjaan lalu isi aktivitas "
+        "dan hasil tindak lanjut.",
     )
     return redirect('disposisi:detaildisposisi', pk=pk)
 
@@ -904,18 +1346,19 @@ def complete_shared_disposisi(request, pk):
         is_edit = recipient.agreed_at is not None
         form = RecipientActivityForm(request.POST)
         if not form.is_valid():
-            messages.error(
-                request,
-                form.errors['activity_description'][0],
-            )
+            first_error = next(iter(form.errors.values()))[0]
+            messages.error(request, first_error)
             return redirect('disposisi:detaildisposisi', pk=pk)
 
         activity_description = form.cleaned_data['activity_description']
+        follow_up_result = form.cleaned_data['follow_up_result']
         recipient.activity_description = activity_description
+        recipient.follow_up_result = follow_up_result
         recipient.completed_by = request.user
         recipient.agreed_at = timezone.now()
         recipient.save(update_fields=[
             'activity_description',
+            'follow_up_result',
             'completed_by',
             'agreed_at',
         ])
@@ -924,7 +1367,8 @@ def complete_shared_disposisi(request, pk):
             disposisi,
             request.user,
             'AKTIVITAS_PENERIMA',
-            f'{role_label}: {activity_description}',
+            f'{role_label} — Aktivitas: {activity_description} — '
+            f'Hasil: {follow_up_result}',
         )
 
         is_complete = not disposisi.shared_recipients.exclude(
@@ -940,7 +1384,8 @@ def complete_shared_disposisi(request, pk):
                 request.user,
                 'AJUKAN_SELESAI',
                 'Seluruh penerima telah menyelesaikan disposisi dan '
-                'mengisi aktivitas. Menunggu persetujuan Sekretaris.',
+                'mengisi aktivitas serta hasil tindak lanjut. '
+                'Menunggu persetujuan Sekretaris.',
             )
 
     record_activity(
@@ -951,12 +1396,16 @@ def complete_shared_disposisi(request, pk):
             if is_edit
             else 'RECIPIENT_ACTIVITY_SUBMITTED'
         ),
-        description=f'{role_label}: {activity_description}',
+        description=(
+            f'{role_label} — Aktivitas: {activity_description} — '
+            f'Hasil: {follow_up_result}'
+        ),
         target_type='disposisi.Disposisi',
         target_id=disposisi.pk,
         target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
         metadata={
             'recipient_role': recipient.role,
+            'follow_up_result': follow_up_result,
             'all_recipients_complete': is_complete,
         },
     )
@@ -1124,7 +1573,8 @@ def combined_director_document(request, pk):
     disposisi = get_object_or_404(
         visible_disposisi_for_user(request.user),
         pk=pk,
-        status_pengajuan='DIAJUKAN',
+        tipe_disposisi='ONLINE',
+        status_pengajuan__in={'DIAJUKAN', 'DIISI'},
     )
     if not disposisi.dokumen_surat_masuk:
         raise Http404

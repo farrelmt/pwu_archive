@@ -93,6 +93,64 @@ class AuthenticationAuditTests(TestCase):
         self.assertNotIn("highly-sensitive-password", log.description)
         self.assertNotIn("highly-sensitive-password", str(log.metadata))
 
+    def test_login_ignores_forbidden_create_page_next_url(self):
+        response = self.client.post(
+            f'{reverse("accounts:login")}?next=/disposisi/tambah/',
+            {
+                "username": "audited-user",
+                "password": "password-for-tests",
+                "next": "/disposisi/tambah/",
+            },
+        )
+
+        self.assertRedirects(response, reverse("homepage:dashboard"))
+
+    def test_login_ignores_forbidden_full_archive_list_next_url(self):
+        response = self.client.post(
+            f'{reverse("accounts:login")}?next=/disposisi/',
+            {
+                "username": "audited-user",
+                "password": "password-for-tests",
+                "next": "/disposisi/",
+            },
+        )
+
+        self.assertRedirects(response, reverse("homepage:dashboard"))
+
+    def test_editor_login_keeps_allowed_create_page_next_url(self):
+        editor = SystemUser.objects.create_user(
+            username="archive-editor",
+            password="password-for-tests",
+            role="sekretaris",
+        )
+        response = self.client.post(
+            f'{reverse("accounts:login")}?next=/disposisi/tambah/',
+            {
+                "username": editor.username,
+                "password": "password-for-tests",
+                "next": "/disposisi/tambah/",
+            },
+        )
+
+        self.assertRedirects(response, reverse("disposisi:tambahdisposisi"))
+
+    def test_editor_login_keeps_allowed_full_archive_list_next_url(self):
+        editor = SystemUser.objects.create_user(
+            username="archive-list-editor",
+            password="password-for-tests",
+            role="sekretaris",
+        )
+        response = self.client.post(
+            f'{reverse("accounts:login")}?next=/disposisi/',
+            {
+                "username": editor.username,
+                "password": "password-for-tests",
+                "next": "/disposisi/",
+            },
+        )
+
+        self.assertRedirects(response, reverse("disposisi:disposisi"))
+
 
 @override_settings(ALLOWED_HOSTS=["testserver"])
 class LoginSecurityTests(TestCase):
@@ -133,3 +191,23 @@ class LoginThemeTests(TestCase):
         self.assertContains(response, "bg-green-950")
         self.assertContains(response, "bg-green-800 shadow-green-950/20")
         self.assertNotContains(response, "bg-blue-950")
+
+    def test_koperasi_user_can_login_with_isolated_url_configuration(self):
+        user = SystemUser.objects.create_user(
+            username="koperasi-login-test",
+            password="password-for-tests",
+            role="akuntan",
+        )
+
+        response = self.client.post(
+            "/accounts/login/?next=/",
+            {
+                "username": user.username,
+                "password": "password-for-tests",
+                "next": "/",
+            },
+            HTTP_HOST="koperasi.localhost",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/")

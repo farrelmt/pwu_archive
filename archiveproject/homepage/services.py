@@ -25,12 +25,21 @@ def inbox_disposisi_for_user(user):
         if user.role == 'direktur_utama':
             filters |= Q(
                 status_pengajuan='DIAJUKAN',
-                tujuan__in=['DIRUT', 'DIREKSI'],
+                tujuan='DIRUT',
+            ) | Q(
+                status_pengajuan='DIAJUKAN',
+                tujuan='DIREKSI',
+                isi_disposisi_dirut='',
             )
         elif user.role in {'direktur', 'direktur_umum'}:
             filters |= Q(
                 status_pengajuan='DIAJUKAN',
-                tujuan__in=['DIR', 'DIREKSI'],
+                tujuan='DIR',
+            ) | Q(
+                status_pengajuan='DIAJUKAN',
+                tujuan='DIREKSI',
+                isi_disposisi_dirut__gt='',
+                isi_disposisi_direktur='',
             )
 
         if user.role == 'sekretaris':

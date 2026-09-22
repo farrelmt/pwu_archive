@@ -31,6 +31,15 @@
 
             <div class="flex gap-2">
                 <button type="button"
+                   id="exportSuratMasuk"
+                   class="flex h-10 items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 19.5h14" />
+                    </svg>
+                    Download ZIP
+                </button>
+
+                <button type="button"
                    id="filterButton"
                    class="hidden h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800 sm:flex">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4">
@@ -101,6 +110,7 @@
             const searchInputDis = document.getElementById('cariDis');
             const cariDisBut = document.getElementById('cariBut');
             const resetDisBut = document.getElementById('resetBut');
+            const exportSuratMasuk = document.getElementById('exportSuratMasuk');
 
             const filterBtn = document.getElementById('filterButton');
             const filterDisposisi = document.getElementById('filterDisposisi');
@@ -128,26 +138,26 @@
             const tableBody = document.getElementById('tableBody');
             const paginationDis = document.getElementById('paginationDis');
 
-            function loadDataDis(page = 1){
-                const params = new URLSearchParams({
-                    page: page,
-                    limit: selectLimitDis.value,
+            function currentFilterParams() {
+                return new URLSearchParams({
                     search: searchInputDis.value.trim(),
-
                     sort: currentSort,
                     order: currentOrder,
-
                     surat_day: suratDay.value,
                     surat_month: suratMonth.value,
                     surat_year: suratYear.value,
-
                     diterima_day: diterimaDay.value,
                     diterima_month: diterimaMonth.value,
                     diterima_year: diterimaYear.value,
-
                     tujuan: filterTujuan.value,
                     status: filterStatus.value,
                 });
+            }
+
+            function loadDataDis(page = 1){
+                const params = currentFilterParams();
+                params.set('page', page);
+                params.set('limit', selectLimitDis.value);
 
                 fetch(`?${params.toString()}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -158,6 +168,11 @@
                     paginationDis.innerHTML = data.pagination;
                 });
             }
+
+            exportSuratMasuk.addEventListener('click', () => {
+                const params = currentFilterParams();
+                window.location.href = `{% url 'disposisi:export_archive' %}?${params.toString()}`;
+            });
 
             // Change limit
             selectLimitDis.addEventListener('change', () => loadDataDis(1));

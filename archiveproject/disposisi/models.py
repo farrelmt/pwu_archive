@@ -103,7 +103,10 @@ class Disposisi(models.Model):
     perihal = models.TextField()
     tujuan_disposisi = models.CharField(max_length=50)
     isi_disposisi = models.TextField(blank=True, default='')
+    isi_disposisi_dirut = models.TextField(blank=True, default='')
+    isi_disposisi_direktur = models.TextField(blank=True, default='')
     status_pengajuan = models.CharField(max_length=10, choices=STATUS_CHOICES, default="DIBUAT")
+    deadline = models.DateField(blank=True, null=True)
 
     dokumen_surat_masuk = models.FileField(
         upload_to= rename_dokumen_surat,
@@ -235,6 +238,42 @@ class Disposisi(models.Model):
             }
         return False
 
+    def can_fill_online_disposition(self, user):
+        """Return whether ``user`` owns the currently active online stage."""
+        if not user.is_authenticated:
+            return False
+        if not (
+            self.tipe_disposisi == 'ONLINE'
+            and self.status_pengajuan == 'DIAJUKAN'
+        ):
+            return False
+        if self.tujuan != 'DIREKSI':
+            return self.can_be_approved_by(user)
+
+        if not self.isi_disposisi_dirut:
+            return user.is_superuser or user.role == 'direktur_utama'
+        if not self.isi_disposisi_direktur:
+            return user.is_superuser or user.role in {
+                'direktur', 'direktur_umum',
+            }
+        return False
+
+    def online_input_stage_for(self, user):
+        """Identify the field and label for the active director stage."""
+        if not self.can_fill_online_disposition(user):
+            return None
+        if self.tujuan != 'DIREKSI':
+            return 'isi_disposisi', self.get_tujuan_display()
+        if not self.isi_disposisi_dirut:
+            return 'isi_disposisi_dirut', 'Direktur Utama'
+        return 'isi_disposisi_direktur', 'Direktur'
+
+    @property
+    def direksi_input_complete(self):
+        return bool(
+            self.isi_disposisi_dirut and self.isi_disposisi_direktur
+        )
+
 
 class DisposisiRecipient(models.Model):
     disposisi = models.ForeignKey(
@@ -246,6 +285,7 @@ class DisposisiRecipient(models.Model):
     received_at = models.DateTimeField(blank=True, null=True)
     agreed_at = models.DateTimeField(blank=True, null=True)
     activity_description = models.TextField(blank=True, default='')
+    follow_up_result = models.TextField(blank=True, default='')
     completed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         blank=True,

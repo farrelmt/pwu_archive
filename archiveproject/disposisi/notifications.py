@@ -17,6 +17,11 @@ def send_disposition_shared_notifications(*, request, disposisi, recipient_roles
     )
     sent_count = 0
     failed_count = 0
+    deadline_line = (
+        f'Deadline: {disposisi.deadline:%d/%m/%Y}\n\n'
+        if disposisi.deadline
+        else ''
+    )
 
     for user in users:
         subject = f'NOTIFIKASI SISTEM ARSIP - {disposisi.nomor_agenda}'
@@ -25,6 +30,7 @@ def send_disposition_shared_notifications(*, request, disposisi, recipient_roles
             f'Disposisi {disposisi.nomor_agenda} telah dibagikan kepada Anda.\n'
             f'Nomor surat: {disposisi.nomor_surat}\n'
             f'Perihal: {disposisi.perihal}\n\n'
+            f'{deadline_line}'
             f'Buka disposisi: {detail_url}\n'
         )
         try:

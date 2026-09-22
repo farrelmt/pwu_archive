@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+{% load disposisi_extras %}
 <head>
     <meta charset="UTF-8">
     <title>Disposisi</title>
@@ -33,6 +34,11 @@
         .disposisi-content blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid #777; }
         .disposisi-content h2 { font-size: 19px; }
         .disposisi-content h3 { font-size: 17px; }
+        .dual-director-content { display: flex; flex-direction: column; padding-top: 4px; }
+        .director-entry { position: relative; flex: 0 1 auto; min-height: 0; padding: 4px 14px; overflow: visible; }
+        .director-entry-content { position: relative; min-height: 0; height: auto; overflow: visible; }
+        .director-entry-content > svg[data-signature-overlay="true"] { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; }
+        .director-entry-content > svg[data-signature-overlay="true"][data-signature-layout="positioned"] { position: absolute !important; z-index: 30; display: block; max-width: 100%; }
         .empty-content { color: #666; font-style: italic; }
     </style>
 </head>
@@ -59,7 +65,14 @@
         </div>
     </div>
     <div class="section-title">Isi Disposisi</div>
-    <div class="disposisi-content">{% if disposisi.isi_disposisi %}{{ disposisi.isi_disposisi|safe }}{% else %}<span class="empty-content">Belum ada isi disposisi.</span>{% endif %}</div>
+    {% if disposisi.tujuan == 'DIREKSI' %}
+    <div class="disposisi-content dual-director-content">
+        <section class="director-entry"><div class="director-entry-content">{% if disposisi.isi_disposisi_dirut %}{{ disposisi.isi_disposisi_dirut|normalize_signature_layout }}{% else %}<span class="empty-content">Belum diisi.</span>{% endif %}</div></section>
+        <section class="director-entry"><div class="director-entry-content">{% if disposisi.isi_disposisi_direktur %}{{ disposisi.isi_disposisi_direktur|normalize_signature_layout }}{% else %}<span class="empty-content">Belum diisi.</span>{% endif %}</div></section>
+    </div>
+    {% else %}
+    <div class="disposisi-content">{% if disposisi.isi_disposisi %}{{ disposisi.isi_disposisi|normalize_signature_layout }}{% else %}<span class="empty-content">Belum ada isi disposisi.</span>{% endif %}</div>
+    {% endif %}
 </div>
 </body>
 </html>

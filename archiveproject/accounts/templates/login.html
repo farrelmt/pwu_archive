@@ -51,7 +51,7 @@
             </div>
             {% endif %}
 
-            <form method="POST" action="{% url 'accounts:login' %}" class="space-y-5">
+            <form id="loginForm" method="POST" action="{% url 'accounts:login' %}" class="space-y-5">
                 {% csrf_token %}
                 {% if request.GET.next %}
                 <input type="hidden" name="next" value="{{ request.GET.next }}">
@@ -101,7 +101,7 @@
                     </div>
                 </div>
 
-                <button type="submit"
+                <button id="loginSubmit" type="submit"
                         class="inline-flex h-12 w-full items-center justify-center rounded-xl {% if is_koperasi %}bg-green-800 shadow-green-950/20 hover:bg-green-900 focus:ring-emerald-200{% else %}bg-blue-950 shadow-blue-950/15 hover:bg-blue-900 focus:ring-blue-200{% endif %} px-5 font-semibold text-white shadow-lg transition focus:outline-none focus:ring-4 active:translate-y-px">
                     Masuk
                 </button>
@@ -119,6 +119,18 @@
     const passwordToggle = document.getElementById("showPassword");
     const eyeOpen = document.getElementById("eyeOpen");
     const eyeClosed = document.getElementById("eyeClosed");
+    const loginForm = document.getElementById("loginForm");
+    const loginSubmit = document.getElementById("loginSubmit");
+
+    loginForm?.addEventListener("submit", event => {
+        if (loginForm.dataset.submitted === "true") {
+            event.preventDefault();
+            return;
+        }
+        loginForm.dataset.submitted = "true";
+        loginSubmit.disabled = true;
+        loginSubmit.textContent = "Memproses...";
+    });
 
     passwordToggle?.addEventListener("click", () => {
         const shouldShow = passwordInput.type === "password";

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
-{% load static %}
+{% load static disposisi_extras %}
    <head>
         <meta charset="UTF-8">
         <title>Disposisi - {{ disposisi.nomor_agenda }}</title>
@@ -100,13 +100,24 @@
             </div>
 
             <div class="section-title">Isi Disposisi</div>
+            {% if disposisi.tujuan == 'DIREKSI' %}
+            <div class="disposisi-content dual-director-content">
+                <section class="director-entry">
+                    <div class="director-entry-content">{% if disposisi.isi_disposisi_dirut %}{{ disposisi.isi_disposisi_dirut|normalize_signature_layout }}{% else %}<span class="empty-content">Belum diisi.</span>{% endif %}</div>
+                </section>
+                <section class="director-entry">
+                    <div class="director-entry-content">{% if disposisi.isi_disposisi_direktur %}{{ disposisi.isi_disposisi_direktur|normalize_signature_layout }}{% else %}<span class="empty-content">Belum diisi.</span>{% endif %}</div>
+                </section>
+            </div>
+            {% else %}
             <div class="disposisi-content">
                 {% if disposisi.isi_disposisi %}
-                    {{ disposisi.isi_disposisi|safe }}
+                    {{ disposisi.isi_disposisi|normalize_signature_layout }}
                 {% else %}
                     <span class="empty-content">Belum ada isi disposisi.</span>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
         <script nonce="{{ request.csp_nonce }}">
             document.getElementById("printDisposition").addEventListener("click", () => {

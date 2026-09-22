@@ -1,6 +1,7 @@
 from django import forms
 from django.core.files.uploadedfile import UploadedFile
 from django.utils.html import escape, strip_tags
+from django.utils import timezone
 from datetime import date
 from html.parser import HTMLParser
 import re
@@ -59,11 +60,62 @@ class DisposisiRichTextSanitizer(HTMLParser):
             ):
                 width = float(viewbox_match.group(1))
                 height = float(viewbox_match.group(2))
-                if not (100 <= width <= 4000 and 100 <= height <= 4000):
+                signature_layout = attribute_map.get("data-signature-layout")
+                is_positioned = signature_layout in {"inline", "positioned"}
+                minimum_size = 10 if is_positioned else 100
+                if not (
+                    minimum_size <= width <= 4000
+                    and minimum_size <= height <= 4000
+                ):
                     return
+                inline_attributes = ""
+                preserve_aspect_ratio = "xMidYMax meet"
+                if is_positioned:
+                    numeric_values = {}
+                    for name in (
+                        "data-signature-width",
+                        "data-signature-height",
+                        "data-signature-margin-left",
+                        "data-signature-margin-top",
+                        "data-signature-origin-x",
+                        "data-signature-origin-y",
+                    ):
+                        try:
+                            numeric_values[name] = float(attribute_map[name])
+                        except (KeyError, TypeError, ValueError):
+                            return
+                    display_width = numeric_values["data-signature-width"]
+                    display_height = numeric_values["data-signature-height"]
+                    margin_left = numeric_values["data-signature-margin-left"]
+                    margin_top = numeric_values["data-signature-margin-top"]
+                    origin_x = numeric_values["data-signature-origin-x"]
+                    origin_y = numeric_values["data-signature-origin-y"]
+                    if not (
+                        10 <= display_width <= 760
+                        and 10 <= display_height <= 700
+                        and 0 <= margin_left <= 760
+                        and 0 <= margin_top <= 700
+                        and 0 <= origin_x <= 4000
+                        and 0 <= origin_y <= 4000
+                    ):
+                        return
+                    preserve_aspect_ratio = "xMinYMin meet"
+                    inline_attributes = (
+                        ' data-signature-layout="positioned"'
+                        f' data-signature-width="{display_width:g}"'
+                        f' data-signature-height="{display_height:g}"'
+                        f' data-signature-margin-left="{margin_left:g}"'
+                        f' data-signature-margin-top="{margin_top:g}"'
+                        f' data-signature-origin-x="{origin_x:g}"'
+                        f' data-signature-origin-y="{origin_y:g}"'
+                        f' style="position: absolute; width: {display_width:g}px; '
+                        f'height: {display_height:g}px; left: {origin_x:g}px; '
+                        f'top: {origin_y:g}px"'
+                    )
                 self.parts.append(
                     f'<svg viewBox="0 0 {width:g} {height:g}" '
-                    'data-signature-overlay="true" preserveAspectRatio="xMidYMax meet" role="img" '
+                    'data-signature-overlay="true"'
+                    f'{inline_attributes} preserveAspectRatio="{preserve_aspect_ratio}" role="img" '
                     'aria-label="Tanda tangan digital">'
                 )
                 self.inside_signature = True
@@ -260,6 +312,17 @@ class DisposisiUploadForm(forms.ModelForm):
 
 
 class OnlineDisposisiIsiForm(forms.ModelForm):
+    def __init__(
+        self,
+        *args,
+        max_layout_units=2400,
+        require_signature=False,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.max_layout_units = max_layout_units
+        self.require_signature = require_signature
+
     class Meta:
         model = Disposisi
         fields = ["isi_disposisi"]
@@ -280,8 +343,12 @@ class OnlineDisposisiIsiForm(forms.ModelForm):
         visible_text = strip_tags(layout_text).replace("&nbsp;", "").strip()
         if not visible_text and "<svg " not in content:
             raise forms.ValidationError("Isi disposisi wajib diisi sebelum dikirim.")
+        if self.require_signature and "<svg " not in content:
+            raise forms.ValidationError(
+                "Tanda tangan wajib digambar sebelum isi disposisi dikirim."
+            )
         layout_units = len(visible_text) + (visible_text.count("\n") * 60)
-        if layout_units > 2400:
+        if layout_units > self.max_layout_units:
             raise forms.ValidationError(
                 "Isi disposisi melebihi batas satu halaman A4. Kurangi teks."
             )
@@ -300,17 +367,42 @@ class ShareDisposisiForm(forms.Form):
             "invalid_choice": "Tujuan disposisi tidak valid.",
         },
     )
+    deadline = forms.DateField(
+        label="Deadline",
+        required=True,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        error_messages={
+            "required": "Deadline disposisi wajib dipilih.",
+            "invalid": "Format deadline tidak valid.",
+        },
+    )
 
-    def __init__(self, *args, choices=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        choices=None,
+        include_deadline=True,
+        existing_deadline=None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
+        self.existing_deadline = existing_deadline
         self.fields["recipients"].choices = (
             choices or Disposisi.ONLINE_SHARE_ROLE_CHOICES
         )
+        if not include_deadline:
+            self.fields.pop("deadline")
+
+    def clean_deadline(self):
+        deadline = self.cleaned_data["deadline"]
+        if deadline < timezone.localdate() and deadline != self.existing_deadline:
+            raise forms.ValidationError("Deadline tidak boleh sebelum hari ini.")
+        return deadline
 
 
 class RecipientActivityForm(forms.Form):
     activity_description = forms.CharField(
-        label="Aktivitas",
+        label="Aktivitas yang Dilakukan",
         max_length=2000,
         strip=True,
         widget=forms.Textarea(attrs={
@@ -322,5 +414,18 @@ class RecipientActivityForm(forms.Form):
         error_messages={
             "required": "Aktivitas wajib diisi sebelum disposisi diselesaikan.",
             "max_length": "Aktivitas maksimal 2.000 karakter.",
+        },
+    )
+    follow_up_result = forms.CharField(
+        label="Hasil Tindak Lanjut",
+        max_length=2000,
+        strip=True,
+        widget=forms.Textarea(attrs={
+            "rows": 5,
+            "placeholder": "Jelaskan hasil dari tindak lanjut tersebut.",
+        }),
+        error_messages={
+            "required": "Hasil tindak lanjut wajib diisi.",
+            "max_length": "Hasil tindak lanjut maksimal 2.000 karakter.",
         },
     )

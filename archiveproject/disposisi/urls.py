@@ -10,6 +10,7 @@ register_converter(EncryptedDisposisiIdConverter, 'disposisi_id')
 
 urlpatterns = [
     path('', views.list_disposisi, name='disposisi'),
+    path('export/archive/', views.export_disposisi_archive, name='export_archive'),
     path('tambah/', views.tambah_disposisi, name='tambahdisposisi'),
     path('<disposisi_id:pk>/', views.detail_disposisi, name='detaildisposisi'),
     path('edit/<disposisi_id:pk>/', views.update_disposisi, name='editdisposisi'),
