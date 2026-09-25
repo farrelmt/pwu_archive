@@ -3,7 +3,7 @@
 
 {% block content %}
 <main class="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
-    <section class="relative hidden min-h-screen overflow-hidden {% if is_koperasi %}bg-green-950{% else %}bg-blue-950{% endif %} p-12 text-white lg:flex lg:items-center xl:p-16">
+    <section class="relative hidden min-h-screen overflow-hidden {% if is_risk %}bg-slate-950{% elif is_koperasi %}bg-green-950{% else %}bg-blue-950{% endif %} p-12 text-white lg:flex lg:items-center xl:p-16">
         <div class="absolute -left-24 -top-24 h-80 w-80 rounded-full {% if is_koperasi %}bg-emerald-500/25{% else %}bg-blue-600/25{% endif %} blur-3xl"></div>
         <div class="absolute -bottom-32 -right-20 h-96 w-96 rounded-full {% if is_koperasi %}bg-lime-400/15{% else %}bg-cyan-400/15{% endif %} blur-3xl"></div>
         <div class="absolute inset-0 opacity-[0.06]" style="background-image:radial-gradient(#fff 1px,transparent 1px);background-size:24px 24px"></div>
@@ -13,14 +13,14 @@
             <h1 class="text-4xl font-bold uppercase leading-tight tracking-tight xl:text-5xl">
                 {{ system_name }}
             </h1>
-            <p class="mt-6 max-w-lg text-lg leading-relaxed {% if is_koperasi %}text-emerald-100{% else %}text-blue-200{% endif %}">
+            {% if system_description %}<p class="mt-6 max-w-lg text-lg leading-relaxed {% if is_risk %}text-amber-100{% elif is_koperasi %}text-emerald-100{% else %}text-blue-200{% endif %}">
                 {{ system_description }}
-            </p>
+            </p>{% endif %}
         </div>
 
     </section>
 
-    <section class="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-white {% if is_koperasi %}via-emerald-50/40 to-green-100/60{% else %}via-blue-50/40 to-slate-100{% endif %} px-5 py-10 sm:px-10">
+    <section class="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-white {% if is_risk %}via-amber-50/40 to-slate-100{% elif is_koperasi %}via-emerald-50/40 to-green-100/60{% else %}via-blue-50/40 to-slate-100{% endif %} px-5 py-10 sm:px-10">
         <div class="w-full max-w-md">
             <div class="mb-8 flex justify-center lg:hidden">
                 <img src="{% if is_koperasi %}{% static 'images/koperasi-wira-jatim.png' %}{% else %}{% static 'images/wirajatim-logo-horizontal.png' %}{% endif %}"
@@ -29,7 +29,7 @@
             </div>
 
             <div class="mb-8 text-center lg:text-left">
-                <p class="text-sm font-semibold {% if is_koperasi %}text-emerald-700{% else %}text-blue-700{% endif %}">Selamat datang kembali</p>
+                <p class="text-sm font-semibold {% if is_risk %}text-amber-700{% elif is_koperasi %}text-emerald-700{% else %}text-blue-700{% endif %}">Selamat datang kembali</p>
                 <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Masuk ke akun Anda</h2>
                 <p class="mt-2 text-sm leading-6 text-slate-500">{{ account_description }}</p>
             </div>

@@ -23,12 +23,37 @@ LANDING_HOSTS = frozenset(
         default=['pwujatim.site', 'www.pwujatim.site'],
     )
 )
+ARCHIVE_HOSTS = frozenset(
+    host.lower()
+    for host in env.list(
+        'ARCHIVE_HOSTS',
+        default=['archive.pwujatim.site', 'archive.localhost'],
+    )
+)
 KOPERASI_HOSTS = frozenset(
     host.lower()
     for host in env.list(
         'KOPERASI_HOSTS',
         default=['koperasi.pwujatim.site', 'koperasi.localhost'],
     )
+)
+RISK_HOSTS = frozenset(
+    host.lower()
+    for host in env.list(
+        'RISK_HOSTS',
+        default=['risk.pwujatim.site', 'risk.localhost'],
+    )
+)
+INVENTORY_HOSTS = frozenset(
+    host.lower()
+    for host in env.list(
+        'INVENTORY_HOSTS',
+        default=['inventory.pwujatim.site', 'inventory.localhost'],
+    )
+)
+ALLOWED_HOSTS = list(
+    set(ALLOWED_HOSTS) | set(LANDING_HOSTS) | set(ARCHIVE_HOSTS) | set(KOPERASI_HOSTS)
+    | set(RISK_HOSTS) | set(INVENTORY_HOSTS)
 )
 
 INSTALLED_APPS = [
@@ -45,6 +70,8 @@ INSTALLED_APPS = [
     'disposisi',
     'pengaturan',
     'koperasi.apps.KoperasiConfig',
+    'risk_management.apps.RiskManagementConfig',
+    'inventory.apps.InventoryConfig',
 ]
 
 TAILWIND_APP_NAME = 'theme'
@@ -54,8 +81,10 @@ MIDDLEWARE = [
     'archiveproject.security.SecurityHeadersMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'archiveproject.host_routing.KoperasiHostMiddleware',
+    'archiveproject.host_routing.RiskHostMiddleware',
+    'archiveproject.host_routing.InventoryHostMiddleware',
     'archiveproject.host_routing.LandingHostMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'archiveproject.host_routing.SharedDomainSessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -181,6 +210,10 @@ SYSTEM_BASE_URL = env(
     'SYSTEM_BASE_URL',
     default='https://archive.pwujatim.site',
 ).rstrip('/')
+PORTAL_BASE_URL = env(
+    'PORTAL_BASE_URL',
+    default='https://pwujatim.site',
+).rstrip('/')
 ARCHIVE_BASE_URL = env(
     'ARCHIVE_BASE_URL',
     default='https://archive.pwujatim.site',
@@ -188,6 +221,14 @@ ARCHIVE_BASE_URL = env(
 KOPERASI_BASE_URL = env(
     'KOPERASI_BASE_URL',
     default='https://koperasi.pwujatim.site',
+).rstrip('/')
+RISK_BASE_URL = env(
+    'RISK_BASE_URL',
+    default='https://risk.pwujatim.site',
+).rstrip('/')
+INVENTORY_BASE_URL = env(
+    'INVENTORY_BASE_URL',
+    default='https://inventory.pwujatim.site',
 ).rstrip('/')
 
 SESSION_COOKIE_AGE = env.int('SESSION_COOKIE_AGE', default=28800)

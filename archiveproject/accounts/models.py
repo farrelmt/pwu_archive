@@ -22,6 +22,9 @@ class SystemUser(AbstractUser):
         ('kadiv_aset', 'Kepala Divisi Aset'),
         ('kadiv_spi', 'Kepala SPI'),
         ('akuntan', 'Akuntan'),
+        ('risk', 'Pengguna Manajemen Risiko'),
+        ('inventory', 'Pengguna Inventaris'),
+        ('employee', 'Pegawai'),
         ('wirajatim_kso', 'Wirajatim KSO'),
     ]
 

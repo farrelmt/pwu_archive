@@ -108,7 +108,7 @@
             <a href="{% url 'homepage:divisi' %}"
                class="app-nav-link {% if 'divisi' in request.path %}app-nav-link-active{% endif %}">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h4.125c.621 0 1.125-.504 1.125-1.125v-1.5a3.375 3.375 0 0 0-6.75 0v1.5c0 .621.504 1.125 1.125 1.125h.375Zm0 0h-9m9 0v-1.5a4.5 4.5 0 0 0-9 0v1.5m0 0H3.375a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 1 5.424-2.678M18.375 9.75a2.625 2.625 0 1 0 0-5.25 2.625 2.625 0 0 0 0 5.25Zm-12.75 0a2.625 2.625 0 1 0 0-5.25 2.625 2.625 0 0 0 0 5.25ZM12 11.25a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
-                <span>Divisi</span>
+                <span>Pengguna &amp; Akses</span>
             </a>
             {% endif %}
 
@@ -125,7 +125,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v16.5M5.25 5.25h11.121a1.5 1.5 0 0 1 1.06.44l.879.878a1.5 1.5 0 0 0 1.06.44h.88v8.25h-.879a1.5 1.5 0 0 1-1.06-.44l-.879-.878a1.5 1.5 0 0 0-1.06-.44H5.25"/></svg>
                 <span>Report</span>
             </a>
-            <a href="{% url 'pengaturan:main' %}"
+            <a href="{{ portal_settings_url }}"
                class="app-nav-link {% if 'pengaturan' in request.path %}app-nav-link-active{% endif %}">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94a1.5 1.5 0 0 1 2.812 0l.205.535a1.5 1.5 0 0 0 2.006.832l.523-.233a1.5 1.5 0 0 1 1.988 1.988l-.233.523a1.5 1.5 0 0 0 .832 2.006l.535.205a1.5 1.5 0 0 1 0 2.812l-.535.205a1.5 1.5 0 0 0-.832 2.006l.233.523a1.5 1.5 0 0 1-1.988 1.988l-.523-.233a1.5 1.5 0 0 0-2.006.832l-.205.535a1.5 1.5 0 0 1-2.812 0l-.205-.535a1.5 1.5 0 0 0-2.006-.832l-.523.233a1.5 1.5 0 0 1-1.988-1.988l.233-.523a1.5 1.5 0 0 0-.832-2.006l-.535-.205a1.5 1.5 0 0 1 0-2.812l.535-.205a1.5 1.5 0 0 0 .832-2.006l-.233-.523A1.5 1.5 0 0 1 6.86 5.074l.523.233a1.5 1.5 0 0 0 2.006-.832l.205-.535Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 12a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg>
                 <span>Pengaturan</span>

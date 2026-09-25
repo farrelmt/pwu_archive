@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id">
+{% load static tailwind_tags %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hapus Akun - PWU Jatim</title>
+    <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
+    {% tailwind_css %}
+</head>
+<body class="flex min-h-screen items-center justify-center bg-slate-100 px-5 py-10 text-slate-900">
+    <main class="w-full max-w-xl overflow-hidden rounded-3xl border border-red-200 bg-white shadow-xl">
+        <div class="flex items-start gap-4 border-b border-red-100 bg-red-50 px-8 py-7">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-700">
+                <svg aria-hidden="true" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.8 2.7 17a2 2 0 0 0 1.73 3h15.14a2 2 0 0 0 1.73-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/>
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <p class="text-xs font-bold uppercase tracking-widest text-red-600">Tindakan permanen</p>
+                <h1 class="mt-1 break-words text-2xl font-extrabold text-red-950">Hapus akun {{ member.username }}?</h1>
+                <p class="mt-1 text-sm text-red-700">Pastikan akun yang dipilih sudah benar.</p>
+            </div>
+        </div>
+        <div class="px-8 py-7">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Akun yang akan dihapus</p>
+                <p class="mt-2 text-lg font-extrabold text-slate-900">{{ member.get_full_name|default:member.username }}</p>
+                <p class="mt-1 text-sm font-medium text-slate-500">@{{ member.username }}</p>
+            </div>
+            <p class="mt-5 text-sm leading-6 text-slate-600">Seluruh pengaturan akses akun akan ikut dihapus. Tindakan ini tidak dapat dibatalkan.</p>
+            {% if has_disposition_history %}
+                <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">Akun memiliki riwayat disposisi sehingga tidak dapat dihapus. Kembali ke Edit Akses dan nonaktifkan akun agar histori tetap tersimpan.</div>
+            {% endif %}
+        </div>
+        <div class="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-8 py-5 sm:flex-row sm:items-center sm:justify-end">
+            <a href="{% url 'homepage:member_edit' member.pk %}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100">Batal</a>
+            {% if not has_disposition_history %}
+                <form method="post" class="sm:w-auto">{% csrf_token %}<button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-800 focus:outline-none focus:ring-4 focus:ring-red-200">Ya, Hapus Akun</button></form>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>

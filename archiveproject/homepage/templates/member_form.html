@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="id">
+{% load static tailwind_tags %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_create %}Member Baru{% else %}Edit Akses{% endif %} - PWU Jatim</title>
+    <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
+    {% tailwind_css %}
+    <style>
+        .role-check-grid { display: grid; gap: .55rem; margin-top: .65rem; }
+        .role-check-grid > div label { display: flex; align-items: center; gap: .65rem; border: 1px solid #e2e8f0; border-radius: .75rem; padding: .65rem .8rem; background: #fff; font-size: .875rem; font-weight: 600; color: #334155; cursor: pointer; }
+        .role-check-grid > div label:hover { border-color: #93c5fd; background: #eff6ff; }
+        .role-check-grid input { width: 1rem; height: 1rem; accent-color: #1d4ed8; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+    <main class="mx-auto max-w-6xl px-5 py-10">
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-blue-700">Member &amp; Akses</p>
+                <h1 class="mt-1 text-3xl font-extrabold text-blue-950">{% if is_create %}Tambah Member Baru{% else %}Edit {{ member.username }}{% endif %}</h1>
+                {% if not is_create %}
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800">{{ member.get_role_display|default:"Tanpa role utama" }}</span>
+                        <span class="rounded-full px-3 py-1 text-xs font-bold {% if member.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">{% if member.is_active %}Aktif{% else %}Nonaktif{% endif %}</span>
+                    </div>
+                {% endif %}
+            </div>
+            <a href="{% url 'homepage:member_list' %}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Kembali</a>
+        </div>
+
+        {% for message in messages %}
+            <div class="mb-5 rounded-xl border px-4 py-3 text-sm font-semibold {% if message.tags == 'error' %}border-red-200 bg-red-50 text-red-800{% else %}border-green-200 bg-green-50 text-green-800{% endif %}">{{ message }}</div>
+        {% endfor %}
+
+        <form method="post" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="m-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{{ form.non_field_errors }}</div>{% endif %}
+
+            <section class="border-b border-slate-200 p-6 lg:p-8">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-widest text-blue-700">Profil</p>
+                    <h2 class="mt-1 text-xl font-extrabold">Identitas Akun</h2>
+                    <p class="mt-1 text-sm text-slate-500">Informasi yang digunakan untuk login dan identifikasi pengguna.</p>
+                </div>
+                <div class="mt-5 grid gap-5 md:grid-cols-2">
+                    {% for field in form %}
+                        {% if field.name == 'username' or field.name == 'first_name' or field.name == 'last_name' or field.name == 'email' or field.name == 'phone' or field.name == 'password' or field.name == 'password_confirm' %}
+                            <label class="block">
+                                <span class="text-sm font-bold text-slate-700">{{ field.label }}</span>{{ field }}
+                                {% if field.help_text %}<span class="mt-1 block text-xs text-slate-500">{{ field.help_text }}</span>{% endif %}
+                                {% for error in field.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}
+                            </label>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="p-6 lg:p-8">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-widest text-blue-700">Kewenangan</p>
+                    <h2 class="mt-1 text-xl font-extrabold">Role &amp; Akses Sistem</h2>
+                    <p class="mt-1 text-sm text-slate-500">Pilih hanya role yang diperlukan. Satu akun dapat memiliki beberapa role.</p>
+                </div>
+                <div class="mt-6 grid gap-5 lg:grid-cols-2">
+                    <div class="rounded-2xl border border-blue-200 bg-blue-50/60 p-5">
+                        <p class="text-xs font-bold uppercase tracking-widest text-blue-700">Sistem Arsip</p>
+                        <label class="mt-3 block"><span class="text-sm font-bold text-slate-800">{{ form.role.label }}</span>{{ form.role }}{% for error in form.role.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</label>
+                    </div>
+                    <div class="rounded-2xl border border-violet-200 bg-violet-50/60 p-5">
+                        <p class="text-xs font-bold uppercase tracking-widest text-violet-700">Sistem Inventaris</p>
+                        <label class="mt-3 block"><span class="text-sm font-bold text-slate-800">{{ form.inventory_role.label }}</span>{{ form.inventory_role }}{% for error in form.inventory_role.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</label>
+                        <p class="mt-2 text-xs text-slate-500">Setiap pengguna aktif minimal menjadi Peserta Inventaris.</p>
+                    </div>
+                    <div class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
+                        <p class="text-xs font-bold uppercase tracking-widest text-emerald-700">Sistem Koperasi</p>
+                        <div class="mt-3"><span class="text-sm font-bold text-slate-800">{{ form.koperasi_roles.label }}</span>{{ form.koperasi_roles }}{% if form.koperasi_roles.help_text %}<p class="mt-2 text-xs text-slate-500">{{ form.koperasi_roles.help_text }}</p>{% endif %}{% for error in form.koperasi_roles.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</div>
+                    </div>
+                    <div class="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+                        <p class="text-xs font-bold uppercase tracking-widest text-amber-700">Manajemen Risiko</p>
+                        <div class="mt-3"><span class="text-sm font-bold text-slate-800">{{ form.risk_roles.label }}</span>{{ form.risk_roles }}{% if form.risk_roles.help_text %}<p class="mt-2 text-xs text-slate-500">{{ form.risk_roles.help_text }}</p>{% endif %}{% for error in form.risk_roles.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</div>
+                        <label class="mt-4 block"><span class="text-sm font-bold text-slate-800">{{ form.risk_division.label }}</span>{{ form.risk_division }}{% for error in form.risk_division.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</label>
+                    </div>
+                </div>
+                <label class="mt-5 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <span>{{ form.is_active }}</span>
+                    <span><strong class="block text-sm text-slate-800">Akun aktif</strong><small class="text-slate-500">Pengguna dapat login dan menggunakan sistem sesuai role.</small>{% for error in form.is_active.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</span>
+                </label>
+            </section>
+
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+                <div>{% if not is_create %}<a href="{% url 'homepage:member_delete' member.pk %}" class="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-700 hover:bg-red-100">Hapus Akun</a>{% endif %}</div>
+                <div class="flex gap-3"><a href="{% url 'homepage:member_list' %}" class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700">Batal</a><button type="submit" class="rounded-xl bg-blue-800 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-900">{% if is_create %}Buat Member{% else %}Simpan Perubahan{% endif %}</button></div>
+            </div>
+        </form>
+    </main>
+</body>
+</html>

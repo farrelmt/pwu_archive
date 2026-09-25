@@ -31,7 +31,9 @@ HOST_SETTINGS = override_settings(
         "localhost",
     ],
     KOPERASI_HOSTS=frozenset({"koperasi.localhost"}),
+    ARCHIVE_HOSTS=frozenset({"archive.localhost"}),
     LANDING_HOSTS=frozenset({"localhost"}),
+    PORTAL_BASE_URL="https://pwujatim.site",
 )
 
 
@@ -60,7 +62,7 @@ class KoperasiHostTests(TestCase):
         self.assertContains(response, "Koperasi Karyawan Wira Jatim")
         self.assertContains(response, "Sie Simpan Pinjam")
         self.assertContains(response, 'href="/report/"')
-        self.assertContains(response, 'href="/pengaturan/"')
+        self.assertContains(response, 'href="http://localhost:8000/settings/"')
 
     def test_it_user_can_open_koperasi_report_and_settings(self):
         self.client.force_login(self.user)
@@ -76,20 +78,19 @@ class KoperasiHostTests(TestCase):
 
         self.assertEqual(report_response.status_code, 200)
         self.assertContains(report_response, "Report Bug")
-        self.assertEqual(settings_response.status_code, 200)
-        self.assertContains(settings_response, "Pengaturan Profil")
-        self.assertContains(settings_response, "KOPERASI KARYAWAN WIRA JATIM")
+        self.assertEqual(settings_response.status_code, 302)
+        self.assertEqual(settings_response.url, "http://localhost:8000/settings/")
 
-    def test_koperasi_login_uses_koperasi_branding(self):
+    def test_koperasi_login_redirects_to_central_portal(self):
         response = self.client.get(
             "/accounts/login/",
             HTTP_HOST="koperasi.localhost:8000",
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Koperasi Karyawan Wira Jatim")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("http://localhost:8000/accounts/login/"))
 
-    def test_archive_role_cannot_log_in_to_koperasi(self):
+    def test_login_post_on_koperasi_is_redirected_to_central_portal(self):
         archive_user = get_user_model().objects.create_user(
             username="archive_user",
             password="test-password",
@@ -105,11 +106,8 @@ class KoperasiHostTests(TestCase):
             HTTP_HOST="koperasi.localhost:8000",
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
-            "tidak memiliki akses ke Sistem Koperasi",
-        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("http://localhost:8000/accounts/login/"))
         self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_archive_role_cannot_open_koperasi_settings(self):
@@ -125,13 +123,19 @@ class KoperasiHostTests(TestCase):
             HTTP_HOST="koperasi.localhost:8000",
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "http://localhost:8000/settings/")
 
     def test_accountant_without_scope_assignment_can_open_dashboard(self):
         accountant = get_user_model().objects.create_user(
             username="akuntan_grup",
             password="test-password",
             role="akuntan",
+        )
+        KoperasiAccess.objects.create(
+            user=accountant,
+            company=None,
+            role="auditor",
         )
         self.client.force_login(accountant)
 
@@ -205,7 +209,7 @@ class KoperasiScopeTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("melebihi saldo", str(form.non_field_errors()))
 
-    def test_user_without_koperasi_access_is_forbidden(self):
+    def test_archive_user_with_koperasi_access_is_allowed(self):
         other = get_user_model().objects.create_user(
             username="archive_only",
             password="test-password",
@@ -220,7 +224,7 @@ class KoperasiScopeTests(TestCase):
 
         response = self.client.get("/", HTTP_HOST="koperasi.localhost:8000")
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
 
     def test_scoped_officer_cannot_manage_global_access(self):
         response = self.client.get(
@@ -230,19 +234,15 @@ class KoperasiScopeTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_accountant_is_redirected_away_from_archive(self):
+    def test_accountant_can_open_archive(self):
         response = self.client.get(
             "/",
             HTTP_HOST="archive.localhost:8000",
         )
 
-        self.assertRedirects(
-            response,
-            "http://koperasi.localhost:8000/",
-            fetch_redirect_response=False,
-        )
+        self.assertEqual(response.status_code, 200)
 
-    def test_accountant_cannot_log_in_to_archive(self):
+    def test_archive_login_is_also_centralized(self):
         self.client.logout()
 
         response = self.client.post(
@@ -254,8 +254,8 @@ class KoperasiScopeTests(TestCase):
             HTTP_HOST="archive.localhost:8000",
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "hanya dapat digunakan")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("http://localhost:8000/accounts/login/"))
         self.assertNotIn("_auth_user_id", self.client.session)
 
 

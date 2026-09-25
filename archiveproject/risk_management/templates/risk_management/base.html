@@ -1,0 +1,55 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1236d4">
+    <title>{% block title %}Sistem Manajemen Risiko{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
+    {% tailwind_css %}
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+    <header class="fixed inset-x-0 top-0 z-40 flex h-16 items-center border-b border-blue-700 bg-blue-800 px-4 text-white shadow-lg lg:px-6">
+        <button id="riskMenu" type="button" class="mr-3 inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/10 lg:hidden" aria-label="Buka menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-6 w-6"><path stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <a href="{% url 'risk:dashboard' %}" class="flex items-center gap-3">
+            <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-lime-400 text-blue-950">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-6 w-6"><path stroke-width="1.8" d="M12 3 4 6.5v5.6c0 4.4 3.4 7.7 8 8.4 4.6-.7 8-4 8-8.4V6.5L12 3Z"/><path stroke-width="1.8" stroke-linecap="round" d="M12 7.5v5M12 16h.01"/></svg>
+            </span>
+            <span><span class="block text-base font-extrabold tracking-wide sm:text-xl">MANAJEMEN RISIKO</span><span class="hidden text-[10px] font-semibold uppercase tracking-[.2em] text-lime-300 sm:block">PWU Jatim</span></span>
+        </a>
+        <div class="ml-auto text-right">
+            <p class="text-sm font-semibold">{{ request.user.get_full_name|default:request.user.username }}</p>
+            <p class="text-xs text-lime-300">{% if request.user.is_superuser %}Superuser{% else %}{{ request.risk_role_display }}{% endif %}</p>
+        </div>
+    </header>
+    <div id="riskBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 lg:hidden"></div>
+    <aside id="riskSidebar" class="fixed bottom-0 left-0 top-16 z-50 flex w-64 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform lg:translate-x-0">
+        <nav class="flex-1 p-3 py-5">
+            <p class="mb-2 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Ruang Kerja</p>
+            <a class="risk-nav {% if request.path == '/' %}risk-nav-active{% endif %}" href="{% url 'risk:dashboard' %}">Ringkasan</a>
+            <a class="risk-nav {% if '/risiko/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:risk_list' %}">Register Risiko</a>
+            <a class="risk-nav {% if '/pemantauan/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:monitoring_report' %}">Pemantauan Triwulan</a>
+            <a class="risk-nav {% if '/divisi/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:divisions' %}">Divisi &amp; Penanggung Jawab</a>
+            <p class="mb-2 mt-7 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Akun</p>
+            <a class="risk-nav" href="{{ portal_settings_url }}">Pengaturan</a>
+        </nav>
+        <div class="border-t border-slate-200 p-3">
+            <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50">Keluar</button></form>
+        </div>
+    </aside>
+    <main class="min-h-screen pt-16 lg:pl-64">
+        <div class="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">
+            {% for message in messages %}<div class="mb-4 rounded-xl border {% if message.tags == 'error' %}border-red-200 bg-red-50 text-red-700{% else %}border-emerald-200 bg-emerald-50 text-emerald-800{% endif %} px-4 py-3 text-sm">{{ message }}</div>{% endfor %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    <style nonce="{{ request.csp_nonce }}">
+        .risk-nav{display:block;margin:.125rem 0;border-radius:.75rem;padding:.7rem .8rem;color:#475569;font-size:.875rem;font-weight:600;transition:.15s}.risk-nav:hover{background:#eff6ff;color:#1d4ed8}.risk-nav-active{background:#dbeafe;color:#1e40af}
+        .risk-badge{display:inline-flex;border-radius:9999px;padding:.25rem .65rem;font-size:.75rem;font-weight:700}.risk-low{background:#dcfce7;color:#166534}.risk-medium{background:#fef9c3;color:#854d0e}.risk-high{background:#ffedd5;color:#9a3412}.risk-extreme{background:#fee2e2;color:#991b1b}
+    </style>
+    <script nonce="{{ request.csp_nonce }}">const menu=document.getElementById('riskMenu'),sidebar=document.getElementById('riskSidebar'),backdrop=document.getElementById('riskBackdrop');function toggleMenu(open){sidebar?.classList.toggle('-translate-x-full',!open);backdrop?.classList.toggle('hidden',!open)}menu?.addEventListener('click',()=>toggleMenu(sidebar?.classList.contains('-translate-x-full')));backdrop?.addEventListener('click',()=>toggleMenu(false));</script>
+</body>
+</html>

@@ -55,7 +55,7 @@
             {% endif %}
             <p class="mb-2 mt-7 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Lainnya</p>
             <a class="koperasi-nav {% if '/report/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:bug_report' %}">Report Bug</a>
-            <a class="koperasi-nav {% if '/pengaturan/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'pengaturan:main' %}">Pengaturan</a>
+            <a class="koperasi-nav" href="{{ portal_settings_url }}">Pengaturan</a>
         </nav>
         <div class="border-t border-slate-200 p-3">
             <form method="post" action="{% url 'accounts:logout' %}">

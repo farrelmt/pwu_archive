@@ -1,0 +1,40 @@
+{% extends 'risk_management/base.html' %}
+{% block title %}Laporan Pemantauan Risiko{% endblock %}
+{% block content %}
+<div class="risk-report">
+    <div class="flex flex-wrap items-end justify-between gap-4 print-header">
+        <div><p class="text-sm font-bold uppercase tracking-[.18em] text-lime-600">Laporan Pemantauan Risiko</p><h1 class="mt-1 text-3xl font-bold text-blue-950">{{ quarter_label }} {{ year }}</h1><p class="mt-2 text-sm text-slate-500">Realisasi rencana aksi, perubahan skor, dan risiko prioritas.</p></div>
+        <button type="button" id="printRiskReport" class="rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-600">Cetak Laporan</button>
+    </div>
+
+    <form method="get" class="mt-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm report-filters">
+        <label class="text-sm font-semibold text-slate-700">Tahun<select name="year" class="mt-1 block rounded-xl border border-slate-300 px-3 py-2.5">{% for item in available_years %}<option value="{{ item }}" {% if item == year %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+        <label class="text-sm font-semibold text-slate-700">Triwulan<select name="quarter" class="mt-1 block rounded-xl border border-slate-300 px-3 py-2.5">{% for value,label in quarter_choices %}<option value="{{ value }}" {% if value == quarter %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="min-w-56 flex-1 text-sm font-semibold text-slate-700">Divisi<select name="division" class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5"><option value="">Semua divisi</option>{% for division in divisions %}<option value="{{ division.pk }}" {% if division.pk|stringformat:'s' == division_filter %}selected{% endif %}>{{ division.name }}</option>{% endfor %}</select></label>
+        <button class="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white">Terapkan</button>
+    </form>
+
+    <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6 report-summary">
+        <div class="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase text-slate-500">Jumlah Risiko</p><p class="mt-2 text-3xl font-bold text-blue-950">{{ totals.risk_count }}</p></div>
+        <div class="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase text-slate-500">Rencana Aksi</p><p class="mt-2 text-3xl font-bold text-blue-950">{{ totals.plan_count }}</p></div>
+        <div class="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase text-slate-500">Realisasi</p><p class="mt-2 text-3xl font-bold text-emerald-700">{{ totals.realized_count }}</p></div>
+        <div class="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase text-slate-500">Capaian</p><p class="mt-2 text-3xl font-bold text-emerald-700">{{ totals.realization_percent }}%</p></div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase text-slate-500">Skor Awal</p><p class="mt-2 text-3xl font-bold">{{ totals.initial_score }}</p></div>
+        <div class="rounded-2xl border border-lime-200 bg-lime-50 p-5 shadow-sm"><p class="text-xs font-bold uppercase text-lime-800">Penurunan Skor</p><p class="mt-2 text-3xl font-bold text-lime-800">{{ totals.score_reduction }}</p></div>
+    </div>
+
+    <section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm report-section">
+        <div class="border-b border-slate-200 px-5 py-4"><h2 class="text-lg font-bold text-blue-950">Rekapitulasi Penanganan Risiko</h2></div>
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm report-table"><thead class="bg-blue-900 text-xs uppercase text-white"><tr><th class="px-4 py-3">Divisi</th><th class="px-4 py-3 text-center">Jumlah Risiko</th><th class="px-4 py-3 text-center">Rencana</th><th class="px-4 py-3 text-center">Realisasi</th><th class="px-4 py-3 text-center">%</th><th class="px-4 py-3 text-center">Skor Awal</th><th class="px-4 py-3 text-center">Skor Akhir</th><th class="px-4 py-3 text-center">Penurunan</th></tr></thead><tbody class="divide-y divide-slate-200">{% for row in division_rows %}<tr><td class="px-4 py-3 font-semibold">{{ row.division.name }}</td><td class="px-4 py-3 text-center">{{ row.risk_count }}</td><td class="px-4 py-3 text-center">{{ row.plan_count }}</td><td class="px-4 py-3 text-center">{{ row.realized_count }}</td><td class="px-4 py-3 text-center">{{ row.realization_percent }}%</td><td class="px-4 py-3 text-center">{{ row.initial_score }}</td><td class="px-4 py-3 text-center">{{ row.final_score }}</td><td class="px-4 py-3 text-center font-bold text-emerald-700">{{ row.score_reduction }}</td></tr>{% empty %}<tr><td colspan="8" class="px-5 py-12 text-center text-slate-500">Belum ada pemantauan pada periode ini.</td></tr>{% endfor %}</tbody>{% if division_rows %}<tfoot class="bg-lime-50 font-bold text-blue-950"><tr><td class="px-4 py-3">Jumlah</td><td class="px-4 py-3 text-center">{{ totals.risk_count }}</td><td class="px-4 py-3 text-center">{{ totals.plan_count }}</td><td class="px-4 py-3 text-center">{{ totals.realized_count }}</td><td class="px-4 py-3 text-center">{{ totals.realization_percent }}%</td><td class="px-4 py-3 text-center">{{ totals.initial_score }}</td><td class="px-4 py-3 text-center">{{ totals.final_score }}</td><td class="px-4 py-3 text-center">{{ totals.score_reduction }}</td></tr></tfoot>{% endif %}</table></div>
+    </section>
+
+    <section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm report-section">
+        <div class="border-b border-slate-200 px-5 py-4"><h2 class="text-lg font-bold text-blue-950">Risiko Prioritas</h2><p class="mt-1 text-sm text-slate-500">Risiko dengan skor akhir minimal 12.</p></div>
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm report-table"><thead class="bg-slate-100 text-xs uppercase text-slate-600"><tr><th class="px-4 py-3">No.</th><th class="px-4 py-3">Nama Risiko</th><th class="px-4 py-3">Level Risiko</th><th class="px-4 py-3 text-center">Skor Awal</th><th class="px-4 py-3 text-center">Skor Akhir</th><th class="px-4 py-3">Divisi</th></tr></thead><tbody class="divide-y">{% for monitoring in priority_risks %}<tr><td class="px-4 py-3">{{ forloop.counter }}</td><td class="px-4 py-3"><a href="{% url 'risk:risk_detail' monitoring.risk.pk %}" class="font-semibold text-blue-800">{{ monitoring.risk.title }}</a></td><td class="px-4 py-3"><span class="risk-badge {% if monitoring.final_level == 'Sangat Tinggi' %}risk-extreme{% else %}risk-high{% endif %}">{{ monitoring.final_level }}</span></td><td class="px-4 py-3 text-center">{{ monitoring.initial_score }}</td><td class="px-4 py-3 text-center font-bold">{{ monitoring.final_score }}</td><td class="px-4 py-3">{{ monitoring.risk.division.name }}</td></tr>{% empty %}<tr><td colspan="6" class="px-5 py-10 text-center text-slate-500">Tidak ada risiko prioritas pada periode ini.</td></tr>{% endfor %}</tbody></table></div>
+    </section>
+</div>
+<style nonce="{{ request.csp_nonce }}">
+@media print{header,aside,#riskBackdrop,.report-filters,#printRiskReport{display:none!important}main{padding:0!important}.risk-report{color:#111}.risk-report .report-section,.risk-report .report-summary>div{box-shadow:none!important;break-inside:avoid}.risk-report a{color:inherit;text-decoration:none}.report-table th,.report-table td{border:1px solid #94a3b8}.print-header{margin-bottom:16px}@page{size:A4 landscape;margin:12mm}}
+</style>
+<script nonce="{{ request.csp_nonce }}">document.getElementById('printRiskReport')?.addEventListener('click',()=>window.print());</script>
+{% endblock %}

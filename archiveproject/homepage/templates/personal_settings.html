@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="id">
+{% load static tailwind_tags %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengaturan Akun - PWU Jatim</title>
+    <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
+    {% tailwind_css %}
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+    <main class="mx-auto max-w-4xl px-5 py-10">
+        <div class="mb-6 flex items-center justify-between gap-4">
+            <div><p class="text-xs font-bold uppercase tracking-[.2em] text-blue-700">Portal PWU Jatim</p><h1 class="text-3xl font-extrabold text-blue-950">Pengaturan Akun</h1><p class="mt-1 text-sm text-slate-500">Perbarui informasi pribadi dan password untuk seluruh sistem.</p></div>
+            <a href="{% url 'homepage:dashboard' %}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Kembali ke Portal</a>
+        </div>
+        {% for message in messages %}<div class="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{{ message }}</div>{% endfor %}
+        <form method="post" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            {% csrf_token %}
+            <section class="border-b border-slate-200 p-6">
+                <div class="flex items-center justify-between gap-4"><div><h2 class="text-lg font-extrabold">Informasi Pribadi</h2><p class="mt-1 text-sm text-slate-500">Username dan role hanya dapat diubah oleh administrator.</p></div><span class="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">{{ request.user.username }}</span></div>
+                <div class="mt-5 grid gap-5 md:grid-cols-2">
+                    {% for field in form %}{% if field.name == 'first_name' or field.name == 'last_name' or field.name == 'email' or field.name == 'phone' %}<label class="block"><span class="text-sm font-bold text-slate-700">{{ field.label }}</span>{{ field }}{% for error in field.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</label>{% endif %}{% endfor %}
+                </div>
+            </section>
+            <section class="p-6">
+                <h2 class="text-lg font-extrabold">Ganti Password</h2><p class="mt-1 text-sm text-slate-500">Biarkan ketiga kolom kosong jika tidak ingin mengganti password.</p>
+                <div class="mt-5 grid gap-5 md:grid-cols-3">
+                    {% for field in form %}{% if field.name == 'current_password' or field.name == 'new_password' or field.name == 'confirm_password' %}<label class="block"><span class="text-sm font-bold text-slate-700">{{ field.label }}</span>{{ field }}{% for error in field.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</label>{% endif %}{% endfor %}
+                </div>
+            </section>
+            <div class="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4"><a href="{% url 'homepage:dashboard' %}" class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700">Batal</a><button type="submit" class="rounded-xl bg-blue-800 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-900">Simpan Perubahan</button></div>
+        </form>
+    </main>
+</body>
+</html>

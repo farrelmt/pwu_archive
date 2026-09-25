@@ -36,10 +36,7 @@ APPROVE_ROLES = {
 
 
 def access_rows_for_user(user):
-    if (
-        not user.is_authenticated
-        or (not user.is_superuser and user.role != "akuntan")
-    ):
+    if not user.is_authenticated:
         return KoperasiAccess.objects.none()
     return KoperasiAccess.objects.filter(user=user, is_active=True)
 
@@ -47,8 +44,6 @@ def access_rows_for_user(user):
 def accessible_companies(user):
     if user.is_superuser:
         return Company.objects.all()
-    if user.role != "akuntan":
-        return Company.objects.none()
     rows = access_rows_for_user(user)
     if not rows.exists() or rows.filter(company__isnull=True).exists():
         return Company.objects.all()
@@ -58,10 +53,8 @@ def accessible_companies(user):
 def roles_for_user(user):
     if user.is_superuser:
         return {"admin"}
-    if user.role != "akuntan":
-        return set()
     roles = set(access_rows_for_user(user).values_list("role", flat=True))
-    return roles or {"treasurer"}
+    return roles
 
 
 def can_manage_global_access(user):

@@ -1,0 +1,83 @@
+{% extends 'risk_management/base.html' %}
+{% block title %}{{ risk.risk_code }}{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+        <a href="{% url 'risk:risk_list' %}" class="text-sm font-semibold text-slate-500">&larr; Register Risiko</a>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+            <h1 class="text-3xl font-bold">{{ risk.risk_code }}</h1>
+            <span class="risk-badge {% if risk.risk_level == 'Sangat Tinggi' %}risk-extreme{% elif risk.risk_level == 'Tinggi' %}risk-high{% elif risk.risk_level == 'Sedang' %}risk-medium{% else %}risk-low{% endif %}">{{ risk.risk_level }}</span>
+        </div>
+        <p class="mt-2 text-lg text-slate-600">{{ risk.title }}</p>
+    </div>
+    {% if can_edit_this %}
+    <div class="flex flex-wrap gap-2">
+        <a href="{% url 'risk:monitoring_create' risk.pk %}" class="rounded-xl bg-lime-400 px-5 py-3 text-sm font-bold text-blue-950">+ Pemantauan Triwulan</a>
+        <a href="{% url 'risk:risk_edit' risk.pk %}" class="rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white">Edit Risiko</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-6 grid gap-6 xl:grid-cols-[1.6fr_.8fr]">
+    <div class="space-y-6">
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold">Identifikasi</h2>
+            <dl class="mt-5 grid gap-5 md:grid-cols-2">
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Divisi</dt><dd class="mt-1">{{ risk.division.name }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Kategori</dt><dd class="mt-1">{{ risk.get_category_display }}</dd></div>
+                <div class="md:col-span-2"><dt class="text-xs font-bold uppercase text-slate-400">Uraian Risiko</dt><dd class="mt-1 whitespace-pre-line">{{ risk.description }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Penyebab</dt><dd class="mt-1 whitespace-pre-line">{{ risk.cause }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Dampak</dt><dd class="mt-1 whitespace-pre-line">{{ risk.impact }}</dd></div>
+            </dl>
+        </section>
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold">Pengendalian &amp; Mitigasi</h2>
+            <dl class="mt-5 space-y-5">
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Pengendalian yang Ada</dt><dd class="mt-1 whitespace-pre-line">{{ risk.existing_controls|default:'-' }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Rencana Mitigasi</dt><dd class="mt-1 whitespace-pre-line">{{ risk.mitigation_plan|default:'-' }}</dd></div>
+            </dl>
+        </section>
+    </div>
+    <div class="space-y-6">
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="font-bold">Penilaian Risiko</h2>
+            <div class="mt-5 grid grid-cols-2 gap-4">
+                <div class="rounded-xl bg-slate-100 p-4"><p class="text-xs uppercase text-slate-500">Inheren</p><p class="mt-1 text-3xl font-bold">{{ risk.inherent_score }}</p><p class="text-xs text-slate-500">{{ risk.inherent_likelihood }} × {{ risk.inherent_impact }}</p></div>
+                <div class="rounded-xl bg-blue-50 p-4"><p class="text-xs uppercase text-blue-700">Residual</p><p class="mt-1 text-3xl font-bold text-blue-900">{{ risk.residual_score }}</p><p class="text-xs text-blue-700">{{ risk.residual_likelihood }} × {{ risk.residual_impact }}</p></div>
+            </div>
+            <dl class="mt-5 space-y-4"><div><dt class="text-xs font-bold uppercase text-slate-400">Status</dt><dd class="mt-1">{{ risk.get_status_display }}</dd></div><div><dt class="text-xs font-bold uppercase text-slate-400">Pemilik Risiko</dt><dd class="mt-1">{{ risk.risk_owner }}</dd></div><div><dt class="text-xs font-bold uppercase text-slate-400">Target</dt><dd class="mt-1">{{ risk.target_date|date:'d F Y'|default:'-' }}</dd></div></dl>
+        </section>
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="font-bold">Riwayat</h2>
+            <div class="mt-4 space-y-4">{% for activity in risk.activities.all %}<div class="border-l-2 border-blue-500 pl-3"><p class="text-sm font-semibold">{{ activity.description }}</p><p class="mt-1 text-xs text-slate-500">{{ activity.actor.get_full_name|default:activity.actor.username }} · {{ activity.created_at|date:'d M Y H:i' }}</p></div>{% empty %}<p class="text-sm text-slate-500">Belum ada aktivitas.</p>{% endfor %}</div>
+        </section>
+    </div>
+</div>
+
+<section class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div><h2 class="text-lg font-bold">Pemantauan Triwulan</h2><p class="mt-1 text-sm text-slate-500">Catat skor awal dan akhir, rencana aksi, serta realisasi per periode.</p></div>
+        <a href="{% url 'risk:monitoring_report' %}" class="text-sm font-bold text-blue-700">Lihat laporan perusahaan</a>
+    </div>
+    <div class="mt-5 space-y-5">
+        {% for monitoring in risk.monitorings.all %}
+        <article class="overflow-hidden rounded-xl border border-slate-200">
+            <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-4 py-3">
+                <div><h3 class="font-bold">{{ monitoring.get_quarter_display }} {{ monitoring.year }}</h3><p class="text-xs text-slate-500">Diperbarui {{ monitoring.updated_at|date:'d M Y H:i' }}</p></div>
+                <div class="flex items-center gap-2">
+                    <span class="risk-badge {% if monitoring.final_level == 'Sangat Tinggi' %}risk-extreme{% elif monitoring.final_level == 'Tinggi' %}risk-high{% elif monitoring.final_level == 'Sedang' %}risk-medium{% else %}risk-low{% endif %}">{{ monitoring.final_level }}</span>
+                    {% if can_edit_this %}<a href="{% url 'risk:monitoring_edit' monitoring.pk %}" class="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700">Edit Pemantauan</a><a href="{% url 'risk:action_create' monitoring.pk %}" class="rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white">+ Rencana Aksi</a>{% endif %}
+                </div>
+            </div>
+            <div class="grid gap-px bg-slate-200 sm:grid-cols-3">
+                <div class="bg-white p-4"><p class="text-xs font-bold uppercase text-slate-400">Skor Awal</p><p class="mt-1 text-2xl font-bold">{{ monitoring.initial_score }}</p></div>
+                <div class="bg-white p-4"><p class="text-xs font-bold uppercase text-slate-400">Skor Akhir</p><p class="mt-1 text-2xl font-bold text-blue-700">{{ monitoring.final_score }}</p></div>
+                <div class="bg-white p-4"><p class="text-xs font-bold uppercase text-slate-400">Penurunan</p><p class="mt-1 text-2xl font-bold text-emerald-700">{{ monitoring.score_reduction }}</p></div>
+            </div>
+            {% if monitoring.business_environment_changes or monitoring.evaluation_notes %}<div class="grid gap-4 border-t border-slate-200 p-4 md:grid-cols-2"><div><p class="text-xs font-bold uppercase text-slate-400">Perubahan Lingkungan Bisnis</p><p class="mt-1 whitespace-pre-line text-sm">{{ monitoring.business_environment_changes|default:'-' }}</p></div><div><p class="text-xs font-bold uppercase text-slate-400">Catatan Evaluasi</p><p class="mt-1 whitespace-pre-line text-sm">{{ monitoring.evaluation_notes|default:'-' }}</p></div></div>{% endif %}
+            <div class="overflow-x-auto border-t border-slate-200"><table class="w-full text-left text-sm"><thead class="bg-blue-50 text-xs uppercase text-blue-900"><tr><th class="px-4 py-3">Rencana Aksi</th><th class="px-4 py-3">Penanggung Jawab</th><th class="px-4 py-3">Target</th><th class="px-4 py-3">Realisasi</th><th class="px-4 py-3">Progres</th><th class="px-4 py-3">Status</th>{% if can_edit_this %}<th class="px-4 py-3"></th>{% endif %}</tr></thead><tbody class="divide-y">{% for action in monitoring.action_plans.all %}<tr><td class="px-4 py-3 whitespace-pre-line">{{ action.description }}</td><td class="px-4 py-3">{{ action.responsible_person }}</td><td class="px-4 py-3">{{ action.target_date|date:'d M Y'|default:'-' }}</td><td class="px-4 py-3"><p class="whitespace-pre-line">{{ action.realization|default:'-' }}</p>{% if action.realization_date %}<p class="mt-1 text-xs text-slate-500">{{ action.realization_date|date:'d M Y' }}</p>{% endif %}</td><td class="px-4 py-3 font-bold">{{ action.progress }}%</td><td class="px-4 py-3">{{ action.get_status_display }}</td>{% if can_edit_this %}<td class="px-4 py-3"><a href="{% url 'risk:action_edit' action.pk %}" class="font-bold text-blue-700">Edit</a></td>{% endif %}</tr>{% empty %}<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">Belum ada rencana aksi pada periode ini.</td></tr>{% endfor %}</tbody></table></div>
+        </article>
+        {% empty %}<div class="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Belum ada pemantauan triwulan untuk risiko ini.</div>{% endfor %}
+    </div>
+</section>
+{% endblock %}

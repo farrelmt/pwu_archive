@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+{% load static tailwind_tags %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member & Akses - PWU Jatim</title>
+    <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
+    {% tailwind_css %}
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+    <header class="border-b border-slate-200 bg-white">
+        <div class="mx-auto flex max-w-[96rem] items-center justify-between gap-4 px-5 py-4">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-blue-700">Portal PWU Jatim</p>
+                <h1 class="text-2xl font-extrabold text-blue-950">Member & Akses</h1>
+            </div>
+            <div class="flex gap-2">
+                <a href="{% url 'homepage:dashboard' %}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Kembali</a>
+                <a href="{% url 'homepage:member_create' %}" class="rounded-xl bg-blue-800 px-4 py-2 text-sm font-bold text-white hover:bg-blue-900">+ Member Baru</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="mx-auto max-w-[96rem] px-5 py-8">
+        {% for message in messages %}<div class="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{{ message }}</div>{% endfor %}
+        <form method="get" class="mb-5 flex max-w-xl gap-2">
+            <input type="search" name="search" value="{{ search }}" placeholder="Cari nama, username, atau email" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+            <button class="rounded-xl bg-slate-800 px-5 py-2.5 text-sm font-bold text-white">Cari</button>
+        </form>
+
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[760px] text-left text-sm">
+                    <thead class="bg-slate-900 text-xs uppercase tracking-wide text-white">
+                        <tr>
+                            <th class="px-4 py-3"><a class="inline-flex items-center gap-2 hover:text-blue-200" href="?search={{ search|urlencode }}&sort=name&direction={% if sort == 'name' and direction == 'asc' %}desc{% else %}asc{% endif %}">Nama <span>{% if sort == 'name' %}{% if direction == 'asc' %}↑{% else %}↓{% endif %}{% else %}↕{% endif %}</span></a></th>
+                            <th class="px-4 py-3"><a class="inline-flex items-center gap-2 hover:text-blue-200" href="?search={{ search|urlencode }}&sort=username&direction={% if sort == 'username' and direction == 'asc' %}desc{% else %}asc{% endif %}">Username <span>{% if sort == 'username' %}{% if direction == 'asc' %}↑{% else %}↓{% endif %}{% else %}↕{% endif %}</span></a></th>
+                            <th class="px-4 py-3"><a class="inline-flex items-center gap-2 hover:text-blue-200" href="?search={{ search|urlencode }}&sort=role&direction={% if sort == 'role' and direction == 'asc' %}desc{% else %}asc{% endif %}">Role <span>{% if sort == 'role' %}{% if direction == 'asc' %}↑{% else %}↓{% endif %}{% else %}↕{% endif %}</span></a></th>
+                            <th class="px-4 py-3"><a class="inline-flex items-center gap-2 hover:text-blue-200" href="?search={{ search|urlencode }}&sort=status&direction={% if sort == 'status' and direction == 'asc' %}desc{% else %}asc{% endif %}">Status <span>{% if sort == 'status' %}{% if direction == 'asc' %}↑{% else %}↓{% endif %}{% else %}↕{% endif %}</span></a></th>
+                            <th class="px-4 py-3 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for row in rows %}
+                        <tr class="hover:bg-blue-50/50">
+                            <td class="px-4 py-3 font-semibold text-slate-900">{{ row.user.get_full_name|default:"-" }}</td>
+                            <td class="px-4 py-3 text-slate-600">{{ row.user.username }}</td>
+                            <td class="px-4 py-3"><div class="flex flex-wrap gap-1.5">{% for role in row.roles %}<span class="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-800">{{ role }}</span>{% empty %}<span class="text-slate-400">Tidak ada role</span>{% endfor %}</div></td>
+                            <td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-bold {% if row.user.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">{% if row.user.is_active %}Aktif{% else %}Nonaktif{% endif %}</span></td>
+                            <td class="px-4 py-3 text-center"><a href="{% url 'homepage:member_edit' row.user.pk %}" class="inline-flex min-w-24 items-center justify-center rounded-lg bg-amber-100 px-3 py-1.5 text-center font-bold leading-tight text-amber-900 hover:bg-amber-200">Edit Akses</a></td>
+                        </tr>
+                        {% empty %}<tr><td colspan="5" class="px-4 py-12 text-center text-slate-500">Member tidak ditemukan.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

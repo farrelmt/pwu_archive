@@ -12,7 +12,46 @@
     {% tailwind_css %}
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
-    <main class="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12">
+    <button id="portalMobileToggle" type="button" class="fixed left-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-900 text-white shadow-lg md:hidden" aria-label="Buka menu" aria-controls="portalSidebar" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <div id="portalBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 md:hidden"></div>
+
+    <aside id="portalSidebar" class="portal-sidebar fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white shadow-xl" aria-label="Navigasi akun">
+        <div class="relative flex h-20 items-center gap-3 bg-gradient-to-r from-blue-950 to-blue-800 px-4 text-white">
+            <div class="sidebar-brand min-w-0 flex-1">
+                <span class="sidebar-copy block truncate text-sm font-extrabold tracking-wide">PORTAL PWU JATIM</span>
+            </div>
+            <button id="portalCollapse" type="button" class="sidebar-collapse hidden h-14 w-9 shrink-0 items-center justify-center rounded-lg text-blue-100 hover:bg-white/15 hover:text-white md:inline-flex" aria-label="Tutup sidebar" aria-expanded="true">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>
+            </button>
+        </div>
+
+        <div class="m-3 flex items-center gap-3 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-3 shadow-sm">
+            <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-800 text-lg font-extrabold text-white shadow-md shadow-blue-900/20">{{ request.user.get_full_name|default:request.user.username|first|upper }}</span>
+            <div class="sidebar-copy min-w-0"><p class="truncate text-sm font-extrabold text-slate-900">{{ request.user.get_full_name|default:request.user.username }}</p><p class="truncate text-xs font-medium text-slate-500">@{{ request.user.username }}</p></div>
+        </div>
+
+        <nav class="flex-1 space-y-1 p-3">
+            <p class="sidebar-copy mb-2 px-3 text-[10px] font-extrabold uppercase tracking-[.2em] text-slate-400">Akun &amp; Akses</p>
+            <a href="{% url 'homepage:personal_settings' %}" class="portal-nav-link" title="Pengaturan">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M9.6 3.94a1.5 1.5 0 0 1 2.8 0l.21.54a1.5 1.5 0 0 0 2 .83l.53-.24a1.5 1.5 0 0 1 1.98 1.99l-.23.52a1.5 1.5 0 0 0 .83 2.01l.54.2a1.5 1.5 0 0 1 0 2.82l-.54.2a1.5 1.5 0 0 0-.83 2.01l.23.52a1.5 1.5 0 0 1-1.98 1.99l-.53-.24a1.5 1.5 0 0 0-2 .83l-.21.54a1.5 1.5 0 0 1-2.8 0l-.21-.54a1.5 1.5 0 0 0-2-.83l-.53.24a1.5 1.5 0 0 1-1.98-1.99l.23-.52a1.5 1.5 0 0 0-.83-2.01l-.54-.2a1.5 1.5 0 0 1 0-2.82l.54-.2a1.5 1.5 0 0 0 .83-2.01l-.23-.52a1.5 1.5 0 0 1 1.98-1.99l.53.24a1.5 1.5 0 0 0 2-.83l.21-.54Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 12a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg>
+                <span class="sidebar-copy">Pengaturan</span>
+            </a>
+            {% if can_manage_members %}
+            <a href="{% url 'homepage:member_list' %}" class="portal-nav-link" title="Kelola Member">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.1a9 9 0 0 0 3.75.78 8.96 8.96 0 0 0 4.01-.94 4.5 4.5 0 0 0-6.76-3.9M15 19.1v-.01c0-1.45-.37-2.82-1.02-4.01M15 19.1v.1A12.3 12.3 0 0 1 8.25 21c-2.4 0-4.65-.68-6.55-1.86v-.1a6.75 6.75 0 0 1 12.28-3.96M12 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Zm8.25 2.25a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                <span class="sidebar-copy">Kelola Member</span>
+            </a>
+            {% endif %}
+        </nav>
+
+        <div class="border-t border-slate-200 p-3">
+            <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="portal-nav-link w-full text-red-700 hover:bg-red-50 hover:text-red-800" title="Keluar"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-7.5A2.25 2.25 0 0 0 3.75 5.25v13.5A2.25 2.25 0 0 0 6 21h7.5a2.25 2.25 0 0 0 2.25-2.25V15M18 8.25 21.75 12 18 15.75M21 12H9"/></svg><span class="sidebar-copy">Keluar</span></button></form>
+        </div>
+    </aside>
+
+    <main id="portalMain" class="portal-main relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12">
         <div class="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-blue-200/50 blur-3xl"></div>
         <div class="absolute -bottom-40 -right-28 h-[28rem] w-[28rem] rounded-full bg-green-200/40 blur-3xl"></div>
 
@@ -25,7 +64,8 @@
                 Portal Sistem Informasi PWU Jatim
             </h1>
 
-            <div class="mt-10 grid gap-5 sm:grid-cols-2">
+            <div class="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                {% if can_access_archive %}
                 <a href="{{ archive_url }}"
                    class="group flex min-h-52 flex-col items-center justify-center rounded-3xl border border-blue-200 bg-white p-7 shadow-lg shadow-blue-950/5 transition duration-200 hover:-translate-y-1 hover:border-blue-400 hover:shadow-2xl hover:shadow-blue-950/10 focus:outline-none focus:ring-4 focus:ring-blue-200">
                     <span class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500 text-white transition-colors duration-200 group-hover:bg-blue-800">
@@ -36,7 +76,9 @@
                     <h2 class="mt-5 text-xl font-bold text-blue-950">Sistem Arsip</h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">Surat, disposisi, dan pemantauan dokumen.</p>
                 </a>
+                {% endif %}
 
+                {% if can_access_koperasi %}
                 <a href="{{ koperasi_url }}"
                    class="group flex min-h-52 flex-col items-center justify-center rounded-3xl border border-green-200 bg-white p-7 shadow-lg shadow-green-950/5 transition duration-200 hover:-translate-y-1 hover:border-green-400 hover:shadow-2xl hover:shadow-green-950/10 focus:outline-none focus:ring-4 focus:ring-green-200">
                     <span class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-green-600 text-white transition group-hover:bg-green-700">
@@ -48,10 +90,51 @@
                     <p class="mt-2 text-sm leading-6 text-slate-500">Layanan dan pengelolaan koperasi perusahaan.</p>
 
                 </a>
+                {% endif %}
+
+                {% if can_access_risk %}
+                <a href="{{ risk_url }}"
+                   class="group flex min-h-52 flex-col items-center justify-center rounded-3xl border border-amber-200 bg-white p-7 shadow-lg shadow-amber-950/5 transition duration-200 hover:-translate-y-1 hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-950/10 focus:outline-none focus:ring-4 focus:ring-amber-200">
+                    <span class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500 text-white transition group-hover:bg-amber-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" class="h-8 w-8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3 3.75 6.75v5.625c0 4.58 3.5 7.88 8.25 8.625 4.75-.745 8.25-4.045 8.25-8.625V6.75L12 3Z"/><path stroke-linecap="round" d="M12 7.5v5.25m0 3h.008v.008H12v-.008Z"/>
+                        </svg>
+                    </span>
+                    <h2 class="mt-5 text-xl font-bold text-amber-900">Manajemen Risiko</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">Identifikasi, mitigasi, dan pemantauan risiko.</p>
+                </a>
+                {% endif %}
+
+                {% if can_access_inventory %}
+                <a href="{{ inventory_url }}"
+                   class="group flex min-h-52 flex-col items-center justify-center rounded-3xl border border-violet-200 bg-white p-7 shadow-lg shadow-violet-950/5 transition duration-200 hover:-translate-y-1 hover:border-violet-400 hover:shadow-2xl hover:shadow-violet-950/10 focus:outline-none focus:ring-4 focus:ring-violet-200">
+                    <span class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600 text-white transition group-hover:bg-violet-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" class="h-8 w-8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 8.25-9 5.25-9-5.25M12 13.5V21m9-12.75-9-5.25-9 5.25v7.5L12 21l9-5.25v-7.5Z"/>
+                        </svg>
+                    </span>
+                    <h2 class="mt-5 text-xl font-bold text-violet-900">Sistem Inventaris</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">Pegawai, perangkat, dan aset perusahaan.</p>
+                </a>
+                {% endif %}
             </div>
+
+            {% if not can_access_archive and not can_access_koperasi and not can_access_risk and not can_access_inventory %}
+                <div class="mt-10 rounded-3xl border border-amber-200 bg-amber-50 px-6 py-8 text-center">
+                    <p class="font-extrabold text-amber-900">Belum ada akses sistem</p>
+                    <p class="mt-2 text-sm text-amber-800">Hubungi administrator untuk mendapatkan role pada sistem yang diperlukan.</p>
+                </div>
+            {% endif %}
 
             <p class="mt-10 text-xs text-slate-400">&copy; {% now "Y" %} PT. Panca Wira Usaha Jawa Timur</p>
         </section>
     </main>
+    <style nonce="{{ request.csp_nonce }}">
+        .portal-sidebar{width:18rem;transition:width .22s ease,transform .22s ease,box-shadow .22s ease}.portal-main{margin-left:0}.portal-nav-link{display:flex;align-items:center;gap:.8rem;border:1px solid transparent;border-radius:.85rem;padding:.78rem .9rem;color:#475569;font-size:.875rem;font-weight:750;transition:.15s}.portal-nav-link:hover{border-color:#bfdbfe;background:#eff6ff;color:#1e3a8a;transform:translateX(2px)}.sidebar-collapse{position:fixed;left:calc(18rem - 1.1rem);top:50%;z-index:60;transform:translateY(-50%);border:1px solid #dbeafe!important;border-radius:9999px!important;background:#172554!important;color:#fff!important;box-shadow:0 8px 20px #0f172a33;transition:left .22s ease,background .15s ease}.sidebar-collapse:hover{background:#1e3a8a!important}.sidebar-collapse svg{transition:transform .2s ease}.portal-sidebar.is-collapsed{width:0;border-right:0;box-shadow:none}.portal-sidebar.is-collapsed>:not(:first-child){display:none}.portal-sidebar.is-collapsed .sidebar-brand{display:none}.portal-sidebar.is-collapsed>div:first-child{height:0;padding:0}.portal-sidebar.is-collapsed .sidebar-collapse{left:0;display:inline-flex;border-bottom-left-radius:0!important;border-top-left-radius:0!important}.portal-sidebar.is-collapsed .sidebar-collapse svg{transform:rotate(180deg)}
+        @media(max-width:767px){.portal-sidebar{width:18rem;transform:translateX(-100%)}.portal-sidebar.is-mobile-open{transform:translateX(0)}.portal-sidebar.is-collapsed{width:18rem;border-right:1px solid #e2e8f0;box-shadow:0 20px 25px -5px #0f172a1a}.portal-sidebar.is-collapsed>:not(:first-child){display:flex}.portal-sidebar.is-collapsed nav{display:block}.portal-sidebar.is-collapsed .sidebar-brand{display:flex}.portal-sidebar.is-collapsed>div:first-child{height:5rem;padding-left:1rem;padding-right:1rem}.portal-sidebar.is-collapsed .sidebar-collapse{display:none}.portal-main,.portal-sidebar.is-collapsed~.portal-main{margin-left:0}}
+    </style>
+    <script nonce="{{ request.csp_nonce }}">
+        (()=>{const sidebar=document.getElementById('portalSidebar'),collapse=document.getElementById('portalCollapse'),mobile=document.getElementById('portalMobileToggle'),backdrop=document.getElementById('portalBackdrop');const setCollapsed=(value)=>{sidebar.classList.toggle('is-collapsed',value);collapse?.setAttribute('aria-expanded',String(!value));collapse?.setAttribute('aria-label',value?'Buka sidebar':'Tutup sidebar');localStorage.setItem('portalSidebarCollapsed',value?'1':'0')};if(window.innerWidth>=768)setCollapsed(localStorage.getItem('portalSidebarCollapsed')==='1');collapse?.addEventListener('click',()=>setCollapsed(!sidebar.classList.contains('is-collapsed')));const setMobile=(open)=>{sidebar.classList.toggle('is-mobile-open',open);backdrop.classList.toggle('hidden',!open);mobile.setAttribute('aria-expanded',String(open))};mobile?.addEventListener('click',()=>setMobile(!sidebar.classList.contains('is-mobile-open')));backdrop?.addEventListener('click',()=>setMobile(false));})();
+    </script>
 </body>
 </html>

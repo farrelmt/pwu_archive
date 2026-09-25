@@ -13,7 +13,8 @@ class SecurityHeadersMiddleware:
         request.csp_nonce = secrets.token_urlsafe(24)
         response = self.get_response(request)
         nonce = request.csp_nonce
-        response["Content-Security-Policy"] = (
+        hostname = request.get_host().split(":", 1)[0].lower()
+        policy = (
             "default-src 'self'; "
             f"script-src 'self' 'nonce-{nonce}'; "
             "style-src 'self' 'unsafe-inline'; "
@@ -23,9 +24,14 @@ class SecurityHeadersMiddleware:
             "object-src 'none'; "
             "base-uri 'self'; "
             "form-action 'self'; "
-            "frame-ancestors 'none'; "
-            "upgrade-insecure-requests"
+            "frame-ancestors 'none'"
         )
+        # Production is HTTPS-only, but local Docker system links use HTTP
+        # subdomains such as archive.localhost:8000. Upgrading those links to
+        # HTTPS makes browsers silently reject their navigation.
+        if hostname != "localhost" and not hostname.endswith(".localhost"):
+            policy += "; upgrade-insecure-requests"
+        response["Content-Security-Policy"] = policy
         response["Permissions-Policy"] = (
             "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
         )

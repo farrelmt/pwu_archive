@@ -57,7 +57,6 @@ class KoperasiAccess(models.Model):
         ("finance", "Keuangan"),
         ("officer", "Petugas"),
         ("auditor", "Auditor"),
-        ("viewer", "Pembaca"),
     ]
 
     user = models.ForeignKey(
@@ -80,8 +79,8 @@ class KoperasiAccess(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "company"],
-                name="unique_koperasi_user_company",
+                fields=["user", "company", "role"],
+                name="unique_koperasi_user_company_role",
                 nulls_distinct=False,
             )
         ]

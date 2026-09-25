@@ -1,0 +1,39 @@
+{% extends 'risk_management/base.html' %}
+{% block title %}Ringkasan Risiko{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><p class="text-sm font-semibold uppercase tracking-wider text-blue-700">Enterprise Risk Management</p><h1 class="mt-1 text-3xl font-bold text-slate-950">Ringkasan Risiko</h1><p class="mt-2 text-sm text-slate-500">Profil risiko dan realisasi rencana aksi perusahaan.</p></div>
+    {% if request.can_edit_risks %}<a href="{% url 'risk:risk_create' %}" class="rounded-xl bg-lime-400 px-5 py-3 text-sm font-bold text-blue-950 shadow hover:bg-lime-300">+ Tambah Risiko</a>{% endif %}
+</div>
+<div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Total Risiko</p><p class="mt-2 text-3xl font-bold">{{ total_risks }}</p></div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Risiko Aktif</p><p class="mt-2 text-3xl font-bold text-blue-800">{{ open_risks }}</p></div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Lewat Target</p><p class="mt-2 text-3xl font-bold text-red-700">{{ overdue_risks }}</p></div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Divisi Terpantau</p><p class="mt-2 text-3xl font-bold text-blue-700">{{ division_count }}</p></div>
+</div>
+<section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <div><h2 class="font-bold">Pemantauan {{ monitoring_quarter_label }} {{ monitoring_year }}</h2><p class="mt-1 text-xs text-slate-500">Format ringkasan mengikuti laporan pemantauan risiko triwulanan.</p></div>
+        <a href="{% url 'risk:monitoring_report' %}?year={{ monitoring_year }}&quarter={{ monitoring_quarter }}" class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600">Buka Laporan</a>
+    </div>
+    <div class="grid gap-px bg-slate-200 sm:grid-cols-2 xl:grid-cols-6">
+        <div class="bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Risiko</p><p class="mt-2 text-2xl font-bold">{{ monitoring_totals.risk_count }}</p></div>
+        <div class="bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Rencana Aksi</p><p class="mt-2 text-2xl font-bold">{{ monitoring_totals.plan_count }}</p></div>
+        <div class="bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Realisasi</p><p class="mt-2 text-2xl font-bold text-emerald-700">{{ monitoring_totals.realized_count }}</p></div>
+        <div class="bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Capaian</p><p class="mt-2 text-2xl font-bold text-blue-700">{{ monitoring_totals.realization_percent }}%</p></div>
+        <div class="bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Skor Awal</p><p class="mt-2 text-2xl font-bold">{{ monitoring_totals.initial_score }}</p></div>
+        <div class="bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Penurunan Skor</p><p class="mt-2 text-2xl font-bold text-lime-700">{{ monitoring_totals.score_reduction }}</p></div>
+    </div>
+</section>
+<div class="mt-6 grid gap-6 xl:grid-cols-[.8fr_1.7fr]">
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 class="font-bold">Profil Risiko Residual</h2><div class="mt-5 space-y-4">
+        <div class="flex items-center justify-between"><span class="risk-badge risk-extreme">Sangat Tinggi</span><strong>{{ level_counts.Sangat_Tinggi }}</strong></div>
+        <div class="flex items-center justify-between"><span class="risk-badge risk-high">Tinggi</span><strong>{{ level_counts.Tinggi }}</strong></div>
+        <div class="flex items-center justify-between"><span class="risk-badge risk-medium">Sedang</span><strong>{{ level_counts.Sedang }}</strong></div>
+        <div class="flex items-center justify-between"><span class="risk-badge risk-low">Rendah</span><strong>{{ level_counts.Rendah }}</strong></div>
+    </div></section>
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="flex items-center justify-between border-b border-slate-200 px-5 py-4"><h2 class="font-bold">Risiko Terbaru</h2><a href="{% url 'risk:risk_list' %}" class="text-sm font-semibold text-blue-700">Lihat semua</a></div>
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Kode / Risiko</th><th class="px-5 py-3">Divisi</th><th class="px-5 py-3">Level</th><th class="px-5 py-3">Status</th></tr></thead><tbody class="divide-y divide-slate-100">{% for risk in recent_risks %}<tr class="hover:bg-slate-50"><td class="px-5 py-4"><a href="{% url 'risk:risk_detail' risk.pk %}" class="font-bold text-slate-900 hover:text-blue-700">{{ risk.risk_code }}</a><p class="mt-1 max-w-md truncate text-slate-500">{{ risk.title }}</p></td><td class="px-5 py-4">{{ risk.division.name }}</td><td class="px-5 py-4"><span class="risk-badge {% if risk.risk_level == 'Sangat Tinggi' %}risk-extreme{% elif risk.risk_level == 'Tinggi' %}risk-high{% elif risk.risk_level == 'Sedang' %}risk-medium{% else %}risk-low{% endif %}">{{ risk.risk_level }} ({{ risk.residual_score }})</span></td><td class="px-5 py-4">{{ risk.get_status_display }}</td></tr>{% empty %}<tr><td colspan="4" class="px-5 py-12 text-center text-slate-500">Belum ada risiko yang dicatat.</td></tr>{% endfor %}</tbody></table></div>
+    </section>
+</div>
+{% endblock %}

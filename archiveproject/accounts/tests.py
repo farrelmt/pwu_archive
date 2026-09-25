@@ -38,7 +38,8 @@ class LogoutSecurityTests(TestCase):
     def test_logout_accepts_post(self):
         response = self.client.post(reverse("accounts:logout"))
 
-        self.assertRedirects(response, reverse("accounts:login"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "https://pwujatim.site/accounts/login/")
         self.assertNotIn("_auth_user_id", self.client.session)
         self.assertTrue(
             ActivityLog.objects.filter(
@@ -166,33 +167,61 @@ class LoginSecurityTests(TestCase):
             "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
         )
 
+    @override_settings(ALLOWED_HOSTS=["localhost"])
+    def test_localhost_does_not_force_https_for_system_subdomains(self):
+        response = self.client.get(
+            reverse("accounts:login"),
+            HTTP_HOST="localhost:8000",
+        )
+
+        self.assertNotIn(
+            "upgrade-insecure-requests",
+            response["Content-Security-Policy"],
+        )
+
+    @override_settings(ALLOWED_HOSTS=["pwujatim.site"])
+    def test_production_domain_still_upgrades_insecure_requests(self):
+        response = self.client.get(
+            reverse("accounts:login"),
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertIn(
+            "upgrade-insecure-requests",
+            response["Content-Security-Policy"],
+        )
+
 
 @override_settings(
-    ALLOWED_HOSTS=["archive.localhost", "koperasi.localhost"],
+    ALLOWED_HOSTS=["localhost", "archive.localhost", "koperasi.localhost"],
+    LANDING_HOSTS=frozenset({"localhost"}),
+    ARCHIVE_HOSTS=frozenset({"archive.localhost"}),
     KOPERASI_HOSTS=frozenset({"koperasi.localhost"}),
+    PORTAL_BASE_URL="https://pwujatim.site",
 )
 class LoginThemeTests(TestCase):
-    def test_archive_login_uses_blue_theme(self):
+    def test_central_portal_login_uses_blue_theme(self):
         response = self.client.get(
             "/accounts/login/",
-            HTTP_HOST="archive.localhost",
+            HTTP_HOST="localhost",
         )
 
         self.assertContains(response, "bg-blue-950")
         self.assertContains(response, "bg-blue-950 shadow-blue-950/15")
         self.assertNotContains(response, "bg-green-950")
+        self.assertContains(response, "Portal Sistem Informasi PWU Jatim")
 
-    def test_koperasi_login_uses_green_theme(self):
+    def test_system_subdomain_login_redirects_to_central_portal(self):
         response = self.client.get(
             "/accounts/login/",
             HTTP_HOST="koperasi.localhost",
         )
 
-        self.assertContains(response, "bg-green-950")
-        self.assertContains(response, "bg-green-800 shadow-green-950/20")
-        self.assertNotContains(response, "bg-blue-950")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith("http://localhost/accounts/login/"))
+        self.assertIn("koperasi.localhost", response["Location"])
 
-    def test_koperasi_user_can_login_with_isolated_url_configuration(self):
+    def test_central_login_can_continue_to_koperasi(self):
         user = SystemUser.objects.create_user(
             username="koperasi-login-test",
             password="password-for-tests",
@@ -200,14 +229,15 @@ class LoginThemeTests(TestCase):
         )
 
         response = self.client.post(
-            "/accounts/login/?next=/",
+            "/accounts/login/?next=http://koperasi.localhost/",
             {
                 "username": user.username,
                 "password": "password-for-tests",
-                "next": "/",
+                "next": "http://koperasi.localhost/",
             },
-            HTTP_HOST="koperasi.localhost",
+            HTTP_HOST="localhost",
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "/")
+        self.assertEqual(response["Location"], "http://koperasi.localhost/")
+        self.assertEqual(self.client.cookies["sessionid"]["domain"], "")

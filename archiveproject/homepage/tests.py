@@ -7,6 +7,9 @@ from django.utils import timezone
 
 from accounts.models import ActivityLog
 from disposisi.models import Disposisi, DisposisiRecipient
+from inventory.models import InventoryAccess
+from koperasi.models import KoperasiAccess
+from risk_management.models import RiskAccess, RiskDivision
 
 
 @override_settings(
@@ -19,31 +22,54 @@ from disposisi.models import Disposisi, DisposisiRecipient
         "archive.localhost",
     ],
     LANDING_HOSTS=frozenset({"pwujatim.site", "www.pwujatim.site", "localhost"}),
+    ARCHIVE_HOSTS=frozenset({"archive.pwujatim.site", "archive.localhost"}),
+    PORTAL_BASE_URL="https://pwujatim.site",
     ARCHIVE_BASE_URL="https://archive.pwujatim.site",
     KOPERASI_BASE_URL="https://koperasi.pwujatim.site",
 )
 class HostRoutingTests(TestCase):
-    def test_public_domain_shows_system_chooser_without_login(self):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="portal-user",
+            password="test-password",
+            role="employee",
+        )
+        InventoryAccess.objects.create(
+            user=self.user,
+            role="participant",
+            is_active=True,
+        )
+
+    def test_public_domain_requires_login_before_system_chooser(self):
+        response = self.client.get("/", HTTP_HOST="pwujatim.site")
+
+        self.assertRedirects(response, "/accounts/login/", fetch_redirect_response=False)
+
+    def test_authenticated_public_domain_shows_system_chooser(self):
+        self.client.force_login(self.user)
         response = self.client.get("/", HTTP_HOST="pwujatim.site")
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Sistem Arsip")
-        self.assertContains(response, "Sistem Koperasi")
-        self.assertContains(response, "https://archive.pwujatim.site")
-        self.assertContains(response, "https://koperasi.pwujatim.site")
+        self.assertNotContains(response, ">Sistem Arsip<")
+        self.assertNotContains(response, ">Sistem Koperasi<")
+        self.assertNotContains(response, ">Manajemen Risiko<")
+        self.assertContains(response, ">Sistem Inventaris<")
+        self.assertNotContains(response, "/accounts/system/archive/")
+        self.assertNotContains(response, "/accounts/system/koperasi/")
+        self.assertContains(response, "Pengaturan")
+        self.assertContains(response, self.user.username)
+        self.assertContains(response, "Keluar")
+        self.assertNotContains(response, "Kelola Member")
         self.assertNotContains(response, "Masuk ke akun Anda")
 
-    def test_public_domain_does_not_expose_archive_routes(self):
+    def test_public_domain_exposes_central_login(self):
         response = self.client.get(
             reverse("accounts:login"),
             HTTP_HOST="pwujatim.site",
         )
 
-        self.assertRedirects(
-            response,
-            "/",
-            fetch_redirect_response=False,
-        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Portal Sistem Informasi PWU Jatim")
 
     def test_archive_domain_still_requires_login(self):
         response = self.client.get(
@@ -52,28 +78,84 @@ class HostRoutingTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("accounts:login"), response.url)
+        self.assertTrue(response.url.startswith("https://pwujatim.site/accounts/login/"))
+        self.assertIn("archive.pwujatim.site", response.url)
 
     def test_localhost_shows_local_system_chooser(self):
+        self.client.force_login(self.user)
         response = self.client.get("/", HTTP_HOST="localhost:8000")
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "http://archive.localhost:8000")
-        self.assertContains(response, "http://koperasi.localhost:8000")
+        self.assertNotContains(response, "/accounts/system/archive/")
+        self.assertNotContains(response, "/accounts/system/koperasi/")
+        self.assertContains(response, "/accounts/system/inventory/")
+
+    def test_local_system_launch_uses_signed_subdomain_handoff(self):
+        self.user.role = "kadiv_keuangan"
+        self.user.save(update_fields=["role"])
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("accounts:system_launch", args=["archive"]),
+            HTTP_HOST="localhost:8000",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            response.url.startswith(
+                "http://archive.localhost:8000/accounts/handoff/?token="
+            )
+        )
+
+        handoff_path = response.url.split("archive.localhost:8000", 1)[1]
+        response = self.client.get(handoff_path, HTTP_HOST="archive.localhost:8000")
+        self.assertRedirects(response, "/", fetch_redirect_response=False)
+
+    def test_system_launch_denies_user_without_system_role(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("accounts:system_launch", args=["archive"]),
+            HTTP_HOST="localhost:8000",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_portal_shows_koperasi_only_after_role_is_assigned(self):
+        KoperasiAccess.objects.create(
+            user=self.user,
+            company=None,
+            role="auditor",
+            is_active=True,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get("/", HTTP_HOST="pwujatim.site")
+
+        self.assertContains(response, ">Sistem Koperasi<")
+        self.assertContains(response, "/accounts/system/koperasi/")
+
+    def test_authenticated_archive_domain_denies_user_without_archive_role(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("homepage:dashboard"),
+            HTTP_HOST="archive.pwujatim.site",
+        )
+
+        self.assertEqual(response.status_code, 403)
 
     def test_archive_localhost_still_requires_login(self):
         response = self.client.get("/", HTTP_HOST="archive.localhost:8000")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("accounts:login"), response.url)
+        self.assertTrue(response.url.startswith("http://localhost:8000/accounts/login/"))
+        self.assertIn("archive.localhost", response.url)
 
     def test_authenticated_archive_domain_shows_dashboard(self):
-        user = get_user_model().objects.create_user(
-            username="archive-host-user",
-            password="test-password",
-            role="kadiv_keuangan",
-        )
-        self.client.force_login(user)
+        self.user.role = "kadiv_keuangan"
+        self.user.save(update_fields=["role"])
+        self.client.force_login(self.user)
 
         response = self.client.get(
             reverse("homepage:dashboard"),
@@ -82,6 +164,226 @@ class HostRoutingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Akses Cepat")
+
+
+@override_settings(
+    ALLOWED_HOSTS=["testserver", "pwujatim.site"],
+    LANDING_HOSTS=frozenset({"pwujatim.site"}),
+)
+class MemberManagementTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.admin = user_model.objects.create_user(
+            username="farrel_mt",
+            password="admin-password",
+            role="employee",
+        )
+        self.viewer = user_model.objects.create_user(
+            username="ordinary_user",
+            password="viewer-password",
+            role="employee",
+        )
+        self.division = RiskDivision.objects.get(code="AKT")
+
+    def test_named_member_admin_can_open_member_page(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse("homepage:member_list"),
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Member & Akses")
+        self.assertContains(response, "ordinary_user")
+
+    def test_named_member_admin_sees_member_link_in_portal_navbar(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/", HTTP_HOST="pwujatim.site")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Kelola Member")
+
+    def test_ordinary_user_cannot_open_member_page(self):
+        self.client.force_login(self.viewer)
+        response = self.client.get(
+            reverse("homepage:member_list"),
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_member_admin_can_create_user_and_all_system_access(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("homepage:member_create"),
+            {
+                "username": "new_member",
+                "first_name": "Member",
+                "last_name": "Baru",
+                "email": "member@pwujatim.site",
+                "phone": "08123456789",
+                "password": "secure-password",
+                "password_confirm": "secure-password",
+                "role": "kadiv_akuntansi",
+                "koperasi_roles": ["treasurer", "supervisor"],
+                "risk_roles": ["risk_officer", "division_head"],
+                "risk_division": self.division.pk,
+                "inventory_role": "officer",
+                "is_active": "on",
+            },
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("homepage:member_list"),
+            fetch_redirect_response=False,
+        )
+        user = get_user_model().objects.get(username="new_member")
+        self.assertTrue(user.check_password("secure-password"))
+        self.assertEqual(user.role, "kadiv_akuntansi")
+        self.assertEqual(
+            set(KoperasiAccess.objects.filter(user=user, company=None).values_list("role", flat=True)),
+            {"treasurer", "supervisor"},
+        )
+        self.assertEqual(
+            set(RiskAccess.objects.filter(user=user).values_list("role", flat=True)),
+            {"risk_officer", "division_head"},
+        )
+        self.assertFalse(
+            RiskAccess.objects.filter(user=user).exclude(division=self.division).exists()
+        )
+        self.assertEqual(InventoryAccess.objects.get(user=user).role, "officer")
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                action="MEMBER_CREATED", target_id=str(user.pk)
+            ).exists()
+        )
+
+    def test_member_list_can_sort_names_ascending_and_descending(self):
+        get_user_model().objects.create_user(
+            username="zulu_user", first_name="Zulu", password="test-password",
+            role="employee",
+        )
+        get_user_model().objects.create_user(
+            username="alpha_user", first_name="Alpha", password="test-password",
+            role="employee",
+        )
+        self.client.force_login(self.admin)
+
+        ascending = self.client.get(
+            reverse("homepage:member_list") + "?sort=name&direction=asc",
+            HTTP_HOST="pwujatim.site",
+        )
+        descending = self.client.get(
+            reverse("homepage:member_list") + "?sort=name&direction=desc",
+            HTTP_HOST="pwujatim.site",
+        )
+
+        ascending_names = [row["user"].get_full_name() for row in ascending.context["rows"]]
+        descending_names = [row["user"].get_full_name() for row in descending.context["rows"]]
+        self.assertLess(ascending_names.index("Alpha"), ascending_names.index("Zulu"))
+        self.assertLess(descending_names.index("Zulu"), descending_names.index("Alpha"))
+
+    def test_member_admin_cannot_deactivate_own_account(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("homepage:member_edit", args=[self.admin.pk]),
+            {
+                "username": self.admin.username,
+                "first_name": "Farrel",
+                "last_name": "MT",
+                "email": "farrel@pwujatim.site",
+                "phone": "",
+                "password": "",
+                "password_confirm": "",
+                "role": "admin",
+                "koperasi_roles": [],
+                "risk_roles": [],
+                "risk_division": "",
+                "inventory_role": "participant",
+            },
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "tidak dapat menonaktifkan akun sendiri")
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+
+    def test_member_admin_can_delete_account_without_disposition_history(self):
+        disposable = get_user_model().objects.create_user(
+            username="temporary_member",
+            password="temporary-password",
+            role="employee",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("homepage:member_delete", args=[disposable.pk]),
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("homepage:member_list"),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(get_user_model().objects.filter(pk=disposable.pk).exists())
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                action="MEMBER_DELETED",
+                target_id=str(disposable.pk),
+            ).exists()
+        )
+
+    def test_member_admin_cannot_delete_own_account(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("homepage:member_delete", args=[self.admin.pk]),
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("homepage:member_edit", args=[self.admin.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(get_user_model().objects.filter(pk=self.admin.pk).exists())
+
+    def test_member_admin_can_remove_archive_access(self):
+        self.viewer.role = "akuntan"
+        self.viewer.save(update_fields=["role"])
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("homepage:member_edit", args=[self.viewer.pk]),
+            {
+                "username": self.viewer.username,
+                "first_name": "",
+                "last_name": "",
+                "email": self.viewer.email,
+                "phone": "",
+                "password": "",
+                "password_confirm": "",
+                "role": "",
+                "koperasi_roles": [],
+                "risk_roles": [],
+                "risk_division": "",
+                "inventory_role": "participant",
+                "is_active": "on",
+            },
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("homepage:member_list"),
+            fetch_redirect_response=False,
+        )
+        self.viewer.refresh_from_db()
+        self.assertEqual(self.viewer.role, "")
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"])
@@ -158,13 +460,11 @@ class DivisionUserListTests(TestCase):
         self.assertContains(response, "Nonaktif")
         self.assertContains(response, ">wirajatim_kso<")
         self.assertContains(response, "Wirajatim KSO", count=2)
-        for hidden_username in ("dirut", "it_pwu", "akuntan1", "akuntan2"):
-            with self.subTest(hidden_username=hidden_username):
-                self.assertNotContains(response, f">{hidden_username}<")
-        visible_users = get_user_model().objects.exclude(
-            username__in={"dirut", "it_pwu", "akuntan1", "akuntan2"},
-        ).count()
-        self.assertEqual(response.context["users"].count(), visible_users)
+        for username in ("dirut", "it_pwu", "akuntan1", "akuntan2"):
+            with self.subTest(username=username):
+                self.assertContains(response, f">{username}<")
+        visible_users = get_user_model().objects.count()
+        self.assertEqual(len(response.context["directory_rows"]), visible_users)
         self.assertEqual(response.context["directory_total"], visible_users)
         self.assertContains(
             response,
@@ -209,7 +509,6 @@ class DivisionUserListTests(TestCase):
             reverse("homepage:monitor"),
             reverse("homepage:divisi"),
             reverse("homepage:report"),
-            reverse("pengaturan:main"),
         )
         for url in allowed_pages:
             with self.subTest(url=url):
