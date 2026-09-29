@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta name="theme-color" content="#4c1d95">
+    <title>Tambah Inventaris Saya</title>
+    <link rel="icon" type="image/png" href="/static/images/wirajatim-logo-stacked.png">
+    
+
+<link rel="stylesheet" type="text/css" href="/styles.css">
+
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+    <header class="fixed inset-x-0 top-0 z-40 flex h-16 items-center border-b border-violet-800 bg-violet-950 px-4 text-white shadow-lg lg:px-6">
+        <button id="inventoryMenu" type="button" class="mr-3 inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/10 lg:hidden" aria-label="Buka menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-6 w-6"><path stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <a href="/" class="flex items-center gap-3"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-6 w-6"><path stroke-width="1.8" d="m21 8.25-9 5.25-9-5.25M12 13.5V21m9-12.75-9-5.25-9 5.25v7.5L12 21l9-5.25v-7.5Z"/></svg></span><span><span class="block text-base font-extrabold tracking-wide sm:text-xl">SISTEM INVENTARIS PWU</span><span class="hidden text-[10px] font-semibold uppercase tracking-[.2em] text-violet-200 sm:block">Aset &amp; Perangkat Perusahaan</span></span></a>
+        <div class="ml-auto text-right"><p class="text-sm font-semibold">Preview</p><p class="text-xs text-violet-200">Superuser</p></div>
+    </header>
+
+    <div id="inventoryBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 lg:hidden"></div>
+    <aside id="inventorySidebar" class="fixed bottom-0 left-0 top-16 z-50 flex w-64 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform lg:translate-x-0">
+        <nav class="flex-1 p-3 py-5">
+            <p class="mb-2 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Inventaris</p>
+            
+                <a class="inventory-nav " href="/">Ringkasan</a>
+                <a class="inventory-nav " href="/anggota/">Anggota Perusahaan</a>
+                <a class="inventory-nav " href="/barang/">Barang &amp; Hardware</a>
+                <a class="inventory-nav inventory-nav-active" href="/inventaris-saya/">Inventaris Saya</a>
+            
+            <a class="inventory-nav " href="/laporan/tambah/">Laporkan Barang Rusak</a>
+            <a class="inventory-nav " href="/laporan/">Laporan Kerusakan</a>
+        </nav>
+        <div class="space-y-2 border-t border-slate-200 p-3">
+            <a class="block w-full rounded-xl bg-violet-50 px-3 py-2.5 text-left text-sm font-bold text-violet-800 hover:bg-violet-100" href="">Keluar</a>
+            <form method="post" action="/accounts/logout/"><button class="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50">Log Out</button></form>
+        </div>
+    </aside>
+
+    <main class="min-h-screen pt-16 lg:pl-64"><div class="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">
+<div class="mx-auto max-w-3xl">
+    <a href="/anggota/0/" class="text-sm font-semibold text-slate-500">&larr; Inventaris Saya</a>
+    <h1 class="mt-3 text-3xl font-extrabold">Tambah Inventaris Saya</h1>
+    <p class="mt-2 text-sm text-slate-500">Tambahkan barang umum, perangkat, atau software yang Anda gunakan. Hanya nama barang yang wajib diisi. Isian lainnya boleh kosong. Kode aset dan nama pengguna ditentukan otomatis.</p>
+    <form method="post" enctype="multipart/form-data" class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="grid gap-5 md:grid-cols-2"><div data-inventory-field class=""><label for="id_item_name" class="text-sm font-bold text-slate-700">Nama barang *</label><input type="text" name="item_name" maxlength="180" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100" required id="id_item_name"></div><div data-inventory-field class=""><label for="id_category" class="text-sm font-bold text-slate-700">Kategori</label><select name="category" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100" id="id_category">
+  <option value="furniture">Furnitur</option>
+
+  <option value="vehicle">Kendaraan</option>
+
+  <option value="tool">Peralatan Kerja</option>
+
+  <option value="office" selected>Perlengkapan Kantor</option>
+
+  <option value="other">Lainnya</option>
+
+</select></div><div data-inventory-field class=""><label for="id_brand" class="text-sm font-bold text-slate-700">Merek</label><input type="text" name="brand" maxlength="100" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100" id="id_brand"></div><div data-inventory-field class=""><label for="id_model" class="text-sm font-bold text-slate-700">Model/Tipe</label><input type="text" name="model" maxlength="120" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100" id="id_model"></div><div data-inventory-field class="md:col-span-2"><label for="id_specifications" class="text-sm font-bold text-slate-700">Spesifikasi</label><textarea name="specifications" cols="40" rows="3" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100" id="id_specifications">
+</textarea></div><div data-inventory-field class=""><label for="id_received_date" class="text-sm font-bold text-slate-700">Tanggal diterima</label><div class="inventory-date-picker"><input type="date" name="received_date" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100" id="id_received_date">
+
+<button type="button" class="inventory-date-button" aria-label="Buka kalender received_date"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></button></div></div><div data-inventory-field class=""><label for="id_condition" class="text-sm font-bold text-slate-700">Kondisi</label><select name="condition" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100" id="id_condition">
+  <option value="new">Baru</option>
+
+  <option value="good" selected>Baik</option>
+
+  <option value="fair">Cukup</option>
+
+  <option value="damaged">Rusak</option>
+
+</select></div><div data-inventory-field class="md:col-span-2"><label for="id_notes" class="text-sm font-bold text-slate-700">Catatan</label><textarea name="notes" cols="40" rows="3" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100" id="id_notes">
+</textarea></div><div data-inventory-field class=""><label for="id_photo" class="text-sm font-bold text-slate-700">Foto barang</label><input type="file" name="photo" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100" accept="image/jpeg,image/png,image/webp" aria-describedby="id_photo_helptext" id="id_photo"><p class="mt-1 text-xs text-slate-500">Opsional. JPG, PNG, atau WebP, maksimal 5 MB. Foto disimpan di server setelah Anda menekan Simpan.</p></div></div><div class="mt-7 flex justify-end gap-3"><a href="/anggota/0/" class="rounded-xl border px-5 py-3 text-sm font-bold text-slate-700">Batal</a><button class="rounded-xl bg-violet-700 px-6 py-3 text-sm font-bold text-white">Simpan Inventaris</button></div></form>
+</div>
+</div></main>
+    <style nonce="">.inventory-nav{display:block;margin:.125rem 0;border-radius:.75rem;padding:.7rem .8rem;color:#475569;font-size:.875rem;font-weight:600;transition:.15s}.inventory-nav:hover{background:#f5f3ff;color:#6d28d9}.inventory-nav-active{background:#ede9fe;color:#5b21b6}.status-badge{display:inline-flex;border-radius:9999px;padding:.25rem .65rem;font-size:.75rem;font-weight:700}.inventory-date-picker{position:relative}.inventory-date-picker input{padding-right:3rem}.inventory-date-button{position:absolute;right:.6rem;top:50%;transform:translateY(-40%);padding:.35rem;color:#6d28d9;border-radius:.4rem}.inventory-date-button:focus-visible{outline:2px solid #6d28d9}.inventory-date-picker.enhanced input::-webkit-calendar-picker-indicator{display:none}.inventory-item-photo{max-height:480px;object-fit:contain}</style>
+    <script nonce="">const menu=document.getElementById('inventoryMenu'),sidebar=document.getElementById('inventorySidebar'),backdrop=document.getElementById('inventoryBackdrop');function toggleMenu(open){sidebar?.classList.toggle('-translate-x-full',!open);backdrop?.classList.toggle('hidden',!open)}menu?.addEventListener('click',()=>toggleMenu(sidebar?.classList.contains('-translate-x-full')));backdrop?.addEventListener('click',()=>toggleMenu(false));</script>
+<script nonce="">
+document.querySelectorAll('.inventory-date-picker').forEach(wrapper=>{
+    const input=wrapper.querySelector('input'), button=wrapper.querySelector('button');
+    if(input.showPicker)wrapper.classList.add('enhanced');
+    const open=()=>{try{if(input.showPicker){input.showPicker();}else{input.focus();}}catch(error){input.focus();}};
+    input.addEventListener('click',open);button.addEventListener('click',open);
+});
+const categoryInput=document.getElementById('id_category'),serialInput=document.getElementById('id_serial_number');
+if(categoryInput&&serialInput){const updateSerial=()=>{const general=['furniture','vehicle','tool','office','other'].includes(categoryInput.value);const wrapper=serialInput.closest('[data-inventory-field]');if(wrapper)wrapper.hidden=general;serialInput.disabled=general;};categoryInput.addEventListener('change',updateSerial);updateSerial();}
+</script>
+</body>
+</html>

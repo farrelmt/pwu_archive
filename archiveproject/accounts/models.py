@@ -2,9 +2,6 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 
-PLACEHOLDER_EMAIL = 'it.pwujatim@gmail.com'
-
-
 class SystemUser(AbstractUser):
     phone = models.CharField(max_length=20, blank=True, null=True)
 
@@ -32,11 +29,6 @@ class SystemUser(AbstractUser):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def save(self, *args, **kwargs):
-        if not (self.email or '').strip():
-            self.email = PLACEHOLDER_EMAIL
-        super().save(*args, **kwargs)
 
     @property
     def can_view_all_archive(self):

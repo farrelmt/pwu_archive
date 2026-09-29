@@ -1,0 +1,15 @@
+FROM archiveproject-web
+COPY --chown=app:app inventory/models.py /app/inventory/models.py
+COPY --chown=app:app inventory/forms.py /app/inventory/forms.py
+COPY --chown=app:app inventory/views.py /app/inventory/views.py
+COPY --chown=app:app inventory/urls.py /app/inventory/urls.py
+COPY --chown=app:app inventory/tests.py /app/inventory/tests.py
+COPY --chown=app:app inventory/migrations/0007_optional_received_date_and_photo.py /app/inventory/migrations/0007_optional_received_date_and_photo.py
+COPY --chown=app:app inventory/templates/inventory/base.html /app/inventory/templates/inventory/base.html
+COPY --chown=app:app inventory/templates/inventory/member_detail.html /app/inventory/templates/inventory/member_detail.html
+COPY --chown=app:app inventory/templates/inventory/personal_item_form.html /app/inventory/templates/inventory/personal_item_form.html
+COPY --chown=app:app inventory/templates/inventory/form.html /app/inventory/templates/inventory/form.html
+COPY --chown=app:app inventory/templates/inventory/item_detail.html /app/inventory/templates/inventory/item_detail.html
+COPY --chown=app:app inventory/templates/inventory/report_form.html /app/inventory/templates/inventory/report_form.html
+COPY --chown=app:app inventory/templates/inventory/widgets/date.html /app/inventory/templates/inventory/widgets/date.html
+COPY --chown=app:app inventory/templates/inventory/widgets/photo.html /app/inventory/templates/inventory/widgets/photo.html

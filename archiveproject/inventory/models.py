@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -61,10 +63,19 @@ class CompanyMember(models.Model):
         return f"{self.employee_id} - {self.full_name}"
 
 
+def inventory_photo_path(instance, filename):
+    return f"inventory/photos/{uuid4().hex}.jpg"
+
+
 class InventoryItem(models.Model):
     CATEGORY_CHOICES = [
-        ("hardware", "Perangkat Keras"),
-        ("software", "Perangkat Lunak"),
+        ("computer", "Komputer"),
+        ("laptop", "Laptop"),
+        ("peripheral", "Periferal IT (Keyboard, Mouse, Monitor)"),
+        ("component", "Komponen Hardware"),
+        ("network", "Perangkat Jaringan"),
+        ("software", "Software / Lisensi"),
+        ("hardware", "Perangkat Keras Lainnya"),
         ("furniture", "Furnitur"),
         ("vehicle", "Kendaraan"),
         ("tool", "Peralatan Kerja"),
@@ -92,7 +103,8 @@ class InventoryItem(models.Model):
     model = models.CharField("Model/Tipe", max_length=120, blank=True)
     serial_number = models.CharField("Nomor seri", max_length=120, blank=True, db_index=True)
     specifications = models.TextField("Spesifikasi", blank=True)
-    received_date = models.DateField("Tanggal diterima")
+    received_date = models.DateField("Tanggal diterima", blank=True, null=True)
+    photo = models.ImageField("Foto barang", upload_to=inventory_photo_path, blank=True)
     purchase_price = models.DecimalField(
         "Harga satuan", max_digits=16, decimal_places=2,
         validators=[MinValueValidator(0)], default=0,
@@ -143,3 +155,46 @@ class InventoryActivity(models.Model):
     class Meta:
         ordering = ["-created_at"]
         verbose_name_plural = "Aktivitas inventaris"
+
+
+class InventoryReport(models.Model):
+    REPORT_TYPE_CHOICES = [
+        ("damaged", "Barang Rusak"),
+        ("complaint", "Keluhan Penggunaan"),
+        ("other", "Masalah Lainnya"),
+    ]
+    STATUS_CHOICES = [
+        ("reported", "Laporan"),
+        ("verified", "Verifikasi"),
+        ("proposed", "Pengajuan"),
+        ("handed_over", "Penyerahan"),
+        ("resolved", "Selesai"),
+    ]
+
+    item = models.ForeignKey(
+        InventoryItem, on_delete=models.CASCADE, related_name="reports",
+        verbose_name="Barang inventaris",
+    )
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="inventory_reports", verbose_name="Pelapor",
+    )
+    report_type = models.CharField("Jenis laporan", max_length=20, choices=REPORT_TYPE_CHOICES)
+    description = models.TextField("Keluhan atau kerusakan")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="reported")
+    resolution_note = models.TextField("Tindak lanjut", blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="inv_report_status_idx"),
+            models.Index(fields=["item", "status"], name="inv_report_item_idx"),
+        ]
+        verbose_name = "Laporan inventaris"
+        verbose_name_plural = "Laporan inventaris"
+
+    def __str__(self):
+        return f"{self.item.asset_code} - {self.get_report_type_display()}"

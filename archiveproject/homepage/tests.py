@@ -285,6 +285,36 @@ class MemberManagementTests(TestCase):
         self.assertLess(ascending_names.index("Alpha"), ascending_names.index("Zulu"))
         self.assertLess(descending_names.index("Zulu"), descending_names.index("Alpha"))
 
+    def test_member_list_sorts_numbered_usernames_naturally(self):
+        expected = ["umum_2", "umum_3", "umum_4", "umum_10", "umum_11", "umum_12"]
+        self.assertEqual(
+            get_user_model().objects.filter(username__in=expected).count(),
+            len(expected),
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse("homepage:member_list") + "?sort=username&direction=asc",
+            HTTP_HOST="pwujatim.site",
+        )
+
+        usernames = [row["user"].username for row in response.context["rows"]]
+        for current_username, next_username in zip(expected, expected[1:]):
+            self.assertLess(
+                usernames.index(current_username),
+                usernames.index(next_username),
+            )
+        division_groups = {
+            group["name"]: [row["user"].username for row in group["rows"]]
+            for group in response.context["member_groups"]
+        }
+        self.assertIn("Divisi Umum", division_groups)
+        umum_usernames = division_groups["Divisi Umum"]
+        self.assertEqual(
+            [int(username.rsplit("_", 1)[1]) for username in umum_usernames],
+            sorted(int(username.rsplit("_", 1)[1]) for username in umum_usernames),
+        )
+
     def test_member_admin_cannot_deactivate_own_account(self):
         self.client.force_login(self.admin)
         response = self.client.post(
@@ -384,6 +414,39 @@ class MemberManagementTests(TestCase):
         )
         self.viewer.refresh_from_db()
         self.assertEqual(self.viewer.role, "")
+
+    def test_member_edit_rejects_existing_username_case_insensitively(self):
+        other_user = get_user_model().objects.create_user(
+            username="existing_account",
+            password="test-password",
+            role="employee",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("homepage:member_edit", args=[self.viewer.pk]),
+            {
+                "username": other_user.username.upper(),
+                "first_name": self.viewer.first_name,
+                "last_name": self.viewer.last_name,
+                "email": self.viewer.email,
+                "phone": "",
+                "password": "",
+                "password_confirm": "",
+                "role": "employee",
+                "koperasi_roles": [],
+                "risk_roles": [],
+                "risk_division": "",
+                "inventory_role": "participant",
+                "is_active": "on",
+            },
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Username sudah digunakan oleh akun lain.")
+        self.viewer.refresh_from_db()
+        self.assertEqual(self.viewer.username, "ordinary_user")
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"])

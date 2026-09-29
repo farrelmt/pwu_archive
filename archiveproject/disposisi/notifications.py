@@ -24,6 +24,8 @@ def send_disposition_shared_notifications(*, request, disposisi, recipient_roles
     )
 
     for user in users:
+        if not (user.email or '').strip():
+            continue
         subject = f'NOTIFIKASI SISTEM ARSIP - {disposisi.nomor_agenda}'
         body = (
             f'Yth. {user.get_full_name() or user.username},\n\n'

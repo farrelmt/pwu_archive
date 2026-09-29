@@ -5,17 +5,17 @@ from .models import ActivityLog, SystemUser
 
 
 class SystemUserEmailTests(TestCase):
-    def test_empty_email_uses_testing_placeholder(self):
+    def test_empty_email_remains_empty(self):
         user = SystemUser.objects.create_user(
             username="placeholder-email-user",
             password="password-for-tests",
             role="kadiv",
         )
 
-        self.assertEqual(user.email, "it.pwujatim@gmail.com")
+        self.assertEqual(user.email, "")
         self.assertEqual(
             SystemUser.objects.get(pk=user.pk).email,
-            "it.pwujatim@gmail.com",
+            "",
         )
 
 

@@ -490,15 +490,11 @@ class DisposisiSecurityTests(TestCase):
             self.disposisi.logs.filter(action_log="BAGI_DISPOSISI").exists()
         )
         self.assertTrue(self.disposisi.logs.filter(action_log="SELESAI").exists())
-        expected_email_count = SystemUser.objects.filter(
+        expected_emails = list(SystemUser.objects.filter(
             is_active=True,
             role__in=["kadiv_akuntansi", "kadiv_keuangan"],
-        ).count()
-        self.assertEqual(len(mail.outbox), expected_email_count)
-        self.assertTrue(all(
-            message.to == ["it.pwujatim@gmail.com"]
-            for message in mail.outbox
-        ))
+        ).exclude(email="").values_list("email", flat=True))
+        self.assertCountEqual([message.to[0] for message in mail.outbox], expected_emails)
 
     def test_uploaded_disposition_opens_preview_before_download(self):
         self.upload_offline()
@@ -1172,18 +1168,17 @@ class DisposisiSecurityTests(TestCase):
         share_log = self.disposisi.logs.get(action_log="BAGI_DISPOSISI")
         self.assertIn("Kepala Divisi Akuntansi", share_log.keterangan_log)
         self.assertIn("Kepala Divisi Keuangan", share_log.keterangan_log)
-        expected_email_count = SystemUser.objects.filter(
+        expected_emails = list(SystemUser.objects.filter(
             is_active=True,
             role__in=["kadiv_akuntansi", "kadiv_keuangan"],
-        ).count()
-        self.assertEqual(len(mail.outbox), expected_email_count)
+        ).exclude(email="").values_list("email", flat=True))
+        self.assertCountEqual([message.to[0] for message in mail.outbox], expected_emails)
         for notification in mail.outbox:
             self.assertTrue(
                 notification.subject.startswith(
                     "NOTIFIKASI SISTEM ARSIP - "
                 )
             )
-            self.assertEqual(notification.to, ["it.pwujatim@gmail.com"])
             self.assertIn(
                 f"Disposisi {self.disposisi.nomor_agenda}",
                 notification.body,

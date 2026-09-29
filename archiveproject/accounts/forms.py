@@ -34,7 +34,7 @@ class PersonalSettingsForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ("first_name", "last_name", "email", "phone")
+        fields = ("username", "first_name", "last_name", "email", "phone")
         labels = {
             "first_name": "Nama depan",
             "last_name": "Nama belakang",
@@ -44,6 +44,8 @@ class PersonalSettingsForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if not self.instance.is_superuser:
+            self.fields.pop("username")
         input_class = (
             "mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 "
             "text-sm text-slate-900 outline-none transition focus:border-blue-500 "
@@ -51,6 +53,12 @@ class PersonalSettingsForm(forms.ModelForm):
         )
         for field in self.fields.values():
             field.widget.attrs.update({"class": input_class})
+
+    def clean_username(self):
+        username = self.cleaned_data["username"].strip()
+        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            raise ValidationError("Username sudah digunakan.")
+        return username
 
     def clean(self):
         cleaned = super().clean()
@@ -207,6 +215,15 @@ class MemberAccessForm(forms.ModelForm):
         if self.instance.pk and self.actor == self.instance and not cleaned.get("is_active"):
             self.add_error("is_active", "Anda tidak dapat menonaktifkan akun sendiri.")
         return cleaned
+
+    def clean_username(self):
+        username = (self.cleaned_data.get("username") or "").strip()
+        existing = User.objects.filter(username__iexact=username)
+        if self.instance.pk:
+            existing = existing.exclude(pk=self.instance.pk)
+        if existing.exists():
+            raise forms.ValidationError("Username sudah digunakan oleh akun lain.")
+        return username
 
     @transaction.atomic
     def save(self, commit=True):

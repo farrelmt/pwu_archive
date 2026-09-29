@@ -20,9 +20,61 @@ from accounts.access import can_manage_members, has_system_access, member_admin_
 from accounts.forms import MemberAccessForm, PersonalSettingsForm
 from koperasi.models import KoperasiAccess
 import textwrap
+import re
 from datetime import date
 from archiveproject.host_routing import portal_base_url, request_hostname
 from django.urls import reverse
+
+
+def _natural_sort_key(value):
+    """Sort identifiers containing numbers by their numeric value."""
+    return tuple(
+        int(part) if part.isdigit() else part.casefold()
+        for part in re.split(r"(\d+)", value or "")
+    )
+
+
+MEMBER_DIVISION_ORDER = (
+    "Direksi",
+    "Divisi Akuntansi",
+    "Divisi Aset",
+    "Divisi Keuangan",
+    "Divisi Legal dan Umum",
+    "Divisi Manajemen Risiko",
+    "Divisi Sekretaris",
+    "Divisi Satuan Pengawas Internal",
+    "Divisi Umum",
+    "Humas",
+    "HRD",
+    "Wirajatim KSO",
+    "Administrator Sistem",
+    "Lainnya",
+)
+
+
+def _member_division(username):
+    username = (username or "").casefold()
+    prefix_groups = (
+        (("akuntansi_",), "Divisi Akuntansi"),
+        (("aset_",), "Divisi Aset"),
+        (("keuangan_",), "Divisi Keuangan"),
+        (("legal_", "legal_umum_"), "Divisi Legal dan Umum"),
+        (("manajemen_risiko_",), "Divisi Manajemen Risiko"),
+        (("sekretaris_",), "Divisi Sekretaris"),
+        (("spi_",), "Divisi Satuan Pengawas Internal"),
+        (("umum_",), "Divisi Umum"),
+        (("humas_",), "Humas"),
+        (("hrd_",), "HRD"),
+        (("wirajatim_kso_",), "Wirajatim KSO"),
+    )
+    if username in {"direktur", "direktur_utama"}:
+        return "Direksi"
+    if username in {"it_pwu", "farrel_mt"}:
+        return "Administrator Sistem"
+    for prefixes, division_name in prefix_groups:
+        if username.startswith(prefixes):
+            return division_name
+    return "Lainnya"
 
 
 def root(request):
@@ -91,10 +143,23 @@ def member_list(request):
         rows.append({
             "user": user,
             "roles": list(dict.fromkeys(roles)),
+            "division": _member_division(user.username),
         })
+
+    grouped_rows = {division: [] for division in MEMBER_DIVISION_ORDER}
+    for row in rows:
+        grouped_rows[row["division"]].append(row)
+    member_groups = []
+    for division in MEMBER_DIVISION_ORDER:
+        division_rows = grouped_rows[division]
+        if not division_rows:
+            continue
+        division_rows.sort(key=lambda row: _natural_sort_key(row["user"].username))
+        member_groups.append({"name": division, "rows": division_rows})
+
     key_functions = {
         "name": lambda row: (row["user"].get_full_name() or "").casefold(),
-        "username": lambda row: row["user"].username.casefold(),
+        "username": lambda row: _natural_sort_key(row["user"].username),
         "role": lambda row: ", ".join(row["roles"]).casefold(),
         "status": lambda row: row["user"].is_active,
     }
@@ -104,6 +169,8 @@ def member_list(request):
         "search": search,
         "sort": sort,
         "direction": direction,
+        "member_groups": member_groups,
+        "member_count": len(rows),
     })
 
 
@@ -203,6 +270,7 @@ def personal_settings(request):
         return redirect(f"{portal_base_url(request)}/settings/")
     user = request.user
     original = {
+        "username": user.username,
         "first_name": user.first_name,
         "last_name": user.last_name,
         "email": user.email,

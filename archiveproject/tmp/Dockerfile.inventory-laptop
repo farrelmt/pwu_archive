@@ -1,0 +1,6 @@
+FROM archiveproject-web
+COPY --chown=app:app inventory/models.py /app/inventory/models.py
+COPY --chown=app:app inventory/forms.py /app/inventory/forms.py
+COPY --chown=app:app inventory/views.py /app/inventory/views.py
+COPY --chown=app:app inventory/tests.py /app/inventory/tests.py
+COPY --chown=app:app inventory/migrations/0008_separate_laptop_category.py /app/inventory/migrations/0008_separate_laptop_category.py
