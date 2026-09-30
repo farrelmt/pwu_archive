@@ -32,6 +32,8 @@
             <a class="risk-nav {% if request.path == '/' %}risk-nav-active{% endif %}" href="{% url 'risk:dashboard' %}">Ringkasan</a>
             <a class="risk-nav {% if '/risiko/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:risk_list' %}">Register Risiko</a>
             <a class="risk-nav {% if '/pemantauan/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:monitoring_report' %}">Pemantauan Triwulan</a>
+            <a class="risk-nav {% if '/pedoman-penilaian/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:scoring_guide' %}">Pedoman Penilaian</a>
+            {% if request.can_edit_risks %}<a class="risk-nav {% if '/impor-workbook/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:workbook_import' %}">Impor Workbook</a>{% endif %}
             <a class="risk-nav {% if '/divisi/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:divisions' %}">Divisi &amp; Penanggung Jawab</a>
             {% if request.user.is_superuser %}<a class="risk-nav {% if '/activity-log/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:activity_log' %}">Log Aktivitas</a>{% endif %}
             <p class="mb-2 mt-7 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Akun</p>
@@ -49,7 +51,7 @@
     </main>
     <style nonce="{{ request.csp_nonce }}">
         .risk-nav{display:block;margin:.125rem 0;border-radius:.75rem;padding:.7rem .8rem;color:#475569;font-size:.875rem;font-weight:600;transition:.15s}.risk-nav:hover{background:#eff6ff;color:#1d4ed8}.risk-nav-active{background:#dbeafe;color:#1e40af}
-        .risk-badge{display:inline-flex;border-radius:9999px;padding:.25rem .65rem;font-size:.75rem;font-weight:700}.risk-low{background:#dcfce7;color:#166534}.risk-medium{background:#fef9c3;color:#854d0e}.risk-high{background:#ffedd5;color:#9a3412}.risk-extreme{background:#fee2e2;color:#991b1b}
+        .risk-badge{display:inline-flex;border-radius:9999px;padding:.25rem .65rem;font-size:.75rem;font-weight:700}.risk-very-low{background:#dbeafe;color:#1e40af}.risk-low{background:#dcfce7;color:#166534}.risk-medium{background:#fef9c3;color:#854d0e}.risk-high{background:#fed7aa;color:#9a3412}.risk-extreme{background:#fee2e2;color:#991b1b}
     </style>
     <script nonce="{{ request.csp_nonce }}">const menu=document.getElementById('riskMenu'),sidebar=document.getElementById('riskSidebar'),backdrop=document.getElementById('riskBackdrop');function toggleMenu(open){sidebar?.classList.toggle('-translate-x-full',!open);backdrop?.classList.toggle('hidden',!open)}menu?.addEventListener('click',()=>toggleMenu(sidebar?.classList.contains('-translate-x-full')));backdrop?.addEventListener('click',()=>toggleMenu(false));</script>
 </body>

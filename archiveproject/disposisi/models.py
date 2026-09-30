@@ -32,7 +32,7 @@ class Disposisi(models.Model):
     SHARE_ROLE_CHOICES = [
         ('direktur_utama', 'Direktur Utama'),
         ('direktur', 'Direktur'),
-        ('direktur_umum', 'Direktur Umum'),
+        ('direktur_umum', 'Direktur'),
         ('kadiv_akuntansi', 'Kepala Divisi Akuntansi'),
         ('kadiv_keuangan', 'Kepala Divisi Keuangan'),
         ('kadiv_risiko', 'Kepala Divisi Manajemen Risiko'),
@@ -43,7 +43,7 @@ class Disposisi(models.Model):
     ]
     ONLINE_SHARE_ROLE_CHOICES = [
         ('direktur_utama', 'Direktur Utama'),
-        ('direktur_umum', 'Direktur Umum'),
+        ('direktur_umum', 'Direktur'),
         ('kadiv_akuntansi', 'Kepala Divisi Akuntansi'),
         ('kadiv_keuangan', 'Kepala Divisi Keuangan'),
         ('kadiv_risiko', 'Kepala Divisi Manajemen Risiko'),
@@ -54,7 +54,7 @@ class Disposisi(models.Model):
     ]
     OFFLINE_SHARE_ROLE_CHOICES = [
         ('direktur_utama', 'Direktur Utama'),
-        ('direktur_umum', 'Direktur Umum'),
+        ('direktur_umum', 'Direktur'),
         ('kadiv_akuntansi', 'Kepala Divisi Akuntansi'),
         ('kadiv_keuangan', 'Kepala Divisi Keuangan'),
         ('kadiv_risiko', 'Kepala Divisi Manajemen Risiko'),

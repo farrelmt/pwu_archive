@@ -1,10 +1,17 @@
+from io import BytesIO
+
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from openpyxl import Workbook
 
 from accounts.models import ActivityLog
 
-from .models import RiskAccess, RiskActionPlan, RiskDivision, RiskMonitoring, RiskRegister
+from .models import (
+    RiskAccess, RiskActionPlan, RiskDivision, RiskMonitoring, RiskRegister,
+    RiskTreatment,
+)
 
 
 @override_settings(STORAGES={
@@ -53,6 +60,101 @@ class RiskPermissionTests(TestCase):
         self.assertEqual(self.risk.inherent_score, 16)
         self.assertEqual(self.risk.residual_score, 6)
         self.assertEqual(self.risk.risk_level, "Sedang")
+
+    def test_template_uses_five_risk_levels(self):
+        expected = {
+            1: "Sangat Rendah", 2: "Sangat Rendah", 3: "Rendah", 4: "Rendah",
+            5: "Sedang", 9: "Sedang", 10: "Tinggi", 16: "Tinggi",
+            17: "Sangat Tinggi", 25: "Sangat Tinggi",
+        }
+        for score, level in expected.items():
+            with self.subTest(score=score):
+                self.assertEqual(RiskRegister.level_for(score), level)
+
+    def _workbook_upload(self):
+        workbook = Workbook()
+        identification = workbook.active
+        identification.title = "Identifikasi Risiko"
+        identification["C4"] = "Divisi A"
+        identification["C5"] = "Pemilik A"
+        identification["C6"] = "Officer A"
+        values = {
+            "A10": 1, "B10": "Sasaran strategis", "C10": "Risiko dari workbook",
+            "D10": "Indikasi", "E10": "Penyebab", "F10": "Controllable",
+            "G10": "Dampak", "H10": 4, "I10": 4,
+        }
+        for cell, value in values.items():
+            identification[cell] = value
+
+        analysis = workbook.create_sheet("Analisis & Evaluasi Risiko")
+        values = {
+            "A10": 1, "B10": "Risiko dari workbook", "C10": "Kontrol A",
+            "E10": "✓", "G10": 3, "H10": 3, "K10": "✓",
+        }
+        for cell, value in values.items():
+            analysis[cell] = value
+
+        treatment = workbook.create_sheet("Perlakuan Risiko")
+        values = {
+            "A10": 1, "B10": "Risiko dari workbook", "C10": "Mitigasi",
+            "D10": "Perbarui SOP", "E10": 2, "F10": 2,
+            "I10": "2026-12-31", "J10": "Pemilik A",
+        }
+        for cell, value in values.items():
+            treatment[cell] = value
+
+        monitoring = workbook.create_sheet("Pemantauan TW1")
+        values = {
+            "A10": 1, "B10": "Risiko dari workbook", "C10": "Perbarui SOP",
+            "D10": "Telah dilaksanakan", "E10": "2026-12-31", "F10": "Pemilik A",
+            "G10": 3, "H10": 3, "K10": 2, "L10": 2, "O10": 2, "P10": 2,
+        }
+        for cell, value in values.items():
+            monitoring[cell] = value
+
+        stream = BytesIO()
+        workbook.save(stream)
+        workbook.close()
+        return SimpleUploadedFile(
+            "Manajemen Risiko 2026.xlsx",
+            stream.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    def test_officer_can_import_template_without_duplicates(self):
+        self.client.force_login(self.officer)
+        for expected_status in (302, 302):
+            response = self.client.post(
+                reverse("risk:workbook_import"),
+                {"workbook": self._workbook_upload()},
+                HTTP_HOST="risk.localhost",
+            )
+            self.assertEqual(response.status_code, expected_status)
+        imported = RiskRegister.objects.get(title="Risiko dari workbook")
+        self.assertEqual(imported.strategic_objective, "Sasaran strategis")
+        self.assertEqual(imported.control_effectiveness, "adequate")
+        self.assertTrue(imported.is_priority)
+        self.assertEqual(imported.risk_level, "Sedang")
+        self.assertEqual(RiskTreatment.objects.filter(risk=imported).count(), 1)
+        monitoring = RiskMonitoring.objects.get(risk=imported, year=2026, quarter=1)
+        self.assertEqual(monitoring.expected_score, 4)
+        self.assertEqual(RiskActionPlan.objects.filter(monitoring=monitoring).count(), 1)
+
+    def test_import_rejects_other_division(self):
+        source = Workbook()
+        source.active.title = "Identifikasi Risiko"
+        source.active["C4"] = "Divisi B"
+        stream = BytesIO()
+        source.save(stream)
+        source.close()
+        denied_workbook = SimpleUploadedFile("Risiko 2026.xlsx", stream.getvalue())
+        self.client.force_login(self.officer)
+        response = self.client.post(
+            reverse("risk:workbook_import"), {"workbook": denied_workbook},
+            HTTP_HOST="risk.localhost",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "tidak memiliki akses impor")
 
     def test_officer_can_record_quarterly_monitoring(self):
         self.client.force_login(self.officer)

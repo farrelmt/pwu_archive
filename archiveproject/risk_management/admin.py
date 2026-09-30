@@ -1,6 +1,9 @@
 from django.contrib import admin
 
-from .models import RiskAccess, RiskActivity, RiskDivision, RiskRegister
+from .models import (
+    RiskAccess, RiskActionPlan, RiskActivity, RiskDivision, RiskMonitoring,
+    RiskRegister, RiskTreatment,
+)
 
 
 @admin.register(RiskDivision)
@@ -23,3 +26,6 @@ class RiskRegisterAdmin(admin.ModelAdmin):
 
 
 admin.site.register(RiskActivity)
+admin.site.register(RiskMonitoring)
+admin.site.register(RiskActionPlan)
+admin.site.register(RiskTreatment)

@@ -672,11 +672,7 @@ def detail_disposisi(request, pk):
             )
         )
     )
-    show_combined_director_document = (
-        request.user.role in {'direktur_utama', 'direktur', 'direktur_umum'}
-        and disposisi.tipe_disposisi == 'ONLINE'
-        and disposisi.status_pengajuan in {'DIAJUKAN', 'DIISI'}
-    )
+    show_combined_director_document = bool(disposisi.dokumen_surat_masuk)
 
     grouped_logs = defaultdict(list)
 
@@ -740,11 +736,7 @@ def detail_disposisi(request, pk):
         ),
         'can_share_this_disposisi': can_share_this_disposisi,
         'show_combined_director_document': show_combined_director_document,
-        'combined_director_document_label': (
-            'Preview'
-            if disposisi.status_pengajuan == 'DIISI'
-            else 'Lihat Isi Disposisi'
-        ),
+        'combined_director_document_label': 'Preview',
         'selected_recipient_roles': list(
             disposisi.shared_recipients.values_list('role', flat=True)
         ),
@@ -1099,7 +1091,7 @@ def isi_online_disposisi(request, pk):
                 )
                 editor_content = (
                     f'<div>{heading}</div>'
-                    '<div>- </div>'
+                    '<div>-&nbsp;</div>'
                     '<div><br></div>'
                     '<div><br></div>'
                 )
@@ -1568,13 +1560,9 @@ def _incoming_letter_pdf(document):
 @require_GET
 @never_cache
 def combined_director_document(request, pk):
-    if request.user.role not in {'direktur_utama', 'direktur', 'direktur_umum'}:
-        raise PermissionDenied
     disposisi = get_object_or_404(
         visible_disposisi_for_user(request.user),
         pk=pk,
-        tipe_disposisi='ONLINE',
-        status_pengajuan__in={'DIAJUKAN', 'DIISI'},
     )
     if not disposisi.dokumen_surat_masuk:
         raise Http404
@@ -1608,7 +1596,7 @@ def combined_director_document(request, pk):
         request=request,
         category='DISPOSISI',
         action='VIEW_COMBINED_PDF',
-        description='Incoming letter and disposition preview opened as one PDF.',
+        description='Incoming letter and disposition opened as one combined PDF.',
         target_type='disposisi.Disposisi',
         target_id=disposisi.pk,
         target_label=disposisi.nomor_agenda or disposisi.nomor_surat,

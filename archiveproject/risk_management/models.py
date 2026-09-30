@@ -76,13 +76,29 @@ class RiskRegister(models.Model):
         ("monitoring", "Pemantauan"),
         ("closed", "Selesai"),
     ]
+    CONTROLLABILITY_CHOICES = [
+        ("", "-"),
+        ("controllable", "Controllable"),
+        ("uncontrollable", "Uncontrollable"),
+    ]
+    CONTROL_EFFECTIVENESS_CHOICES = [
+        ("", "-"),
+        ("ineffective", "Tidak Efektif"),
+        ("adequate", "Cukup Efektif"),
+        ("effective", "Efektif"),
+    ]
 
     risk_code = models.CharField("Kode risiko", max_length=30, unique=True, editable=False)
     division = models.ForeignKey(RiskDivision, on_delete=models.PROTECT, related_name="risks")
     title = models.CharField("Risiko", max_length=220)
     category = models.CharField("Kategori", max_length=20, choices=CATEGORY_CHOICES)
+    strategic_objective = models.TextField("Sasaran terkait", blank=True)
     description = models.TextField("Uraian risiko")
+    indication = models.TextField("Indikasi risiko", blank=True)
     cause = models.TextField("Penyebab")
+    controllability = models.CharField(
+        "Kendali penyebab", max_length=20, choices=CONTROLLABILITY_CHOICES, blank=True
+    )
     impact = models.TextField("Dampak")
     inherent_likelihood = models.PositiveSmallIntegerField(
         "Kemungkinan inheren", validators=[MinValueValidator(1), MaxValueValidator(5)]
@@ -91,8 +107,16 @@ class RiskRegister(models.Model):
         "Dampak inheren", validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
     existing_controls = models.TextField("Pengendalian yang ada", blank=True)
+    control_effectiveness = models.CharField(
+        "Efektivitas pengendalian",
+        max_length=20,
+        choices=CONTROL_EFFECTIVENESS_CHOICES,
+        blank=True,
+    )
+    is_priority = models.BooleanField("Nominasi prioritas risiko", default=False)
     mitigation_plan = models.TextField("Rencana mitigasi", blank=True)
     risk_owner = models.CharField("Pemilik risiko", max_length=160)
+    risk_officer = models.CharField("Risk officer", max_length=160, blank=True)
     target_date = models.DateField("Target penyelesaian", blank=True, null=True)
     residual_likelihood = models.PositiveSmallIntegerField(
         "Kemungkinan residual", validators=[MinValueValidator(1), MaxValueValidator(5)]
@@ -132,13 +156,15 @@ class RiskRegister(models.Model):
 
     @staticmethod
     def level_for(score):
-        if score >= 20:
+        if score >= 17:
             return "Sangat Tinggi"
-        if score >= 12:
+        if score >= 10:
             return "Tinggi"
         if score >= 5:
             return "Sedang"
-        return "Rendah"
+        if score >= 3:
+            return "Rendah"
+        return "Sangat Rendah"
 
     @property
     def risk_level(self):
@@ -185,6 +211,18 @@ class RiskMonitoring(models.Model):
     final_impact = models.PositiveSmallIntegerField(
         "Dampak akhir", validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
+    expected_likelihood = models.PositiveSmallIntegerField(
+        "Kemungkinan yang diharapkan",
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        blank=True,
+        null=True,
+    )
+    expected_impact = models.PositiveSmallIntegerField(
+        "Dampak yang diharapkan",
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        blank=True,
+        null=True,
+    )
     business_environment_changes = models.TextField(
         "Perubahan lingkungan bisnis", blank=True
     )
@@ -227,8 +265,73 @@ class RiskMonitoring(models.Model):
     def final_level(self):
         return RiskRegister.level_for(self.final_score)
 
+    @property
+    def expected_score(self):
+        if self.expected_likelihood is None or self.expected_impact is None:
+            return None
+        return self.expected_likelihood * self.expected_impact
+
+    @property
+    def deviation(self):
+        if self.expected_score is None:
+            return None
+        return self.expected_score - self.final_score
+
     def __str__(self):
         return f"{self.risk.risk_code} - {self.get_quarter_display()} {self.year}"
+
+
+class RiskTreatment(models.Model):
+    risk = models.ForeignKey(
+        RiskRegister, on_delete=models.CASCADE, related_name="treatments"
+    )
+    option = models.TextField("Opsi perlakuan risiko", blank=True)
+    action_plan = models.TextField("Rencana aksi perlakuan risiko")
+    expected_likelihood = models.PositiveSmallIntegerField(
+        "Kemungkinan yang diharapkan",
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        blank=True,
+        null=True,
+    )
+    expected_impact = models.PositiveSmallIntegerField(
+        "Dampak yang diharapkan",
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        blank=True,
+        null=True,
+    )
+    target_date = models.DateField("Jadwal pelaksanaan", blank=True, null=True)
+    responsible_person = models.CharField("Penanggung jawab", max_length=160, blank=True)
+    notes = models.TextField("Keterangan", blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_risk_treatments",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="updated_risk_treatments",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["target_date", "pk"]
+        verbose_name = "Perlakuan risiko"
+        verbose_name_plural = "Perlakuan risiko"
+
+    @property
+    def expected_score(self):
+        if self.expected_likelihood is None or self.expected_impact is None:
+            return None
+        return self.expected_likelihood * self.expected_impact
+
+    @property
+    def expected_level(self):
+        return RiskRegister.level_for(self.expected_score) if self.expected_score else "-"
+
+    def __str__(self):
+        return f"{self.risk.risk_code}: {self.action_plan[:60]}"
 
 
 class RiskActionPlan(models.Model):

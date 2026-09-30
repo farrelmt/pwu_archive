@@ -1,7 +1,33 @@
+from unittest.mock import patch
+
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import ActivityLog, SystemUser
+
+
+class SharedProfileSignalTests(TestCase):
+    def setUp(self):
+        self.user = SystemUser.objects.create_user(
+            username="profile-signal-user",
+            password="password-for-tests",
+            role="employee",
+        )
+
+    @patch("inventory.services.sync_company_member")
+    def test_last_login_update_does_not_sync_inventory_profile(self, sync_profile):
+        self.user.last_login = timezone.now()
+        self.user.save(update_fields=["last_login"])
+
+        sync_profile.assert_not_called()
+
+    @patch("inventory.services.sync_company_member")
+    def test_profile_update_still_syncs_inventory_profile(self, sync_profile):
+        self.user.first_name = "Updated"
+        self.user.save(update_fields=["first_name"])
+
+        sync_profile.assert_called_once_with(self.user)
 
 
 class SystemUserEmailTests(TestCase):

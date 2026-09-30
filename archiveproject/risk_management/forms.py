@@ -4,17 +4,40 @@ from .access import MANAGER_ROLES, accesses_for_user
 from .models import RiskActionPlan, RiskMonitoring, RiskRegister
 
 
+class RiskWorkbookImportForm(forms.Form):
+    workbook = forms.FileField(
+        label="Workbook Manajemen Risiko",
+        help_text="Gunakan file .xlsx dengan struktur template Manajemen Risiko 2026.",
+    )
+
+    def clean_workbook(self):
+        workbook = self.cleaned_data["workbook"]
+        if not workbook.name.lower().endswith(".xlsx"):
+            raise forms.ValidationError("File harus berformat .xlsx.")
+        if workbook.size > 10 * 1024 * 1024:
+            raise forms.ValidationError("Ukuran workbook maksimal 10 MB.")
+        signature = workbook.read(4)
+        workbook.seek(0)
+        if signature != b"PK\x03\x04":
+            raise forms.ValidationError("File bukan workbook Excel yang valid.")
+        return workbook
+
+
 class RiskRegisterForm(forms.ModelForm):
     class Meta:
         model = RiskRegister
         fields = [
-            "division", "title", "category", "description", "cause", "impact",
+            "division", "title", "category", "strategic_objective", "description",
+            "indication", "cause", "controllability", "impact",
             "inherent_likelihood", "inherent_impact", "existing_controls",
-            "mitigation_plan", "risk_owner", "target_date",
+            "control_effectiveness", "is_priority", "mitigation_plan", "risk_owner",
+            "risk_officer", "target_date",
             "residual_likelihood", "residual_impact", "status",
         ]
         widgets = {
+            "strategic_objective": forms.Textarea(attrs={"rows": 3}),
             "description": forms.Textarea(attrs={"rows": 4}),
+            "indication": forms.Textarea(attrs={"rows": 3}),
             "cause": forms.Textarea(attrs={"rows": 3}),
             "impact": forms.Textarea(attrs={"rows": 3}),
             "existing_controls": forms.Textarea(attrs={"rows": 3}),
@@ -54,7 +77,7 @@ class RiskMonitoringForm(forms.ModelForm):
         fields = [
             "year", "quarter", "initial_likelihood", "initial_impact",
             "final_likelihood", "final_impact", "business_environment_changes",
-            "evaluation_notes",
+            "expected_likelihood", "expected_impact", "evaluation_notes",
         ]
         widgets = {
             "business_environment_changes": forms.Textarea(attrs={"rows": 3}),

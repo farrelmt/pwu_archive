@@ -236,7 +236,10 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = env.bool(
     'SESSION_EXPIRE_AT_BROWSER_CLOSE',
     default=True,
 )
-SESSION_SAVE_EVERY_REQUEST = env.bool('SESSION_SAVE_EVERY_REQUEST', default=True)
+# Authentication already marks the session as modified when it needs saving.
+# Rewriting an unchanged database session on every page adds avoidable latency
+# and lock contention immediately after login.
+SESSION_SAVE_EVERY_REQUEST = env.bool('SESSION_SAVE_EVERY_REQUEST', default=False)
 DATA_UPLOAD_MAX_MEMORY_SIZE = env.int(
     'DATA_UPLOAD_MAX_MEMORY_SIZE',
     default=2 * 1024 * 1024,

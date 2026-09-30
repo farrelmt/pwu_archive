@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -8,8 +8,13 @@ from django.utils import timezone
 from accounts.activity_views import system_activity_log
 from accounts.audit import record_activity
 
-from .access import can_edit_risk, risk_required, risk_write_required, risks_for_user
-from .forms import RiskActionPlanForm, RiskMonitoringForm, RiskRegisterForm
+from .access import MANAGER_ROLES, can_edit_risk, risk_required, risk_write_required, risks_for_user
+from .forms import (
+    RiskActionPlanForm,
+    RiskMonitoringForm,
+    RiskRegisterForm,
+    RiskWorkbookImportForm,
+)
 from .models import (
     RiskActionPlan,
     RiskActivity,
@@ -17,6 +22,7 @@ from .models import (
     RiskMonitoring,
     RiskRegister,
 )
+from .services import import_risk_workbook
 
 
 def _log(request, action, description, target, *, target_label=None):
@@ -42,9 +48,12 @@ def activity_log(request):
 
 
 def _level_counts(risks):
-    counts = {"Rendah": 0, "Sedang": 0, "Tinggi": 0, "Sangat_Tinggi": 0}
+    counts = {
+        "Sangat_Rendah": 0, "Rendah": 0, "Sedang": 0,
+        "Tinggi": 0, "Sangat_Tinggi": 0,
+    }
     for risk in risks:
-        key = "Sangat_Tinggi" if risk.risk_level == "Sangat Tinggi" else risk.risk_level
+        key = risk.risk_level.replace(" ", "_")
         counts[key] += 1
     return counts
 
@@ -159,6 +168,66 @@ def risk_list(request):
     })
 
 
+@risk_write_required
+def workbook_import(request):
+    form = RiskWorkbookImportForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        is_manager = request.user.is_superuser or request.risk_accesses.filter(
+            role__in=MANAGER_ROLES
+        ).exists()
+        allowed_division_ids = None
+        if not is_manager:
+            allowed_division_ids = set(
+                request.risk_accesses.exclude(division__isnull=True)
+                .values_list("division_id", flat=True)
+            )
+        try:
+            stats = import_risk_workbook(
+                form.cleaned_data["workbook"],
+                user=request.user,
+                allowed_division_ids=allowed_division_ids,
+            )
+        except ValidationError as exc:
+            form.add_error("workbook", exc)
+        else:
+            messages.success(
+                request,
+                "Workbook berhasil diimpor untuk %(division)s: %(risks_created)s risiko baru, "
+                "%(risks_updated)s diperbarui, %(treatments_created)s perlakuan, "
+                "%(monitorings_created)s pemantauan, dan %(actions_created)s rencana aksi baru."
+                % stats,
+            )
+            return redirect("risk:risk_list")
+    return render(request, "risk_management/workbook_import.html", {"form": form})
+
+
+@risk_required
+def scoring_guide(request):
+    likelihoods = [
+        (5, "Hampir Pasti", "≥ 90%", "Akan sering terjadi."),
+        (4, "Kemungkinan Besar", "50% ≤ x < 90%", "Dapat terjadi dengan mudah."),
+        (3, "Mungkin", "30% ≤ x < 50%", "Dapat terjadi walau tidak sering."),
+        (2, "Kemungkinan Kecil", "10% ≤ x < 30%", "Dapat muncul pada suatu waktu."),
+        (1, "Hampir Mustahil", "0,01% ≤ x < 10%", "Terjadi hanya dalam keadaan ekstrem."),
+    ]
+    impact_levels = [
+        (5, "Sangat Signifikan"), (4, "Signifikan"), (3, "Moderat"),
+        (2, "Minor"), (1, "Tidak Signifikan"),
+    ]
+    matrix = [
+        {"impact": impact, "cells": [
+            {"score": impact * likelihood, "level": RiskRegister.level_for(impact * likelihood)}
+            for likelihood in range(1, 6)
+        ]}
+        for impact in range(5, 0, -1)
+    ]
+    return render(request, "risk_management/scoring_guide.html", {
+        "likelihoods": likelihoods,
+        "impact_levels": impact_levels,
+        "matrix": matrix,
+    })
+
+
 @risk_required
 def risk_detail(request, pk):
     risk = get_object_or_404(
@@ -234,7 +303,7 @@ def monitoring_report(request):
     )
     division_rows, totals = _monitoring_summary(monitorings)
     priority_risks = sorted(
-        [item for item in monitorings if item.final_score >= 12],
+        [item for item in monitorings if item.final_score >= 10],
         key=lambda item: (-item.final_score, item.risk.risk_code),
     )
     visible_divisions = RiskDivision.objects.filter(

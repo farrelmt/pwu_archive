@@ -310,7 +310,6 @@ class DisposisiSecurityTests(TestCase):
             "Kembali",
             "History",
             "Edit",
-            "Dokumen Surat",
             "Preview",
             "Lanjutkan",
             "Metode Disposisi",
@@ -318,6 +317,7 @@ class DisposisiSecurityTests(TestCase):
         ):
             with self.subTest(label=label):
                 self.assertContains(response, label)
+        self.assertNotContains(response, "Dokumen Surat")
         self.assertContains(response, "fixed bottom-0")
 
     def test_detail_shows_offline_processing_method(self):
@@ -686,7 +686,7 @@ class DisposisiSecurityTests(TestCase):
         main_editor = self.client.get(isi_url)
         self.assertEqual(
             main_editor.context['editor_content'],
-            '<div>Direktur Utama:</div><div>- </div>'
+            '<div>Direktur Utama:</div><div>-&nbsp;</div>'
             '<div><br></div><div><br></div>',
         )
         self.client.post(
@@ -723,7 +723,7 @@ class DisposisiSecurityTests(TestCase):
         director_editor = self.client.get(isi_url)
         self.assertEqual(
             director_editor.context['editor_content'],
-            '<div>Direktur :</div><div>- </div>'
+            '<div>Direktur :</div><div>-&nbsp;</div>'
             '<div><br></div><div><br></div>',
         )
         self.client.post(
@@ -778,7 +778,7 @@ class DisposisiSecurityTests(TestCase):
                 self.assertContains(detail_response, combined_url)
                 self.assertContains(
                     detail_response,
-                    "Lihat Isi Disposisi",
+                    "Preview",
                     count=1,
                 )
                 self.assertNotContains(detail_response, "Dokumen Surat")
@@ -805,7 +805,16 @@ class DisposisiSecurityTests(TestCase):
                     merged_pdf.pages[-1].extract_text() or "",
                 )
 
-    def test_non_director_cannot_open_combined_submitted_document(self):
+    def test_authorized_non_director_can_open_combined_submitted_document(self):
+        valid_letter = BytesIO()
+        letter_writer = PdfWriter()
+        letter_writer.add_blank_page(width=595, height=842)
+        letter_writer.write(valid_letter)
+        self.disposisi.dokumen_surat_masuk.save(
+            "secretary-letter.pdf",
+            ContentFile(valid_letter.getvalue()),
+            save=True,
+        )
         self.disposisi.tujuan = "DIREKSI"
         self.disposisi.save(update_fields=["tujuan"])
         self.submit_online()
@@ -818,7 +827,8 @@ class DisposisiSecurityTests(TestCase):
             )
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
 
     def test_both_directors_get_one_combined_preview_after_filling_disposition(self):
         valid_letter = BytesIO()
@@ -1032,7 +1042,7 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(editor_response, 'contenteditable="true"')
         self.assertContains(editor_response, "editorToolbar")
         self.assertContains(editor_response, "Gambar langsung pada dokumen")
-        self.assertContains(editor_response, "previewDocumentMount")
+        self.assertNotContains(editor_response, "previewDocumentMount")
         self.assertNotContains(editor_response, "signatureModal")
         self.assertContains(editor_response, "width: 210mm")
         self.assertContains(editor_response, "height: 297mm")
@@ -1054,7 +1064,7 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(editor_response, 'class="isi-title"')
         self.assertContains(editor_response, "margin-top: 30px")
         self.assertNotContains(editor_response, 'class="isi-section border-')
-        self.assertContains(editor_response, "Preview")
+        self.assertNotContains(editor_response, "Preview")
         self.assertContains(editor_response, "Kirim")
         self.assertRedirects(
             send_response,

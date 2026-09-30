@@ -11,7 +11,7 @@ class SystemUser(AbstractUser):
         ('kadiv', 'Kepala Divisi'),
         ('direktur', 'Direktur'),
         ('direktur_utama', 'Direktur Utama'),
-        ('direktur_umum', 'Direktur Umum'),
+        ('direktur_umum', 'Direktur'),
         ('kadiv_akuntansi', 'Kepala Divisi Akuntansi'),
         ('kadiv_keuangan', 'Kepala Divisi Keuangan'),
         ('kadiv_risiko', 'Kepala Divisi Manajemen Risiko'),

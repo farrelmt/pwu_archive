@@ -54,7 +54,7 @@
                             <span>:</span>
                         </div>
                         <div class="destination-option"><span>{% if 'direktur_utama' in selected_recipient_roles %}✓{% endif %}</span>Direktur Utama</div>
-                        <div class="destination-option"><span>{% if 'direktur_umum' in selected_recipient_roles %}✓{% endif %}</span>Direktur Umum</div>
+                        <div class="destination-option"><span>{% if 'direktur_umum' in selected_recipient_roles %}✓{% endif %}</span>Direktur</div>
                         <div class="destination-option"><span>{% if 'kadiv_akuntansi' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Akuntansi</div>
                         <div class="destination-option"><span>{% if 'kadiv_risiko' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Manajemen Risiko</div>
                         <div class="destination-option"><span>{% if 'kadiv_keuangan' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Keuangan</div>
@@ -91,9 +91,15 @@
                             <button type="button" data-command="insertUnorderedList" title="Daftar poin" aria-label="Daftar poin">&#8226; List</button>
                             <button type="button" data-command="insertOrderedList" title="Daftar nomor" aria-label="Daftar nomor">1. List</button>
                             <span class="toolbar-separator" aria-hidden="true"></span>
-                            <button type="button" data-command="justifyLeft" title="Rata kiri" aria-label="Rata kiri">&#8676;</button>
-                            <button type="button" data-command="justifyCenter" title="Rata tengah" aria-label="Rata tengah">&#8596;</button>
-                            <button type="button" data-command="justifyRight" title="Rata kanan" aria-label="Rata kanan">&#8677;</button>
+                            <button type="button" data-command="justifyLeft" title="Rata kiri" aria-label="Rata kiri">
+                                <svg class="alignment-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M2 4h16M2 8h11M2 12h16M2 16h11" /></svg>
+                            </button>
+                            <button type="button" data-command="justifyCenter" title="Rata tengah" aria-label="Rata tengah">
+                                <svg class="alignment-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M2 4h16M4.5 8h11M2 12h16M4.5 16h11" /></svg>
+                            </button>
+                            <button type="button" data-command="justifyRight" title="Rata kanan" aria-label="Rata kanan">
+                                <svg class="alignment-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M2 4h16M7 8h11M2 12h16M7 16h11" /></svg>
+                            </button>
                             <span class="toolbar-separator" aria-hidden="true"></span>
                             <button type="button" data-command="undo" title="Urungkan" aria-label="Urungkan">&#8630;</button>
                             <button type="button" data-command="redo" title="Ulangi" aria-label="Ulangi">&#8631;</button>
@@ -133,10 +139,6 @@
             Kembali
         </a>
         <div class="flex gap-3 lg:flex-col">
-            <button type="button" id="previewButton"
-                    class="inline-flex h-10 items-center justify-center rounded bg-blue-950 px-5 text-sm font-semibold text-white hover:bg-blue-900 cursor-pointer">
-                Preview
-            </button>
             {% if not read_only %}
             <button type="submit" id="sendButton"
                     class="inline-flex h-10 items-center justify-center rounded bg-green-700 px-5 text-sm font-semibold text-white hover:bg-green-800 cursor-pointer">
@@ -147,18 +149,6 @@
     </aside>
 </form>
 
-<div id="previewModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
-    <div class="flex max-h-[95vh] w-full max-w-4xl flex-col overflow-hidden rounded bg-blue-950 shadow-2xl">
-        <div class="flex items-center justify-between border-b bg-white px-4 py-3">
-            <h2 id="previewTitle" class="font-semibold text-blue-950">Preview Isi Disposisi</h2>
-            <button type="button" id="closePreview" class="rounded px-3 py-1 text-xl text-gray-600 hover:bg-gray-100" aria-label="Tutup preview">&times;</button>
-        </div>
-        <div class="overflow-y-auto bg-blue-950 p-4 sm:p-7">
-            <div id="previewDocumentMount" class="preview-stage mx-auto"></div>
-        </div>
-    </div>
-</div>
-
 <style>
     html,
     body {
@@ -167,7 +157,7 @@
     }
 
     /*
-     * This is a focused document workspace with its own Back/Preview/Send
+     * This is a focused document workspace with its own Back/Send
      * controls.  Keeping the application drawer active here can leave its
      * full-screen backdrop above the content (notably after browser history
      * restoration), which prevents the contenteditable area receiving input.
@@ -227,12 +217,12 @@
         box-sizing: border-box;
     }
 
-    .document-stage,
-    .preview-stage {
+    .document-stage {
         width: 210mm;
         min-width: 210mm;
         max-width: 210mm;
         flex: 0 0 auto;
+        text-align: left;
     }
 
     .online-document-header {
@@ -356,6 +346,16 @@
         outline: none;
     }
 
+    .alignment-icon {
+        display: block;
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+    }
+
     .toolbar-separator {
         width: 1px;
         height: 20px;
@@ -372,6 +372,7 @@
         font-family: Arial, sans-serif;
         font-size: 14px;
         line-height: 1.55;
+        text-align: left;
         background: transparent !important;
         overflow-x: hidden;
         overflow-y: auto;
@@ -470,12 +471,6 @@
         outline: none;
     }
 
-    .preview-document .editor-toolbar { display: none; }
-    .preview-document .isi-editor {
-        background: transparent !important;
-        overflow: hidden;
-    }
-
     .content-limit-warning {
         position: absolute;
         right: 10px;
@@ -523,11 +518,6 @@
         const editor = document.getElementById('isiEditor');
         const hiddenInput = document.getElementById('id_isi_disposisi');
         const toolbar = document.getElementById('editorToolbar');
-        const documentSource = document.getElementById('disposisiDocument');
-        const previewModal = document.getElementById('previewModal');
-        const previewDocumentMount = document.getElementById('previewDocumentMount');
-        const previewButton = document.getElementById('previewButton');
-        const closePreview = document.getElementById('closePreview');
         const signatureButton = document.getElementById('signatureButton');
         const clearDrawingButton = document.getElementById('clearDrawingButton');
         const cancelDrawingButton = document.getElementById('cancelDrawingButton');
@@ -560,6 +550,25 @@
             selection.removeAllRanges();
             selection.addRange(range);
         };
+
+        const moveCaretToInitialDirectorLine = () => {
+            if (!editor.hasAttribute('contenteditable')) return;
+            const firstLine = editor.children[0];
+            const entryLine = editor.children[1];
+            const isDirectorTemplate = ['Direktur Utama:', 'Direktur :']
+                .includes(firstLine?.textContent.trim());
+            if (!isDirectorTemplate || entryLine?.textContent.trim() !== '-') return;
+
+            const range = document.createRange();
+            range.selectNodeContents(entryLine);
+            range.collapse(false);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            editor.focus();
+        };
+
+        moveCaretToInitialDirectorLine();
 
         if (toolbar) {
             toolbar.addEventListener('mousedown', (event) => event.preventDefault());
@@ -840,37 +849,8 @@
             });
         }
 
-        const openPreview = () => {
-            if (drawingCanvas) finishDrawing();
-            const documentClone = documentSource.cloneNode(true);
-            documentClone.removeAttribute('id');
-            documentClone.classList.add('preview-document');
-            documentClone.querySelector('#editorToolbar')?.remove();
-            const previewEditor = documentClone.querySelector('#isiEditor');
-            previewEditor.removeAttribute('id');
-            previewEditor.removeAttribute('contenteditable');
-            previewEditor.removeAttribute('role');
-            previewEditor.removeAttribute('aria-multiline');
-            previewEditor.removeAttribute('data-placeholder');
-            previewEditor.classList.remove('bg-white');
-            previewDocumentMount.replaceChildren(documentClone);
-            previewModal.classList.remove('hidden');
-            previewModal.classList.add('flex');
-        };
-
-        const hidePreview = () => {
-            previewModal.classList.add('hidden');
-            previewModal.classList.remove('flex');
-        };
-
-        previewButton.addEventListener('click', openPreview);
-        closePreview.addEventListener('click', hidePreview);
-        previewModal.addEventListener('click', (event) => {
-            if (event.target === previewModal) hidePreview();
-        });
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
-                hidePreview();
                 cancelDrawing();
             }
         });

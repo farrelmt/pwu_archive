@@ -8,8 +8,18 @@ from .models import SystemUser
 
 
 @receiver(post_save, sender=SystemUser)
-def ensure_shared_system_access(sender, instance, created, **kwargs):
+def ensure_shared_system_access(sender, instance, created, update_fields=None, **kwargs):
     """Keep Inventory connected to the canonical PWU member identity."""
+    # Django saves only ``last_login`` during authentication.  That timestamp
+    # does not affect the shared employee profile, so avoid several unrelated
+    # database queries on the critical login path.
+    profile_fields = {
+        "username", "first_name", "last_name", "email", "phone",
+        "role", "is_active",
+    }
+    if not created and update_fields is not None and profile_fields.isdisjoint(update_fields):
+        return
+
     from inventory.services import sync_company_member
 
     sync_company_member(instance)

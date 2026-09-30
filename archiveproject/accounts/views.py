@@ -113,7 +113,7 @@ def _login_context(request, **extra):
                 'Sistem Manajemen Risiko'
                 if is_risk else (
                 'Koperasi Karyawan Wira Jatim'
-                if is_koperasi else 'Sistem Arsip PWU'
+                if is_koperasi else 'Sistem PWU'
                 )
             ))
         ),

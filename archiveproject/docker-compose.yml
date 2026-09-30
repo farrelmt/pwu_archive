@@ -86,7 +86,7 @@ services:
       SECURE_HSTS_PRELOAD: "true"
       SESSION_COOKIE_AGE: "28800"
       SESSION_EXPIRE_AT_BROWSER_CLOSE: "true"
-      SESSION_SAVE_EVERY_REQUEST: "true"
+      SESSION_SAVE_EVERY_REQUEST: ${SESSION_SAVE_EVERY_REQUEST:-false}
       XDG_CACHE_HOME: /tmp/.cache
     read_only: true
     tmpfs:

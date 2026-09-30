@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("activity-log/", views.activity_log, name="activity_log"),
     path("risiko/", views.risk_list, name="risk_list"),
+    path("risiko/impor-workbook/", views.workbook_import, name="workbook_import"),
     path("risiko/tambah/", views.risk_create, name="risk_create"),
     path("risiko/<int:pk>/", views.risk_detail, name="risk_detail"),
     path("risiko/<int:pk>/edit/", views.risk_edit, name="risk_edit"),
@@ -16,5 +17,6 @@ urlpatterns = [
     path("pemantauan/<int:monitoring_pk>/aksi/tambah/", views.action_create, name="action_create"),
     path("aksi/<int:pk>/edit/", views.action_edit, name="action_edit"),
     path("pemantauan/", views.monitoring_report, name="monitoring_report"),
+    path("pedoman-penilaian/", views.scoring_guide, name="scoring_guide"),
     path("divisi/", views.divisions, name="divisions"),
 ]
