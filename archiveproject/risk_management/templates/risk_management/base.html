@@ -33,6 +33,7 @@
             <a class="risk-nav {% if '/risiko/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:risk_list' %}">Register Risiko</a>
             <a class="risk-nav {% if '/pemantauan/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:monitoring_report' %}">Pemantauan Triwulan</a>
             <a class="risk-nav {% if '/divisi/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:divisions' %}">Divisi &amp; Penanggung Jawab</a>
+            {% if request.user.is_superuser %}<a class="risk-nav {% if '/activity-log/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:activity_log' %}">Log Aktivitas</a>{% endif %}
             <p class="mb-2 mt-7 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Akun</p>
             <a class="risk-nav" href="{{ portal_settings_url }}">Pengaturan</a>
         </nav>

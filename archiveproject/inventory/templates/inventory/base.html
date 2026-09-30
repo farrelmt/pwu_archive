@@ -30,6 +30,7 @@
             {% endif %}
             <a class="inventory-nav {% if request.resolver_match.url_name == 'report_new' %}inventory-nav-active{% endif %}" href="{% url 'inventory:report_new' %}">Laporkan Barang Rusak</a>
             <a class="inventory-nav {% if '/laporan/' in request.path and request.resolver_match.url_name != 'report_new' %}inventory-nav-active{% endif %}" href="{% url 'inventory:report_list' %}">Laporan Kerusakan</a>
+            {% if request.user.is_superuser %}<a class="inventory-nav {% if '/activity-log/' in request.path %}inventory-nav-active{% endif %}" href="{% url 'inventory:activity_log' %}">Log Aktivitas</a>{% endif %}
         </nav>
         <div class="space-y-2 border-t border-slate-200 p-3">
             <a class="block w-full rounded-xl bg-violet-50 px-3 py-2.5 text-left text-sm font-bold text-violet-800 hover:bg-violet-100" href="{{ portal_home_url }}">Keluar</a>

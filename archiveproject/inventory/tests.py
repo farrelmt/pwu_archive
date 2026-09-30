@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from accounts.models import ActivityLog
+
 from .models import CompanyMember, InventoryAccess, InventoryItem, InventoryReport
 
 
@@ -19,10 +21,12 @@ class InventoryPermissionTests(TestCase):
         self.superuser = User.objects.create_superuser(username="inv-admin", password="test-pass-123")
         InventoryAccess.objects.create(user=self.manager, role="manager")
         InventoryAccess.objects.create(user=self.viewer, role="participant")
-        self.member = CompanyMember.objects.create(
-            employee_id="EMP-001", full_name="Budi", division="TI",
-            position="Staff", user=self.viewer,
-        )
+        self.member = self.viewer.company_member_profile
+        self.member.employee_id = "EMP-001"
+        self.member.full_name = "Budi"
+        self.member.division = "TI"
+        self.member.position = "Staff"
+        self.member.save()
         self.item = InventoryItem.objects.create(
             asset_code="AST-001", item_name="Laptop", category="hardware",
             specifications="16 GB RAM", received_date="2026-01-10",
@@ -35,6 +39,55 @@ class InventoryPermissionTests(TestCase):
         self.client.force_login(self.manager)
         response = self.client.get(reverse("inventory:item_edit", args=[self.item.pk]), HTTP_HOST="inventory.localhost")
         self.assertEqual(response.status_code, 200)
+
+    def test_member_list_supports_sorting_and_shows_all_current_members(self):
+        User = get_user_model()
+        zeta = User.objects.create(username="division_zeta", first_name="Zeta", role="employee")
+        alpha = User.objects.create(username="division_alpha", first_name="Alpha", role="employee")
+        zeta.company_member_profile.employee_id = "NIP-900"
+        zeta.company_member_profile.save(update_fields=["employee_id"])
+        alpha.company_member_profile.employee_id = "NIP-100"
+        alpha.company_member_profile.save(update_fields=["employee_id"])
+        self.client.force_login(self.manager)
+
+        name_response = self.client.get(
+            reverse("inventory:member_list") + "?sort=full_name&direction=asc&per_page=100",
+            HTTP_HOST="inventory.localhost",
+        )
+        names = [member.full_name for member in name_response.context["page_obj"]]
+        self.assertEqual(names, sorted(names, key=str.casefold))
+        self.assertEqual(
+            name_response.context["page_obj"].paginator.count,
+            User.objects.count(),
+        )
+
+        nip_response = self.client.get(
+            reverse("inventory:member_list") + "?sort=employee_id&direction=desc&per_page=100",
+            HTTP_HOST="inventory.localhost",
+        )
+        employee_ids = [member.employee_id for member in nip_response.context["page_obj"]]
+        self.assertEqual(employee_ids, sorted(employee_ids, reverse=True))
+        self.assertContains(nip_response, "anggota ditemukan")
+
+    def test_member_list_has_working_pagination_controls(self):
+        User = get_user_model()
+        for number in range(18):
+            User.objects.create(
+                username=f"pagination_{number:02d}",
+                first_name=f"Pagination {number:02d}",
+                role="employee",
+            )
+        self.client.force_login(self.manager)
+
+        response = self.client.get(
+            reverse("inventory:member_list") + "?per_page=20",
+            HTTP_HOST="inventory.localhost",
+        )
+
+        self.assertEqual(response.context["page_obj"].paginator.num_pages, 2)
+        self.assertEqual(len(response.context["page_obj"]), 20)
+        self.assertContains(response, "Berikutnya")
+        self.assertContains(response, "page=2")
 
     def test_participant_is_read_only(self):
         self.client.force_login(self.viewer)
@@ -187,15 +240,9 @@ class InventoryPermissionTests(TestCase):
         self.client.force_login(self.superuser)
         url = reverse("inventory:my_inventory")
         response = self.client.get(url, HTTP_HOST="inventory.localhost")
-        self.assertContains(response, "Lengkapi Profil Inventaris Saya")
-        self.assertFalse(CompanyMember.objects.filter(user=self.superuser).exists())
-        response = self.client.post(url, {
-            "employee_id": "ADMIN-001", "full_name": "Admin", "division": "TI",
-            "position": "Staff", "status": "active",
-        }, HTTP_HOST="inventory.localhost")
-        self.assertRedirects(response, url, fetch_redirect_response=False)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(CompanyMember.objects.filter(user=self.superuser).exists())
         member = CompanyMember.objects.get(user=self.superuser)
-        response = self.client.get(url, HTTP_HOST="inventory.localhost")
         self.assertContains(response, "+ Tambah Inventaris Saya</a>", count=3)
         for category in ("office", "computer", "software"):
             self.assertContains(response, reverse("inventory:personal_item_create") + f"?category={category}")
@@ -205,6 +252,20 @@ class InventoryPermissionTests(TestCase):
         }, HTTP_HOST="inventory.localhost")
         self.assertEqual(response.status_code, 302)
         self.assertEqual(InventoryItem.objects.get(item_name="Pulpen Admin").assigned_to, member)
+
+    def test_portal_member_identity_is_synchronized_to_inventory(self):
+        self.viewer.first_name = "Budi"
+        self.viewer.last_name = "Santoso"
+        self.viewer.email = "budi@pwujatim.site"
+        self.viewer.phone = "08123456789"
+        self.viewer.is_active = False
+        self.viewer.save()
+
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.full_name, "Budi Santoso")
+        self.assertEqual(self.member.email, "budi@pwujatim.site")
+        self.assertEqual(self.member.phone, "08123456789")
+        self.assertEqual(self.member.status, "inactive")
 
     def test_total_value(self):
         self.assertEqual(self.item.total_value, Decimal("12000000"))
@@ -364,6 +425,29 @@ class InventoryPermissionTests(TestCase):
         response = self.client.post(url, {"item": self.item.pk, "report_type": "damaged", "description": "Broken"}, HTTP_HOST="inventory.localhost")
         self.assertEqual(response.status_code, 302)
         self.assertEqual(InventoryReport.objects.get().item, self.item)
+        report = InventoryReport.objects.get()
+        self.assertTrue(ActivityLog.objects.filter(
+            actor=self.viewer,
+            category="INVENTORY",
+            action="REPORT_CREATED",
+            target_id=str(report.pk),
+        ).exists())
+
+    def test_only_superuser_can_open_inventory_activity_log(self):
+        self.client.force_login(self.viewer)
+        denied = self.client.get(
+            reverse("inventory:activity_log"),
+            HTTP_HOST="inventory.localhost",
+        )
+        self.assertEqual(denied.status_code, 403)
+
+        self.client.force_login(self.superuser)
+        response = self.client.get(
+            reverse("inventory:activity_log"),
+            HTTP_HOST="inventory.localhost",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Log Aktivitas")
 
     def test_photo_upload_storage_and_permissions(self):
         from io import BytesIO
@@ -384,11 +468,11 @@ class InventoryPermissionTests(TestCase):
             response = self.client.get(url, HTTP_HOST="inventory.localhost")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response["Content-Type"], "image/jpeg")
-            response.close()
+            list(response.streaming_content)
             self.client.force_login(self.manager)
             response = self.client.get(url, HTTP_HOST="inventory.localhost")
             self.assertEqual(response.status_code, 200)
-            response.close()
+            list(response.streaming_content)
             outsider = get_user_model().objects.create_user(username="outsider", role="inventory")
             InventoryAccess.objects.create(user=outsider, role="participant")
             self.client.force_login(outsider)

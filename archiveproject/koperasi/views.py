@@ -16,6 +16,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.audit import record_activity
+from accounts.activity_views import system_activity_log
 from homepage.forms import ReportForm
 
 from .access import (
@@ -59,6 +60,16 @@ def _log(request, action, description, target):
         target_type=target.__class__.__name__,
         target_id=target.pk,
         target_label=str(target),
+    )
+
+
+def activity_log(request):
+    return system_activity_log(
+        request,
+        category="KOPERASI",
+        system_name="Sistem Koperasi",
+        base_template="koperasi/base.html",
+        activity_url_name="koperasi:activity_log",
     )
 
 

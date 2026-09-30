@@ -18,6 +18,7 @@ from accounts.audit import record_activity
 from accounts.models import ActivityLog
 from accounts.access import can_manage_members, has_system_access, member_admin_required
 from accounts.forms import MemberAccessForm, PersonalSettingsForm
+from accounts.directory import MEMBER_DIVISION_ORDER, member_division
 from koperasi.models import KoperasiAccess
 import textwrap
 import re
@@ -32,49 +33,6 @@ def _natural_sort_key(value):
         int(part) if part.isdigit() else part.casefold()
         for part in re.split(r"(\d+)", value or "")
     )
-
-
-MEMBER_DIVISION_ORDER = (
-    "Direksi",
-    "Divisi Akuntansi",
-    "Divisi Aset",
-    "Divisi Keuangan",
-    "Divisi Legal dan Umum",
-    "Divisi Manajemen Risiko",
-    "Divisi Sekretaris",
-    "Divisi Satuan Pengawas Internal",
-    "Divisi Umum",
-    "Humas",
-    "HRD",
-    "Wirajatim KSO",
-    "Administrator Sistem",
-    "Lainnya",
-)
-
-
-def _member_division(username):
-    username = (username or "").casefold()
-    prefix_groups = (
-        (("akuntansi_",), "Divisi Akuntansi"),
-        (("aset_",), "Divisi Aset"),
-        (("keuangan_",), "Divisi Keuangan"),
-        (("legal_", "legal_umum_"), "Divisi Legal dan Umum"),
-        (("manajemen_risiko_",), "Divisi Manajemen Risiko"),
-        (("sekretaris_",), "Divisi Sekretaris"),
-        (("spi_",), "Divisi Satuan Pengawas Internal"),
-        (("umum_",), "Divisi Umum"),
-        (("humas_",), "Humas"),
-        (("hrd_",), "HRD"),
-        (("wirajatim_kso_",), "Wirajatim KSO"),
-    )
-    if username in {"direktur", "direktur_utama"}:
-        return "Direksi"
-    if username in {"it_pwu", "farrel_mt"}:
-        return "Administrator Sistem"
-    for prefixes, division_name in prefix_groups:
-        if username.startswith(prefixes):
-            return division_name
-    return "Lainnya"
 
 
 def root(request):
@@ -143,7 +101,7 @@ def member_list(request):
         rows.append({
             "user": user,
             "roles": list(dict.fromkeys(roles)),
-            "division": _member_division(user.username),
+            "division": member_division(user.username),
         })
 
     grouped_rows = {division: [] for division in MEMBER_DIVISION_ORDER}

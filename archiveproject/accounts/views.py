@@ -82,7 +82,10 @@ def system_handoff(request):
 
 def _can_follow_login_next(user, next_url):
     """Avoid landing a valid login directly on a known forbidden page."""
-    path = urlsplit(next_url).path
+    parsed_url = urlsplit(next_url)
+    if parsed_url.hostname in settings.KOPERASI_HOSTS:
+        return has_system_access(user, "koperasi")
+    path = parsed_url.path
     if path == '/disposisi/':
         return user.can_view_all_archive
     if path == '/disposisi/tambah/':

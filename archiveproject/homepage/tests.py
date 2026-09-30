@@ -135,6 +135,24 @@ class HostRoutingTests(TestCase):
         self.assertContains(response, ">Sistem Koperasi<")
         self.assertContains(response, "/accounts/system/koperasi/")
 
+    def test_portal_ignores_legacy_koperasi_viewer_role(self):
+        KoperasiAccess.objects.create(
+            user=self.user,
+            company=None,
+            role="viewer",
+            is_active=True,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get("/", HTTP_HOST="pwujatim.site")
+
+        self.assertNotContains(response, ">Sistem Koperasi<")
+        launch_response = self.client.get(
+            reverse("accounts:system_launch", args=["koperasi"]),
+            HTTP_HOST="pwujatim.site",
+        )
+        self.assertEqual(launch_response.status_code, 403)
+
     def test_authenticated_archive_domain_denies_user_without_archive_role(self):
         self.client.force_login(self.user)
 

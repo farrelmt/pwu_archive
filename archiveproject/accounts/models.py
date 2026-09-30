@@ -36,7 +36,7 @@ class SystemUser(AbstractUser):
 
     @property
     def can_view_activity_log(self):
-        return self.username == 'it_pwu'
+        return self.is_superuser
 
     @property
     def can_edit_disposisi(self):
@@ -65,6 +65,8 @@ class ActivityLog(models.Model):
         ('ACCOUNT', 'Account'),
         ('SYSTEM', 'System'),
         ('KOPERASI', 'Koperasi'),
+        ('RISK', 'Manajemen Risiko'),
+        ('INVENTORY', 'Inventaris'),
     ]
 
     actor = models.ForeignKey(

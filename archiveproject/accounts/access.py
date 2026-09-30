@@ -41,7 +41,9 @@ def has_system_access(user, system):
     if system == "archive":
         return has_archive_access(user)
     if system == "koperasi":
-        return user.koperasi_accesses.filter(is_active=True).exists()
+        from koperasi.access import access_rows_for_user
+
+        return access_rows_for_user(user).exists()
     if system == "risk":
         return user.risk_accesses.filter(is_active=True).exists()
     if system == "inventory":

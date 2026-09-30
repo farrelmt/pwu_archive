@@ -2,30 +2,55 @@ from decimal import Decimal
 from uuid import uuid4
 
 from django.contrib import messages
-from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, F, Q
+from django.db.models.functions import Lower
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from archiveproject.host_routing import portal_base_url
+from accounts.activity_views import system_activity_log
+from accounts.audit import record_activity
+
 from .access import inventory_required, inventory_write_required
-from .forms import CompanyMemberForm, InventoryItemForm, InventoryReportForm, PersonalInventoryItemForm, NewInventoryReportForm, category_section
+from .forms import InventoryItemForm, InventoryReportForm, PersonalInventoryItemForm, NewInventoryReportForm, category_section
 from .models import CompanyMember, InventoryActivity, InventoryItem, InventoryReport
+from .services import sync_company_member
+
+
+def _log(request, action, description, target, *, target_label=None):
+    record_activity(
+        category="INVENTORY",
+        action=action,
+        description=description,
+        request=request,
+        target_type=target.__class__.__name__,
+        target_id=target.pk,
+        target_label=target_label or str(target),
+    )
+
+
+def activity_log(request):
+    return system_activity_log(
+        request,
+        category="INVENTORY",
+        system_name="Sistem Inventaris",
+        base_template="inventory/base.html",
+        activity_url_name="inventory:activity_log",
+    )
 
 
 @inventory_required
 def dashboard(request):
     if not request.can_edit_inventory:
-        try:
-            member = request.user.company_member_profile
-        except ObjectDoesNotExist:
-            return render(request, "inventory/my_inventory_missing.html")
+        member = sync_company_member(request.user)
         return redirect("inventory:member_detail", pk=member.pk)
     items = InventoryItem.objects.select_related("assigned_to")
     total_value = sum((item.total_value for item in items), Decimal("0"))
     return render(request, "inventory/dashboard.html", {
-        "member_count": CompanyMember.objects.filter(status="active").count(),
+        "member_count": CompanyMember.objects.filter(user__isnull=False, status="active").count(),
         "item_count": sum(item.quantity for item in items),
         "assigned_count": items.filter(status="assigned").count(),
         "maintenance_count": items.filter(status="maintenance").count(),
@@ -36,21 +61,96 @@ def dashboard(request):
 
 @inventory_write_required
 def member_list(request):
-    members = CompanyMember.objects.all()
+    members = CompanyMember.objects.select_related("user").filter(user__isnull=False)
     search = request.GET.get("q", "").strip()
     division = request.GET.get("division", "").strip()
     status = request.GET.get("status", "").strip()
+    sort = request.GET.get("sort", "full_name")
+    direction = request.GET.get("direction", "asc")
+    per_page = request.GET.get("per_page", "50")
+    sort_fields = {
+        "employee_id": Lower("employee_id"),
+        "full_name": Lower("full_name"),
+        "division": Lower("division"),
+        "position": Lower("position"),
+        "inventory": F("inventory_count"),
+        "status": Lower("status"),
+    }
+    if sort not in sort_fields:
+        sort = "full_name"
+    if direction not in {"asc", "desc"}:
+        direction = "asc"
+    if per_page not in {"20", "50", "100"}:
+        per_page = "50"
     if search:
-        members = members.filter(Q(employee_id__icontains=search) | Q(full_name__icontains=search) | Q(position__icontains=search))
+        members = members.filter(
+            Q(employee_id__icontains=search)
+            | Q(full_name__icontains=search)
+            | Q(position__icontains=search)
+            | Q(user__username__icontains=search)
+        )
     if division:
         members = members.filter(division=division)
     if status in dict(CompanyMember.STATUS_CHOICES):
         members = members.filter(status=status)
-    divisions = CompanyMember.objects.order_by("division").values_list("division", flat=True).distinct()
+    members = members.annotate(inventory_count=Count("inventory_items"))
+    order_expression = sort_fields[sort]
+    order_expression = order_expression.desc() if direction == "desc" else order_expression.asc()
+    members = members.order_by(order_expression, Lower("full_name"), "pk")
+    divisions = (
+        CompanyMember.objects.filter(user__isnull=False)
+        .exclude(division="")
+        .order_by("division")
+        .values_list("division", flat=True)
+        .distinct()
+    )
+    paginator = Paginator(members, int(per_page))
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    def query_url(**updates):
+        params = request.GET.copy()
+        for key, value in updates.items():
+            if value in (None, ""):
+                params.pop(key, None)
+            else:
+                params[key] = value
+        return f"?{params.urlencode()}"
+
+    sort_headers = []
+    for key, label in (
+        ("employee_id", "NIP/NIK"),
+        ("full_name", "Nama"),
+        ("division", "Divisi"),
+        ("position", "Jabatan"),
+        ("inventory", "Inventaris"),
+        ("status", "Status"),
+    ):
+        next_direction = "desc" if sort == key and direction == "asc" else "asc"
+        sort_headers.append({
+            "key": key,
+            "label": label,
+            "url": query_url(sort=key, direction=next_direction, page=None),
+            "active": sort == key,
+            "direction": direction if sort == key else "",
+        })
+    page_links = [
+        {
+            "label": number,
+            "url": "" if number == paginator.ELLIPSIS else query_url(page=number),
+            "current": number == page_obj.number,
+        }
+        for number in paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+    ]
     return render(request, "inventory/member_list.html", {
-        "page_obj": Paginator(members, 20).get_page(request.GET.get("page")),
+        "page_obj": page_obj,
         "divisions": divisions, "statuses": CompanyMember.STATUS_CHOICES,
         "filters": {"q": search, "division": division, "status": status},
+        "sort": sort, "direction": direction, "sort_headers": sort_headers,
+        "per_page": per_page, "per_page_options": ("20", "50", "100"),
+        "page_links": page_links,
+        "previous_url": query_url(page=page_obj.previous_page_number()) if page_obj.has_previous() else "",
+        "next_url": query_url(page=page_obj.next_page_number()) if page_obj.has_next() else "",
+        "portal_member_list_url": f"{portal_base_url(request)}/member/",
     })
 
 
@@ -77,33 +177,13 @@ def member_detail(request, pk):
 
 @inventory_required
 def my_inventory(request):
-    try:
-        member = request.user.company_member_profile
-    except ObjectDoesNotExist:
-        if not request.user.is_superuser:
-            return render(request, "inventory/my_inventory_missing.html")
-        form = CompanyMemberForm(request.POST or None, initial={
-            "full_name": request.user.get_full_name() or request.user.username,
-            "email": request.user.email,
-        })
-        if request.method == "POST" and form.is_valid():
-            member = form.save(commit=False)
-            member.user = request.user
-            member.save()
-            return redirect("inventory:my_inventory")
-        return render(request, "inventory/form.html", {
-            "form": form, "page_title": "Lengkapi Profil Inventaris Saya",
-            "cancel_url": "inventory:dashboard",
-        })
+    member = sync_company_member(request.user)
     return member_detail(request, pk=member.pk)
 
 
 @inventory_required
 def personal_item_create(request):
-    try:
-        member = request.user.company_member_profile
-    except ObjectDoesNotExist:
-        return redirect("inventory:my_inventory")
+    member = sync_company_member(request.user)
     initial = {}
     requested_category = request.GET.get("category")
     if requested_category in dict(InventoryItem.CATEGORY_CHOICES):
@@ -123,30 +203,16 @@ def personal_item_create(request):
             item=item, actor=request.user, action="created",
             description="Inventaris ditambahkan secara mandiri oleh pengguna.",
         )
+        _log(
+            request,
+            "PERSONAL_ITEM_CREATED",
+            "Menambahkan inventaris pribadi.",
+            item,
+            target_label=f"{item.asset_code} - {item.item_name}",
+        )
         messages.success(request, "Inventaris Anda berhasil ditambahkan.")
         return redirect("inventory:member_detail", pk=member.pk)
     return render(request, "inventory/personal_item_form.html", {"form": form, "member": member})
-
-
-@inventory_write_required
-def member_create(request):
-    form = CompanyMemberForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        member = form.save()
-        messages.success(request, f"{member.full_name} berhasil ditambahkan.")
-        return redirect("inventory:member_detail", pk=member.pk)
-    return render(request, "inventory/form.html", {"form": form, "page_title": "Tambah Anggota Perusahaan", "cancel_url": "inventory:member_list"})
-
-
-@inventory_write_required
-def member_edit(request, pk):
-    member = get_object_or_404(CompanyMember, pk=pk)
-    form = CompanyMemberForm(request.POST or None, instance=member)
-    if request.method == "POST" and form.is_valid():
-        member = form.save()
-        messages.success(request, "Data anggota berhasil diperbarui.")
-        return redirect("inventory:member_detail", pk=member.pk)
-    return render(request, "inventory/form.html", {"form": form, "page_title": "Edit Anggota Perusahaan", "cancel_url": "inventory:member_detail", "cancel_pk": member.pk})
 
 
 @inventory_write_required
@@ -217,6 +283,13 @@ def item_create(request):
         item.updated_by = request.user
         item.save()
         InventoryActivity.objects.create(item=item, actor=request.user, action="created", description="Barang inventaris dibuat.")
+        _log(
+            request,
+            "ITEM_CREATED",
+            "Menambahkan barang inventaris.",
+            item,
+            target_label=f"{item.asset_code} - {item.item_name}",
+        )
         messages.success(request, f"{item.asset_code} berhasil ditambahkan.")
         return redirect("inventory:item_detail", pk=item.pk)
     return render(request, "inventory/form.html", {
@@ -252,6 +325,13 @@ def item_edit(request, pk):
             target = item.assigned_to.full_name if item.assigned_to else "tidak ada pengguna"
             description = f"Penanggung jawab diubah menjadi {target}."
         InventoryActivity.objects.create(item=item, actor=request.user, action="updated", description=description)
+        _log(
+            request,
+            "ITEM_UPDATED",
+            description,
+            item,
+            target_label=f"{item.asset_code} - {item.item_name}",
+        )
         messages.success(request, f"{item.asset_code} berhasil diperbarui.")
         return redirect("inventory:item_detail", pk=item.pk)
     return render(request, "inventory/form.html", {
@@ -318,6 +398,13 @@ def report_create(request, item_pk=None):
             action="reported",
             description=f"Laporan {report.get_report_type_display().lower()} dibuat.",
         )
+        _log(
+            request,
+            "REPORT_CREATED",
+            f"Membuat laporan {report.get_report_type_display().lower()}.",
+            report,
+            target_label=f"{report.item.asset_code} - {report.item.item_name}",
+        )
         messages.success(request, "Laporan berhasil dikirim kepada petugas inventaris.")
         return redirect("inventory:report_list")
     return render(request, "inventory/report_form.html", {"form": form, "item": item})
@@ -355,6 +442,13 @@ def report_advance(request, pk):
             actor=request.user,
             action="report_updated",
             description=f"Status laporan kerusakan menjadi {report.get_status_display()}.",
+        )
+        _log(
+            request,
+            "REPORT_STATUS_UPDATED",
+            f"Mengubah status laporan menjadi {report.get_status_display()}.",
+            report,
+            target_label=f"{report.item.asset_code} - {report.item.item_name}",
         )
         messages.success(request, f"Status laporan menjadi {report.get_status_display()}.")
     return redirect("inventory:report_list")

@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from accounts.models import ActivityLog
+
 from .models import RiskAccess, RiskActionPlan, RiskDivision, RiskMonitoring, RiskRegister
 
 
@@ -70,6 +72,32 @@ class RiskPermissionTests(TestCase):
         self.assertEqual(monitoring.initial_score, 16)
         self.assertEqual(monitoring.final_score, 9)
         self.assertEqual(monitoring.score_reduction, 7)
+        self.assertTrue(ActivityLog.objects.filter(
+            actor=self.officer,
+            category="RISK",
+            action="MONITORING_CREATED",
+            target_id=str(monitoring.pk),
+        ).exists())
+
+    def test_only_superuser_can_open_risk_activity_log(self):
+        self.client.force_login(self.officer)
+        denied = self.client.get(
+            reverse("risk:activity_log"),
+            HTTP_HOST="risk.localhost",
+        )
+        self.assertEqual(denied.status_code, 403)
+
+        admin = get_user_model().objects.create_superuser(
+            username="risk-log-admin",
+            password="test-pass-123",
+        )
+        self.client.force_login(admin)
+        response = self.client.get(
+            reverse("risk:activity_log"),
+            HTTP_HOST="risk.localhost",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Log Aktivitas")
 
     def test_monitoring_report_summarizes_actions_and_scores(self):
         monitoring = RiskMonitoring.objects.create(

@@ -33,12 +33,17 @@ APPROVE_ROLES = {
     "savings_treasurer",
     "business_treasurer",
 }
+VALID_ROLES = frozenset(value for value, _label in KoperasiAccess.ROLE_CHOICES)
 
 
 def access_rows_for_user(user):
     if not user.is_authenticated:
         return KoperasiAccess.objects.none()
-    return KoperasiAccess.objects.filter(user=user, is_active=True)
+    return KoperasiAccess.objects.filter(
+        user=user,
+        is_active=True,
+        role__in=VALID_ROLES,
+    )
 
 
 def accessible_companies(user):

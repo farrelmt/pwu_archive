@@ -7,6 +7,7 @@ app_name = "koperasi"
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
+    path("activity-log/", views.activity_log, name="activity_log"),
     path("perusahaan/", views.company_list, name="companies"),
     path("perusahaan/tambah/", views.company_create, name="company_create"),
     path("perusahaan/<int:pk>/edit/", views.company_edit, name="company_edit"),

@@ -12,9 +12,7 @@
         <p class="mt-1 text-slate-500">{{ member.division }} &middot; {{ member.position }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
-        {% if request.can_edit_inventory %}
-            <a href="{% url 'inventory:member_edit' member.pk %}" class="rounded-xl border border-violet-200 bg-white px-5 py-3 text-sm font-bold text-violet-800 hover:bg-violet-50">Edit Anggota</a>
-        {% endif %}
+        {% if member.user_id %}<span class="rounded-xl border border-violet-200 bg-violet-50 px-5 py-3 text-sm font-bold text-violet-800">Terhubung: {{ member.user.username }}</span>{% endif %}
     </div>
 </div>
 

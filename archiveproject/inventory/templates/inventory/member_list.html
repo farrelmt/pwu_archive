@@ -1,5 +1,81 @@
-{% extends 'inventory/base.html' %}{% block title %}Anggota Perusahaan{% endblock %}{% block content %}
-<div class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="text-3xl font-bold">Anggota Perusahaan</h1><p class="mt-2 text-sm text-slate-500">Data pegawai dan inventaris yang digunakan.</p></div>{% if request.can_edit_inventory %}<a href="{% url 'inventory:member_create' %}" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white">+ Tambah Anggota</a>{% endif %}</div>
-<form method="get" class="mt-6 grid gap-3 rounded-2xl border bg-white p-4 md:grid-cols-4"><input name="q" value="{{ filters.q }}" placeholder="Cari NIP, nama, jabatan..." class="rounded-xl border px-3 py-2.5 text-sm"><select name="division" class="rounded-xl border px-3 py-2.5 text-sm"><option value="">Semua divisi</option>{% for value in divisions %}<option {% if filters.division == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select><select name="status" class="rounded-xl border px-3 py-2.5 text-sm"><option value="">Semua status</option>{% for value,label in statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white">Terapkan</button></form>
-<div class="mt-5 overflow-hidden rounded-2xl border bg-white shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">NIP/NIK</th><th class="px-5 py-3">Nama</th><th class="px-5 py-3">Divisi</th><th class="px-5 py-3">Jabatan</th><th class="px-5 py-3">Inventaris</th><th class="px-5 py-3">Status</th><th></th></tr></thead><tbody class="divide-y">{% for member in page_obj %}<tr><td class="px-5 py-4 font-semibold">{{ member.employee_id }}</td><td class="px-5 py-4">{{ member.full_name }}<p class="text-xs text-slate-500">{{ member.email|default:'-' }}</p></td><td class="px-5 py-4">{{ member.division }}</td><td class="px-5 py-4">{{ member.position }}</td><td class="px-5 py-4">{{ member.inventory_items.count }}</td><td class="px-5 py-4">{{ member.get_status_display }}</td><td class="px-5 py-4"><a class="font-bold text-violet-700" href="{% url 'inventory:member_detail' member.pk %}">Detail</a></td></tr>{% empty %}<tr><td colspan="7" class="px-5 py-12 text-center text-slate-500">Belum ada data anggota.</td></tr>{% endfor %}</tbody></table></div></div>
+{% extends 'inventory/base.html' %}
+{% block title %}Anggota Perusahaan{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-bold">Anggota Perusahaan</h1>
+        <p class="mt-2 text-sm text-slate-500">Terhubung langsung dengan data Member PWU Jatim.</p>
+    </div>
+    {% if request.can_edit_inventory %}<a href="{{ portal_member_list_url }}" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white">Kelola Member PWU</a>{% endif %}
+</div>
+
+<form method="get" class="mt-6 grid gap-3 rounded-2xl border bg-white p-4 md:grid-cols-5">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="direction" value="{{ direction }}">
+    <input name="q" value="{{ filters.q }}" placeholder="Cari NIP, nama, username, jabatan..." class="rounded-xl border px-3 py-2.5 text-sm">
+    <select name="division" class="rounded-xl border px-3 py-2.5 text-sm">
+        <option value="">Semua divisi</option>
+        {% for value in divisions %}<option value="{{ value }}" {% if filters.division == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+    </select>
+    <select name="status" class="rounded-xl border px-3 py-2.5 text-sm">
+        <option value="">Semua status</option>
+        {% for value,label in statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="per_page" class="rounded-xl border px-3 py-2.5 text-sm" aria-label="Jumlah baris per halaman">
+        {% for value in per_page_options %}<option value="{{ value }}" {% if per_page == value %}selected{% endif %}>{{ value }} baris</option>{% endfor %}
+    </select>
+    <button class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white">Terapkan</button>
+</form>
+
+<div class="mt-5 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
+    <p><strong>{{ page_obj.paginator.count }}</strong> anggota ditemukan</p>
+    {% if page_obj.paginator.count %}<p>Menampilkan {{ page_obj.start_index }}–{{ page_obj.end_index }}</p>{% endif %}
+</div>
+
+<div class="mt-3 overflow-hidden rounded-2xl border bg-white shadow-sm">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                    {% for header in sort_headers %}
+                    <th class="px-5 py-3">
+                        <a href="{{ header.url }}" class="inline-flex items-center gap-1 font-bold hover:text-violet-700">
+                            {{ header.label }}
+                            {% if header.active %}<span aria-hidden="true">{% if header.direction == 'asc' %}↑{% else %}↓{% endif %}</span>{% endif %}
+                        </a>
+                    </th>
+                    {% endfor %}
+                    <th class="px-5 py-3"><span class="sr-only">Aksi</span></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for member in page_obj %}
+                <tr class="hover:bg-violet-50/40">
+                    <td class="px-5 py-4 font-semibold">{{ member.employee_id }}</td>
+                    <td class="px-5 py-4"><span class="font-semibold">{{ member.full_name }}</span><p class="text-xs text-slate-500">{{ member.user.username }} · {{ member.email|default:'-' }}</p></td>
+                    <td class="px-5 py-4">{{ member.division }}</td>
+                    <td class="px-5 py-4">{{ member.position }}</td>
+                    <td class="px-5 py-4">{{ member.inventory_count }}</td>
+                    <td class="px-5 py-4"><span class="rounded-full px-2.5 py-1 text-xs font-bold {% if member.status == 'active' %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-700{% endif %}">{{ member.get_status_display }}</span></td>
+                    <td class="px-5 py-4"><a class="font-bold text-violet-700" href="{% url 'inventory:member_detail' member.pk %}">Detail</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="px-5 py-12 text-center text-slate-500">Tidak ada anggota yang cocok dengan filter.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="mt-5 flex flex-wrap items-center justify-between gap-3" aria-label="Navigasi halaman anggota">
+    <a {% if previous_url %}href="{{ previous_url }}"{% endif %} class="rounded-xl border bg-white px-4 py-2 text-sm font-bold {% if not previous_url %}pointer-events-none opacity-40{% else %}text-slate-700 hover:bg-slate-50{% endif %}">&larr; Sebelumnya</a>
+    <div class="flex flex-wrap items-center justify-center gap-1">
+        {% for page in page_links %}
+            {% if page.url %}<a href="{{ page.url }}" class="min-w-10 rounded-lg px-3 py-2 text-center text-sm font-bold {% if page.current %}bg-violet-700 text-white{% else %}border bg-white text-slate-700 hover:bg-violet-50{% endif %}">{{ page.label }}</a>{% else %}<span class="px-2 text-slate-400">{{ page.label }}</span>{% endif %}
+        {% endfor %}
+    </div>
+    <a {% if next_url %}href="{{ next_url }}"{% endif %} class="rounded-xl border bg-white px-4 py-2 text-sm font-bold {% if not next_url %}pointer-events-none opacity-40{% else %}text-slate-700 hover:bg-slate-50{% endif %}">Berikutnya &rarr;</a>
+</nav>
+{% endif %}
 {% endblock %}

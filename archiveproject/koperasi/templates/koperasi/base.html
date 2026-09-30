@@ -53,6 +53,9 @@
             <a class="koperasi-nav {% if '/perusahaan/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:companies' %}">Unit Perusahaan</a>
             <a class="koperasi-nav {% if '/akses/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:access' %}">Hak Akses</a>
             {% endif %}
+            {% if request.user.is_superuser %}
+            <a class="koperasi-nav {% if '/activity-log/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:activity_log' %}">Log Aktivitas</a>
+            {% endif %}
             <p class="mb-2 mt-7 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Lainnya</p>
             <a class="koperasi-nav {% if '/report/' in request.path %}koperasi-nav-active{% endif %}" href="{% url 'koperasi:bug_report' %}">Report Bug</a>
             <a class="koperasi-nav" href="{{ portal_settings_url }}">Pengaturan</a>
@@ -88,9 +91,9 @@
         .text-amber-800 { color:#92400e; }
         .text-amber-900 { color:#78350f; }
         .text-yellow-300 { color:#fde047; }
-        main form[method="get"] { display:flex !important; flex-wrap:nowrap !important; gap:.75rem; overflow-x:auto; }
-        main form[method="get"] input, main form[method="get"] select { min-width:13rem; flex:1 0 13rem; }
-        main form[method="get"] button { flex:0 0 auto; min-width:7.5rem; white-space:nowrap; }
+        main form[method="get"]:not(.activity-log-form) { display:flex !important; flex-wrap:nowrap !important; gap:.75rem; overflow-x:auto; }
+        main form[method="get"]:not(.activity-log-form) input, main form[method="get"]:not(.activity-log-form) select { min-width:13rem; flex:1 0 13rem; }
+        main form[method="get"]:not(.activity-log-form) button { flex:0 0 auto; min-width:7.5rem; white-space:nowrap; }
         @media print {
             .print\:hidden, header, aside { display:none !important; }
             main { padding:0 !important; }

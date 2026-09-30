@@ -221,7 +221,7 @@ class LoginThemeTests(TestCase):
         self.assertTrue(response["Location"].startswith("http://localhost/accounts/login/"))
         self.assertIn("koperasi.localhost", response["Location"])
 
-    def test_central_login_can_continue_to_koperasi(self):
+    def test_central_login_cannot_continue_to_koperasi_without_role(self):
         user = SystemUser.objects.create_user(
             username="koperasi-login-test",
             password="password-for-tests",
@@ -239,5 +239,28 @@ class LoginThemeTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "http://koperasi.localhost/")
+        self.assertEqual(response["Location"], reverse("homepage:dashboard"))
         self.assertEqual(self.client.cookies["sessionid"]["domain"], "")
+
+    def test_central_login_can_continue_to_koperasi_with_role(self):
+        from koperasi.models import KoperasiAccess
+
+        user = SystemUser.objects.create_user(
+            username="koperasi-authorized-login-test",
+            password="password-for-tests",
+            role="akuntan",
+        )
+        KoperasiAccess.objects.create(user=user, role="auditor")
+
+        response = self.client.post(
+            "/accounts/login/?next=http://koperasi.localhost/",
+            {
+                "username": user.username,
+                "password": "password-for-tests",
+                "next": "http://koperasi.localhost/",
+            },
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://koperasi.localhost/")

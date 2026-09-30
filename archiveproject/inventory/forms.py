@@ -5,7 +5,7 @@ from PIL import Image, ImageOps
 from django import forms
 from django.core.files.base import ContentFile
 
-from .models import CompanyMember, InventoryItem, InventoryReport
+from .models import InventoryItem, InventoryReport
 
 
 FIELD_CLASS = (
@@ -94,19 +94,6 @@ class ItemFormMixin:
         if category_section(cleaned.get("category")) == "inventaris":
             cleaned["serial_number"] = ""
         return cleaned
-
-
-class CompanyMemberForm(StyledModelForm):
-    class Meta:
-        model = CompanyMember
-        fields = [
-            "employee_id", "full_name", "email", "phone", "division",
-            "position", "join_date", "status", "notes",
-        ]
-        widgets = {
-            "join_date": CalendarDateInput(),
-            "notes": forms.Textarea(attrs={"rows": 3}),
-        }
 
 
 class InventoryItemForm(ItemFormMixin, StyledModelForm):

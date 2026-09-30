@@ -129,7 +129,7 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:2026.6.1
-    command: tunnel --no-autoupdate --protocol http2 run
+    command: tunnel --no-autoupdate --protocol quic run
     restart: unless-stopped
     init: true
     environment:

@@ -9,7 +9,10 @@ from .models import SystemUser
 
 @receiver(post_save, sender=SystemUser)
 def ensure_shared_system_access(sender, instance, created, **kwargs):
-    """Every active PWU identity participates in the Inventory system."""
+    """Keep Inventory connected to the canonical PWU member identity."""
+    from inventory.services import sync_company_member
+
+    sync_company_member(instance)
     if not created:
         return
     user_pk = instance.pk

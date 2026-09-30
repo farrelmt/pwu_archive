@@ -64,6 +64,28 @@ class KoperasiHostTests(TestCase):
         self.assertContains(response, 'href="/report/"')
         self.assertContains(response, 'href="http://localhost:8000/settings/"')
 
+    def test_only_superuser_can_open_koperasi_activity_log(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            "/activity-log/",
+            HTTP_HOST="koperasi.localhost:8000",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Log Aktivitas")
+
+        regular_user = get_user_model().objects.create_user(
+            username="koperasi-log-denied",
+            password="test-password",
+            role="akuntan",
+        )
+        KoperasiAccess.objects.create(user=regular_user, role="auditor")
+        self.client.force_login(regular_user)
+        response = self.client.get(
+            "/activity-log/",
+            HTTP_HOST="koperasi.localhost:8000",
+        )
+        self.assertEqual(response.status_code, 403)
+
     def test_it_user_can_open_koperasi_report_and_settings(self):
         self.client.force_login(self.user)
 
@@ -110,7 +132,7 @@ class KoperasiHostTests(TestCase):
         self.assertTrue(response.url.startswith("http://localhost:8000/accounts/login/"))
         self.assertNotIn("_auth_user_id", self.client.session)
 
-    def test_archive_role_cannot_open_koperasi_settings(self):
+    def test_user_without_koperasi_role_cannot_open_any_koperasi_page(self):
         archive_user = get_user_model().objects.create_user(
             username="archive_settings_user",
             password="test-password",
@@ -123,8 +145,31 @@ class KoperasiHostTests(TestCase):
             HTTP_HOST="koperasi.localhost:8000",
         )
 
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "http://localhost:8000/settings/")
+        self.assertEqual(response.status_code, 403)
+
+        dashboard_response = self.client.get(
+            "/",
+            HTTP_HOST="koperasi.localhost:8000",
+        )
+        self.assertEqual(dashboard_response.status_code, 403)
+
+    def test_legacy_viewer_row_does_not_grant_koperasi_access(self):
+        user = get_user_model().objects.create_user(
+            username="legacy_koperasi_viewer",
+            password="test-password",
+            role="employee",
+        )
+        KoperasiAccess.objects.create(
+            user=user,
+            company=None,
+            role="viewer",
+            is_active=True,
+        )
+        self.client.force_login(user)
+
+        response = self.client.get("/", HTTP_HOST="koperasi.localhost:8000")
+
+        self.assertEqual(response.status_code, 403)
 
     def test_accountant_without_scope_assignment_can_open_dashboard(self):
         accountant = get_user_model().objects.create_user(

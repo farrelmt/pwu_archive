@@ -6,6 +6,7 @@ app_name = "risk"
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
+    path("activity-log/", views.activity_log, name="activity_log"),
     path("risiko/", views.risk_list, name="risk_list"),
     path("risiko/tambah/", views.risk_create, name="risk_create"),
     path("risiko/<int:pk>/", views.risk_detail, name="risk_detail"),

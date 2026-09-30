@@ -5,6 +5,9 @@ from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from accounts.activity_views import system_activity_log
+from accounts.audit import record_activity
+
 from .access import can_edit_risk, risk_required, risk_write_required, risks_for_user
 from .forms import RiskActionPlanForm, RiskMonitoringForm, RiskRegisterForm
 from .models import (
@@ -14,6 +17,28 @@ from .models import (
     RiskMonitoring,
     RiskRegister,
 )
+
+
+def _log(request, action, description, target, *, target_label=None):
+    record_activity(
+        category="RISK",
+        action=action,
+        description=description,
+        request=request,
+        target_type=target.__class__.__name__,
+        target_id=target.pk,
+        target_label=target_label or str(target),
+    )
+
+
+def activity_log(request):
+    return system_activity_log(
+        request,
+        category="RISK",
+        system_name="Sistem Manajemen Risiko",
+        base_template="risk_management/base.html",
+        activity_url_name="risk:activity_log",
+    )
 
 
 def _level_counts(risks):
@@ -159,6 +184,7 @@ def risk_create(request):
         risk.updated_by = request.user
         risk.save()
         RiskActivity.objects.create(risk=risk, actor=request.user, action="created", description="Risiko dibuat.")
+        _log(request, "RISK_CREATED", "Menambahkan risiko baru.", risk, target_label=risk.risk_code)
         messages.success(request, f"{risk.risk_code} berhasil ditambahkan.")
         return redirect("risk:risk_detail", pk=risk.pk)
     return render(request, "risk_management/risk_form.html", {"form": form, "page_title": "Tambah Risiko"})
@@ -175,6 +201,7 @@ def risk_edit(request, pk):
         risk.updated_by = request.user
         risk.save()
         RiskActivity.objects.create(risk=risk, actor=request.user, action="updated", description="Data risiko diperbarui.")
+        _log(request, "RISK_UPDATED", "Memperbarui data risiko.", risk, target_label=risk.risk_code)
         messages.success(request, f"{risk.risk_code} berhasil diperbarui.")
         return redirect("risk:risk_detail", pk=risk.pk)
     return render(request, "risk_management/risk_form.html", {"form": form, "risk": risk, "page_title": "Edit Risiko"})
@@ -262,6 +289,13 @@ def monitoring_create(request, risk_pk):
                 risk=risk, actor=request.user, action="monitoring_created",
                 description=f"Pemantauan {monitoring.get_quarter_display()} {monitoring.year} dibuat.",
             )
+            _log(
+                request,
+                "MONITORING_CREATED",
+                f"Menambahkan pemantauan {monitoring.get_quarter_display()} {monitoring.year}.",
+                monitoring,
+                target_label=risk.risk_code,
+            )
             messages.success(request, "Pemantauan triwulan berhasil ditambahkan.")
             return redirect("risk:risk_detail", pk=risk.pk)
     return render(request, "risk_management/monitoring_form.html", {
@@ -292,6 +326,13 @@ def monitoring_edit(request, pk):
                 risk=monitoring.risk, actor=request.user, action="monitoring_updated",
                 description=f"Pemantauan {monitoring.get_quarter_display()} {monitoring.year} diperbarui.",
             )
+            _log(
+                request,
+                "MONITORING_UPDATED",
+                f"Memperbarui pemantauan {monitoring.get_quarter_display()} {monitoring.year}.",
+                monitoring,
+                target_label=monitoring.risk.risk_code,
+            )
             messages.success(request, "Pemantauan triwulan berhasil diperbarui.")
             return redirect("risk:risk_detail", pk=monitoring.risk_id)
     return render(request, "risk_management/monitoring_form.html", {
@@ -321,6 +362,13 @@ def action_create(request, monitoring_pk):
             risk=monitoring.risk, actor=request.user, action="action_created",
             description="Rencana aksi pemantauan ditambahkan.",
         )
+        _log(
+            request,
+            "ACTION_PLAN_CREATED",
+            "Menambahkan rencana aksi pemantauan.",
+            action,
+            target_label=monitoring.risk.risk_code,
+        )
         messages.success(request, "Rencana aksi berhasil ditambahkan.")
         return redirect("risk:risk_detail", pk=monitoring.risk_id)
     return render(request, "risk_management/action_form.html", {
@@ -345,6 +393,13 @@ def action_edit(request, pk):
         RiskActivity.objects.create(
             risk=risk, actor=request.user, action="action_updated",
             description="Rencana aksi dan realisasi diperbarui.",
+        )
+        _log(
+            request,
+            "ACTION_PLAN_UPDATED",
+            "Memperbarui rencana aksi dan realisasi.",
+            action,
+            target_label=risk.risk_code,
         )
         messages.success(request, "Rencana aksi berhasil diperbarui.")
         return redirect("risk:risk_detail", pk=risk.pk)
