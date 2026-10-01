@@ -61,6 +61,19 @@ class RiskPermissionTests(TestCase):
         self.assertEqual(self.risk.residual_score, 6)
         self.assertEqual(self.risk.risk_level, "Sedang")
 
+    def test_dashboard_uses_database_summary(self):
+        self.client.force_login(self.officer)
+
+        response = self.client.get(
+            reverse("risk:dashboard"),
+            HTTP_HOST="risk.localhost",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_risks"], 1)
+        self.assertEqual(response.context["open_risks"], 1)
+        self.assertEqual(response.context["level_counts"]["Sedang"], 1)
+
     def test_template_uses_five_risk_levels(self):
         expected = {
             1: "Sangat Rendah", 2: "Sangat Rendah", 3: "Rendah", 4: "Rendah",

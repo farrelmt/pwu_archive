@@ -19,6 +19,23 @@ services:
     networks:
       - backend
 
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    init: true
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
   web:
     build:
       context: .
@@ -53,6 +70,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SECRET_KEY: ${PRODUCTION_SECRET_KEY}
       DEBUG: ${DEBUG:-false}
@@ -63,6 +82,10 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_PORT: ${DB_PORT}
+      DB_CONN_MAX_AGE: ${DB_CONN_MAX_AGE:-60}
+      DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT:-5}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       EMAIL_HOST_USER: ${EMAIL_HOST_USER}
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
       EMAIL_TO_REPORT: ${EMAIL_TO_REPORT}
@@ -99,6 +122,50 @@ services:
       - backend
       - edge
 
+  worker:
+    build:
+      context: .
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    command: ["celery", "-A", "archiveproject", "worker", "--loglevel=INFO", "--concurrency=2"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SECRET_KEY: ${PRODUCTION_SECRET_KEY}
+      DEBUG: ${DEBUG:-false}
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT}
+      DB_CONN_MAX_AGE: ${DB_CONN_MAX_AGE:-60}
+      DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT:-5}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
+      EMAIL_TO_REPORT: ${EMAIL_TO_REPORT}
+      SYSTEM_BASE_URL: ${SYSTEM_BASE_URL:-https://archive.pwujatim.site}
+      PORTAL_BASE_URL: ${PORTAL_BASE_URL:-https://pwujatim.site}
+      ARCHIVE_BASE_URL: ${ARCHIVE_BASE_URL:-https://archive.pwujatim.site}
+      KOPERASI_BASE_URL: ${KOPERASI_BASE_URL:-https://koperasi.pwujatim.site}
+      RISK_BASE_URL: ${RISK_BASE_URL:-https://risk.pwujatim.site}
+      INVENTORY_BASE_URL: ${INVENTORY_BASE_URL:-https://inventory.pwujatim.site}
+      XDG_CACHE_HOME: /tmp/.cache
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
   nginx:
     image: nginx:1.31.2
     restart: unless-stopped
@@ -128,6 +195,10 @@ services:
       - edge
 
   cloudflared:
+    # Keep the production tunnel out of ordinary/local `docker compose up`
+    # runs. The production server enables it with `--profile production`.
+    profiles:
+      - production
     image: cloudflare/cloudflared:2026.6.1
     command: tunnel --no-autoupdate --protocol quic run
     restart: unless-stopped
@@ -156,3 +227,4 @@ volumes:
   static_volume:
   media_volume:
   postgres_data:
+  redis_data:

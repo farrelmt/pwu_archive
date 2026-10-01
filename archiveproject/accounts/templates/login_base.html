@@ -6,9 +6,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="{% if is_koperasi %}#14532d{% else %}#172554{% endif %}">
-    <title>{% if is_koperasi %}Koperasi Karyawan Wira Jatim{% else %}Sistem Arsip PWU{% endif %}</title>
-    <link rel="icon" type="image/png" href="{% if is_koperasi %}{% static 'images/koperasi-wira-jatim.png' %}{% else %}{% static 'images/wirajatim-logo-stacked.png' %}{% endif %}">
-    <link rel="apple-touch-icon" href="{% if is_koperasi %}{% static 'images/koperasi-wira-jatim.png' %}{% else %}{% static 'images/wirajatim-logo-stacked.png' %}{% endif %}">
+    <title>{% if is_koperasi %}Koperasi Karyawan Wira Jatim{% else %}Sistem PWU{% endif %}</title>
+    <link rel="icon" href="{% if is_koperasi %}{% static 'images/koperasi-wira-jatim.webp' %}{% else %}{% static 'images/wirajatim-logo-stacked.png' %}{% endif %}">
+    <link rel="apple-touch-icon" href="{% if is_koperasi %}{% static 'images/koperasi-wira-jatim.webp' %}{% else %}{% static 'images/wirajatim-logo-stacked.png' %}{% endif %}">
     {% tailwind_css %}
     <style nonce="{{ request.csp_nonce }}">
         .koperasi-login-logo-mobile { height:7rem; width:auto; }

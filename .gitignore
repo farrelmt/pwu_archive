@@ -24,6 +24,8 @@ media/
 # --- Environment & Secrets ---
 .env
 .env.*
+!.env.example
+!archiveproject/.env.example
 
 # --- IDE (PyCharm, VSCode, etc) ---
 .vscode/

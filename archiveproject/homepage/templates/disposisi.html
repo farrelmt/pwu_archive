@@ -49,6 +49,18 @@
                 </button>
 
                 {% if request.user|can_edit_disposisi %}
+                <form method="post"
+                      action="{% url 'disposisi:refresh_agenda_numbers' %}"
+                      id="refreshAgendaForm">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="hidden h-10 items-center justify-center gap-2 rounded-lg border border-blue-300 bg-white px-4 text-sm font-semibold text-blue-800 shadow-sm transition hover:bg-blue-50 sm:flex">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m0 4.992-3.181-3.182a8.25 8.25 0 1 0 2.168 7.795" />
+                        </svg>
+                        Refresh Nomor Agenda
+                    </button>
+                </form>
                 <a href="{% url 'disposisi:tambahdisposisi' %}"
                    id="tambahDisposisi"
                    class="hidden h-10 items-center justify-center rounded-lg bg-blue-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 sm:flex">
@@ -104,6 +116,81 @@
         </div>
     </div>
 
+    <div id="refreshAgendaModal"
+         class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/65 px-4"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="refreshAgendaTitle"
+         aria-describedby="refreshAgendaStatus">
+        <div class="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <div id="refreshAgendaSpinner" class="agenda-refresh-spinner mx-auto" aria-hidden="true"></div>
+            <div id="refreshAgendaSuccess" class="agenda-refresh-success mx-auto hidden" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                    <path d="m6.5 12.5 3.5 3.5 7.5-8" />
+                </svg>
+            </div>
+            <div id="refreshAgendaError" class="agenda-refresh-error mx-auto hidden" aria-hidden="true">!</div>
+            <h2 id="refreshAgendaTitle" class="mt-4 text-lg font-bold text-blue-950">
+                Mengurutkan Nomor Agenda
+            </h2>
+            <p id="refreshAgendaStatus" class="mt-2 text-sm leading-6 text-slate-600" tabindex="-1" aria-live="polite">
+                Mohon tunggu. Jangan tutup halaman sampai proses selesai.
+            </p>
+            <button type="button"
+                    id="closeRefreshAgendaModal"
+                    class="mt-5 hidden h-10 w-full items-center justify-center rounded-lg bg-blue-950 px-4 text-sm font-semibold text-white hover:bg-blue-800">
+                Tutup
+            </button>
+        </div>
+    </div>
+
+    <style nonce="{{ request.csp_nonce }}">
+        .agenda-refresh-spinner {
+            width: 3rem;
+            height: 3rem;
+            border: 4px solid #dbeafe;
+            border-top-color: #1e3a8a;
+            border-radius: 9999px;
+            animation: agenda-refresh-spin .75s linear infinite;
+        }
+
+        .agenda-refresh-success,
+        .agenda-refresh-error {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 9999px;
+        }
+
+        .agenda-refresh-success {
+            align-items: center;
+            justify-content: center;
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .agenda-refresh-success svg {
+            width: 1.8rem;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .agenda-refresh-error {
+            align-items: center;
+            justify-content: center;
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+
+        @keyframes agenda-refresh-spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+
     <script nonce="{{ request.csp_nonce }}">
         document.addEventListener('DOMContentLoaded', () => {
             const selectLimitDis = document.getElementById('selectDisNum');
@@ -111,6 +198,14 @@
             const cariDisBut = document.getElementById('cariBut');
             const resetDisBut = document.getElementById('resetBut');
             const exportSuratMasuk = document.getElementById('exportSuratMasuk');
+            const refreshAgendaForm = document.getElementById('refreshAgendaForm');
+            const refreshAgendaModal = document.getElementById('refreshAgendaModal');
+            const refreshAgendaSpinner = document.getElementById('refreshAgendaSpinner');
+            const refreshAgendaSuccess = document.getElementById('refreshAgendaSuccess');
+            const refreshAgendaError = document.getElementById('refreshAgendaError');
+            const refreshAgendaTitle = document.getElementById('refreshAgendaTitle');
+            const refreshAgendaStatus = document.getElementById('refreshAgendaStatus');
+            const closeRefreshAgendaModal = document.getElementById('closeRefreshAgendaModal');
 
             const filterBtn = document.getElementById('filterButton');
             const filterDisposisi = document.getElementById('filterDisposisi');
@@ -172,6 +267,65 @@
             exportSuratMasuk.addEventListener('click', () => {
                 const params = currentFilterParams();
                 window.location.href = `{% url 'disposisi:export_archive' %}?${params.toString()}`;
+            });
+
+            refreshAgendaForm?.addEventListener('submit', async event => {
+                event.preventDefault();
+                if (!window.confirm('Hitung ulang seluruh nomor agenda berdasarkan tanggal surat diterima?')) {
+                    return;
+                }
+
+                const submitButton = refreshAgendaForm.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
+                refreshAgendaModal.classList.remove('hidden');
+                refreshAgendaModal.classList.add('flex');
+                refreshAgendaSpinner.classList.remove('hidden');
+                refreshAgendaSuccess.classList.add('hidden');
+                refreshAgendaSuccess.classList.remove('flex');
+                refreshAgendaError.classList.add('hidden');
+                refreshAgendaError.classList.remove('flex');
+                closeRefreshAgendaModal.classList.add('hidden');
+                closeRefreshAgendaModal.classList.remove('flex');
+                refreshAgendaTitle.textContent = 'Mengurutkan Nomor Agenda';
+                refreshAgendaStatus.textContent = 'Mohon tunggu. Jangan tutup halaman sampai proses selesai.';
+                document.body.style.overflow = 'hidden';
+                refreshAgendaStatus.focus();
+
+                try {
+                    const response = await fetch(refreshAgendaForm.action, {
+                        method: 'POST',
+                        body: new FormData(refreshAgendaForm),
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json',
+                        },
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                    const result = await response.json();
+                    refreshAgendaSpinner.classList.add('hidden');
+                    refreshAgendaSuccess.classList.remove('hidden');
+                    refreshAgendaSuccess.classList.add('flex');
+                    refreshAgendaTitle.textContent = 'Refresh Selesai';
+                    refreshAgendaStatus.textContent = result.message;
+
+                    window.setTimeout(() => window.location.reload(), 1400);
+                } catch (error) {
+                    refreshAgendaSpinner.classList.add('hidden');
+                    refreshAgendaError.classList.remove('hidden');
+                    refreshAgendaError.classList.add('flex');
+                    refreshAgendaTitle.textContent = 'Refresh Gagal';
+                    refreshAgendaStatus.textContent = 'Nomor agenda belum berhasil diperbarui. Silakan coba kembali.';
+                    closeRefreshAgendaModal.classList.remove('hidden');
+                    closeRefreshAgendaModal.classList.add('flex');
+                    submitButton.disabled = false;
+                }
+            });
+
+            closeRefreshAgendaModal?.addEventListener('click', () => {
+                refreshAgendaModal.classList.add('hidden');
+                refreshAgendaModal.classList.remove('flex');
+                document.body.style.overflow = '';
             });
 
             // Change limit

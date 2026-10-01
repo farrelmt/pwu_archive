@@ -17,6 +17,8 @@ from .models import Disposisi, DisposisiLog, DisposisiRecipient
 
 @override_settings(
     ALLOWED_HOSTS=["testserver"],
+    CELERY_TASK_ALWAYS_EAGER=True,
+    CELERY_TASK_EAGER_PROPAGATES=True,
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     STORAGES={
         "default": {
@@ -180,6 +182,80 @@ class DisposisiSecurityTests(TestCase):
             response,
             reverse("disposisi:detaildisposisi", args=[created.pk]),
         )
+
+    def test_create_assigns_only_the_new_agenda_number(self):
+        original_agenda = self.disposisi.nomor_agenda
+
+        created = Disposisi.objects.create(
+            tanggal_surat_diterima=date(2026, 7, 18),
+            tanggal_surat=date(2026, 7, 18),
+            nomor_surat="AGENDA/NEW",
+            pengirim="Pengirim Baru",
+            lampiran="-",
+            tujuan="DIR",
+            tembusan="-",
+            perihal="Uji nomor agenda baru",
+            tujuan_disposisi="Direktur",
+        )
+
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.nomor_agenda, original_agenda)
+        self.assertEqual(created.id_agenda, "2")
+        self.assertEqual(created.nomor_agenda, "2/VII/2026")
+
+    def test_editor_can_refresh_all_agenda_numbers(self):
+        backdated = Disposisi.objects.create(
+            tanggal_surat_diterima=date(2026, 7, 16),
+            tanggal_surat=date(2026, 7, 16),
+            nomor_surat="AGENDA/BACKDATED",
+            pengirim="Pengirim Lama",
+            lampiran="-",
+            tujuan="DIR",
+            tembusan="-",
+            perihal="Surat bertanggal mundur",
+            tujuan_disposisi="Direktur",
+        )
+        self.assertEqual(backdated.nomor_agenda, "1/VII/2026")
+
+        self.client.force_login(self.editor)
+        response = self.client.post(
+            reverse("disposisi:refresh_agenda_numbers"),
+        )
+
+        self.assertRedirects(response, reverse("disposisi:disposisi"))
+        backdated.refresh_from_db()
+        self.disposisi.refresh_from_db()
+        self.assertEqual(backdated.nomor_agenda, "1/VII/2026")
+        self.assertEqual(self.disposisi.nomor_agenda, "2/VII/2026")
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                actor=self.editor,
+                action="REFRESH_AGENDA",
+            ).exists()
+        )
+
+    def test_non_editor_cannot_refresh_agenda_numbers(self):
+        self.client.force_login(self.viewer)
+
+        response = self.client.post(
+            reverse("disposisi:refresh_agenda_numbers"),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_agenda_refresh_ajax_waits_for_completed_result(self):
+        self.client.force_login(self.editor)
+
+        response = self.client.post(
+            reverse("disposisi:refresh_agenda_numbers"),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["ok"])
+        self.assertIn("message", response.json())
+        self.assertIn("updated_records", response.json())
 
     def test_create_warns_when_required_fields_are_missing(self):
         self.client.force_login(self.editor)
@@ -1208,7 +1284,7 @@ class DisposisiSecurityTests(TestCase):
                 action="DISPOSITION_EMAIL_SENT",
                 target_id=str(self.disposisi.pk),
             ).count(),
-            expected_email_count,
+            len(expected_emails),
         )
 
         shared_detail = self.client.get(

@@ -1,13 +1,23 @@
 import textwrap
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib import messages
 from django.conf import settings
-from django.core.mail import EmailMessage
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import (
+    Case,
+    CharField,
+    Count,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Q,
+    Sum,
+    Value,
+    When,
+)
 from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,6 +27,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.audit import record_activity
 from accounts.activity_views import system_activity_log
+from accounts.tasks import encoded_attachment, queue_email_message
 from homepage.forms import ReportForm
 
 from .access import (
@@ -189,7 +200,13 @@ def _terbilang(value):
     return f"{spell(Decimal(value or 0).quantize(Decimal('1')))} rupiah"
 
 
-def _cash_bank_ledger(companies, selected_unit=""):
+def _cash_bank_ledger(
+    companies,
+    selected_unit="",
+    *,
+    date_from=None,
+    date_before=None,
+):
     company_ids = list(companies.values_list("pk", flat=True))
     rows = []
 
@@ -219,7 +236,11 @@ def _cash_bank_ledger(companies, selected_unit=""):
     savings = SavingTransaction.objects.select_related("member").filter(
         member__company_id__in=company_ids
     )
-    for saving in savings:
+    if date_from:
+        savings = savings.filter(transaction_date__gte=date_from)
+    if date_before:
+        savings = savings.filter(transaction_date__lt=date_before)
+    for saving in savings if selected_unit in {"", "savings_loan"} else ():
         add_row(
             row_date=saving.transaction_date,
             number=saving.transaction_number,
@@ -238,7 +259,11 @@ def _cash_bank_ledger(companies, selected_unit=""):
         disbursed_date__isnull=False,
         status__in={"active", "paid"},
     )
-    for loan in loans:
+    if date_from:
+        loans = loans.filter(disbursed_date__gte=date_from)
+    if date_before:
+        loans = loans.filter(disbursed_date__lt=date_before)
+    for loan in loans if selected_unit in {"", "savings_loan"} else ():
         add_row(
             row_date=loan.disbursed_date,
             number=loan.loan_number,
@@ -255,7 +280,11 @@ def _cash_bank_ledger(companies, selected_unit=""):
     installments = LoanInstallment.objects.select_related("loan", "loan__member").filter(
         loan__member__company_id__in=company_ids
     )
-    for installment in installments:
+    if date_from:
+        installments = installments.filter(payment_date__gte=date_from)
+    if date_before:
+        installments = installments.filter(payment_date__lt=date_before)
+    for installment in installments if selected_unit in {"", "savings_loan"} else ():
         add_row(
             row_date=installment.payment_date,
             number=installment.payment_number,
@@ -276,7 +305,11 @@ def _cash_bank_ledger(companies, selected_unit=""):
         company_id__in=company_ids,
         status__in={"approved", "completed"},
     )
-    for business in business_rows:
+    if date_from:
+        business_rows = business_rows.filter(transaction_date__gte=date_from)
+    if date_before:
+        business_rows = business_rows.filter(transaction_date__lt=date_before)
+    for business in business_rows if selected_unit in {"", "business"} else ():
         member_label = f" - {business.member.full_name}" if business.member else ""
         add_row(
             row_date=business.transaction_date,
@@ -292,6 +325,12 @@ def _cash_bank_ledger(companies, selected_unit=""):
         )
 
     legacy_rows = CashTransaction.objects.filter(company_id__in=company_ids)
+    if selected_unit:
+        legacy_rows = legacy_rows.filter(unit=selected_unit)
+    if date_from:
+        legacy_rows = legacy_rows.filter(transaction_date__gte=date_from)
+    if date_before:
+        legacy_rows = legacy_rows.filter(transaction_date__lt=date_before)
     for cash_row in legacy_rows:
         add_row(
             row_date=cash_row.transaction_date,
@@ -309,6 +348,161 @@ def _cash_bank_ledger(companies, selected_unit=""):
     return sorted(rows, key=lambda row: (row["date"], row["number"]))
 
 
+MONEY_FIELD = DecimalField(max_digits=20, decimal_places=2)
+ZERO_MONEY = Value(Decimal("0"), output_field=MONEY_FIELD)
+
+
+def _annotate_paid_amount(loans):
+    """Attach installment totals without issuing a query for every loan."""
+    return loans.annotate(
+        paid_amount=Coalesce(
+            Sum("installments__principal_amount"), ZERO_MONEY,
+            output_field=MONEY_FIELD,
+        )
+        + Coalesce(
+            Sum("installments__interest_amount"), ZERO_MONEY,
+            output_field=MONEY_FIELD,
+        )
+    )
+
+
+def _saving_balance_rows(savings):
+    """Return balances keyed by member and saving type in one grouped query."""
+    balances = {}
+    rows = savings.values("member_id", "saving_type", "direction").annotate(
+        total=Sum("amount")
+    )
+    for row in rows:
+        key = (row["member_id"], row["saving_type"])
+        signed = row["total"] if row["direction"] == "deposit" else -row["total"]
+        balances[key] = balances.get(key, Decimal("0")) + signed
+    return balances
+
+
+def _cash_bank_balances(companies, through_date=None, selected_unit=""):
+    """Calculate cash and bank balances with fixed-size aggregate queries."""
+    company_ids = list(companies.values_list("pk", flat=True))
+    totals = {"cash": Decimal("0"), "bank": Decimal("0")}
+
+    cash_account = Value("cash", output_field=CharField())
+    bank_by_reference = Case(
+        When(reference__istartswith="payroll", then=Value("bank")),
+        default=Value("cash"),
+        output_field=CharField(),
+    )
+    bank_by_method = Case(
+        When(payment_method__in={"transfer", "payroll", "meal_allowance"}, then=Value("bank")),
+        default=Value("cash"),
+        output_field=CharField(),
+    )
+    installment_account = Case(
+        When(reference__istartswith="payroll", then=Value("bank")),
+        When(loan__payment_method__in={"transfer", "payroll", "meal_allowance"}, then=Value("bank")),
+        default=Value("cash"),
+        output_field=CharField(),
+    )
+
+    def accumulate(queryset, account, signed_amount):
+        rows = (
+            queryset.annotate(
+                ledger_account=account,
+                ledger_amount=ExpressionWrapper(signed_amount, output_field=MONEY_FIELD),
+            )
+            .values("ledger_account")
+            .annotate(balance=Coalesce(Sum("ledger_amount"), ZERO_MONEY))
+        )
+        for row in rows:
+            totals[row["ledger_account"]] += row["balance"]
+
+    savings = SavingTransaction.objects.filter(member__company_id__in=company_ids)
+    loans = Loan.objects.filter(
+        member__company_id__in=company_ids,
+        disbursed_date__isnull=False,
+        status__in={"active", "paid"},
+    )
+    installments = LoanInstallment.objects.filter(
+        loan__member__company_id__in=company_ids
+    )
+    businesses = BusinessTransaction.objects.filter(
+        company_id__in=company_ids,
+        status__in={"approved", "completed"},
+    )
+    cash_rows = CashTransaction.objects.filter(company_id__in=company_ids)
+    if selected_unit:
+        cash_rows = cash_rows.filter(unit=selected_unit)
+    if through_date:
+        savings = savings.filter(transaction_date__lte=through_date)
+        loans = loans.filter(disbursed_date__lte=through_date)
+        installments = installments.filter(payment_date__lte=through_date)
+        businesses = businesses.filter(transaction_date__lte=through_date)
+        cash_rows = cash_rows.filter(transaction_date__lte=through_date)
+
+    if selected_unit in {"", "savings_loan"}:
+        accumulate(
+            savings,
+            bank_by_reference,
+            Case(
+                When(direction="deposit", then=F("amount")),
+                default=-F("amount"),
+                output_field=MONEY_FIELD,
+            ),
+        )
+        accumulate(loans, bank_by_method, -F("principal_amount"))
+        accumulate(
+            installments,
+            installment_account,
+            F("principal_amount") + F("interest_amount") + F("penalty_amount"),
+        )
+    business_amount = ExpressionWrapper(
+        F("quantity") * F("unit_price"), output_field=MONEY_FIELD,
+    )
+    if selected_unit in {"", "business"}:
+        accumulate(
+            businesses,
+            bank_by_method,
+            Case(
+                When(direction="income", then=business_amount),
+                default=-business_amount,
+                output_field=MONEY_FIELD,
+            ),
+        )
+    accumulate(
+        cash_rows,
+        F("account"),
+        Case(
+            When(transaction_type="income", then=F("amount")),
+            default=-F("amount"),
+            output_field=MONEY_FIELD,
+        ),
+    )
+    return totals
+
+
+def _cash_bank_years(companies, selected_unit=""):
+    company_ids = list(companies.values_list("pk", flat=True))
+    dated_querysets = []
+    if selected_unit in {"", "savings_loan"}:
+        dated_querysets.extend([
+            (SavingTransaction.objects.filter(member__company_id__in=company_ids), "transaction_date"),
+            (Loan.objects.filter(member__company_id__in=company_ids, disbursed_date__isnull=False), "disbursed_date"),
+            (LoanInstallment.objects.filter(loan__member__company_id__in=company_ids), "payment_date"),
+        ])
+    if selected_unit in {"", "business"}:
+        dated_querysets.append((
+            BusinessTransaction.objects.filter(company_id__in=company_ids),
+            "transaction_date",
+        ))
+    cash_rows = CashTransaction.objects.filter(company_id__in=company_ids)
+    if selected_unit:
+        cash_rows = cash_rows.filter(unit=selected_unit)
+    dated_querysets.append((cash_rows, "transaction_date"))
+
+    years = set()
+    for queryset, field_name in dated_querysets:
+        years.update(value.year for value in queryset.dates(field_name, "year"))
+    return years
+
+
 @koperasi_required
 def dashboard(request):
     companies = request.koperasi_companies.filter(is_active=True)
@@ -317,40 +511,54 @@ def dashboard(request):
     savings = SavingTransaction.objects.filter(member__in=members)
     business = BusinessTransaction.objects.filter(company__in=companies)
 
-    deposits = savings.filter(direction="deposit").aggregate(
-        value=Coalesce(Sum("amount"), Decimal("0"))
-    )["value"]
-    withdrawals = savings.filter(direction="withdrawal").aggregate(
-        value=Coalesce(Sum("amount"), Decimal("0"))
-    )["value"]
-    ledger_rows = _cash_bank_ledger(companies)
-    ledger_balance = sum(
-        (
-            row["cash_debit"]
-            + row["bank_debit"]
-            - row["cash_credit"]
-            - row["bank_credit"]
-            for row in ledger_rows
+    saving_summary = savings.aggregate(
+        deposits=Coalesce(
+            Sum("amount", filter=Q(direction="deposit")), ZERO_MONEY,
         ),
-        Decimal("0"),
+        withdrawals=Coalesce(
+            Sum("amount", filter=Q(direction="withdrawal")), ZERO_MONEY,
+        ),
+    )
+    loan_summary = loans.aggregate(
+        active_count=Count(
+            "pk", filter=Q(status__in=["submitted", "approved", "active"]),
+        ),
+        active_value=Coalesce(
+            Sum("principal_amount", filter=Q(status="active")), ZERO_MONEY,
+        ),
+        pending_count=Count("pk", filter=Q(status="submitted")),
+    )
+    member_summary = members.aggregate(
+        active_count=Count("pk", filter=Q(status="active")),
+        pending_count=Count("pk", filter=Q(status="pending")),
+    )
+    business_summary = business.aggregate(
+        pending_count=Count("pk", filter=Q(status="submitted")),
+    )
+    ledger_balances = _cash_bank_balances(companies)
+    company_summaries = companies.annotate(
+        active_member_count=Count(
+            "members", filter=Q(members__status="active"), distinct=True,
+        ),
+        active_loan_count=Count(
+            "members__loans",
+            filter=Q(members__loans__status="active"),
+            distinct=True,
+        ),
     )
 
     context = _base_context(request)
     context.update(
         {
             "company_count": companies.count(),
-            "member_count": members.filter(status="active").count(),
-            "saving_balance": deposits - withdrawals,
-            "active_loan_count": loans.filter(
-                status__in=["submitted", "approved", "active"]
-            ).count(),
-            "active_loan_value": loans.filter(status="active").aggregate(
-                value=Coalesce(Sum("principal_amount"), Decimal("0"))
-            )["value"],
-            "cash_balance": ledger_balance,
-            "pending_member_count": members.filter(status="pending").count(),
-            "pending_loan_count": loans.filter(status="submitted").count(),
-            "pending_business_count": business.filter(status="submitted").count(),
+            "member_count": member_summary["active_count"],
+            "saving_balance": saving_summary["deposits"] - saving_summary["withdrawals"],
+            "active_loan_count": loan_summary["active_count"],
+            "active_loan_value": loan_summary["active_value"],
+            "cash_balance": ledger_balances["cash"] + ledger_balances["bank"],
+            "pending_member_count": member_summary["pending_count"],
+            "pending_loan_count": loan_summary["pending_count"],
+            "pending_business_count": business_summary["pending_count"],
             "recent_savings": savings.select_related(
                 "member", "member__company"
             )[:6],
@@ -358,14 +566,10 @@ def dashboard(request):
             "company_summaries": [
                 {
                     "company": company,
-                    "members": members.filter(
-                        company=company, status="active"
-                    ).count(),
-                    "loans": loans.filter(
-                        member__company=company, status="active"
-                    ).count(),
+                    "members": company.active_member_count,
+                    "loans": company.active_loan_count,
                 }
-                for company in companies
+                for company in company_summaries
             ],
         }
     )
@@ -463,15 +667,17 @@ def member_create(request):
 @koperasi_required
 def member_detail(request, pk):
     member = get_object_or_404(_scoped_members(request), pk=pk)
+    balances = _saving_balance_rows(member.saving_transactions.all())
+    loans = _annotate_paid_amount(member.loans.all())
     context = _base_context(request)
     context.update(
         {
             "member": member,
-            "principal_balance": member.saving_balance("principal"),
-            "mandatory_balance": member.saving_balance("mandatory"),
-            "voluntary_balance": member.saving_balance("voluntary"),
+            "principal_balance": balances.get((member.pk, "principal"), Decimal("0")),
+            "mandatory_balance": balances.get((member.pk, "mandatory"), Decimal("0")),
+            "voluntary_balance": balances.get((member.pk, "voluntary"), Decimal("0")),
             "transactions": member.saving_transactions.all()[:20],
-            "loans": member.loans.all(),
+            "loans": loans,
         }
     )
     return render(request, "koperasi/member_detail.html", context)
@@ -807,6 +1013,9 @@ def loan_list(request):
     )
     if status:
         summary_loans = summary_loans.filter(status=status)
+    loans_by_company = {}
+    for loan in summary_loans:
+        loans_by_company.setdefault(loan.member.company_id, []).append(loan)
     loan_books = []
     for company in summary_companies.order_by("name"):
         loan_rows = []
@@ -816,7 +1025,7 @@ def loan_list(request):
             "outstanding": Decimal("0"),
         }
         for number, loan in enumerate(
-            summary_loans.filter(member__company=company), start=1
+            loans_by_company.get(company.pk, []), start=1
         ):
             paid = loan.amount_paid
             outstanding = loan.outstanding_amount
@@ -1078,7 +1287,6 @@ def cash_list(request):
     if selected_unit not in dict(CashTransaction.UNIT_CHOICES):
         selected_unit = ""
 
-    all_rows = _cash_bank_ledger(companies, selected_unit)
     period_start = date(selected_year, selected_month or 1, 1)
     if selected_month == 12:
         period_after = date(selected_year + 1, 1, 1)
@@ -1087,14 +1295,19 @@ def cash_list(request):
     else:
         period_after = date(selected_year + 1, 1, 1)
 
-    opening_cash = Decimal("0")
-    opening_bank = Decimal("0")
-    for row in all_rows:
-        if row["date"] < period_start:
-            opening_cash += row["cash_debit"] - row["cash_credit"]
-            opening_bank += row["bank_debit"] - row["bank_credit"]
-
-    rows = [row for row in all_rows if period_start <= row["date"] < period_after]
+    opening_balances = _cash_bank_balances(
+        companies,
+        through_date=period_start - timedelta(days=1),
+        selected_unit=selected_unit,
+    )
+    opening_cash = opening_balances["cash"]
+    opening_bank = opening_balances["bank"]
+    rows = _cash_bank_ledger(
+        companies,
+        selected_unit,
+        date_from=period_start,
+        date_before=period_after,
+    )
     running_cash = opening_cash
     running_bank = opening_bank
     totals = {
@@ -1117,7 +1330,7 @@ def cash_list(request):
         (10, "Oktober"), (11, "November"), (12, "Desember"),
     ]
     year_values = {date.today().year, selected_year}
-    year_values.update(row["date"].year for row in all_rows)
+    year_values.update(_cash_bank_years(companies, selected_unit))
     context = _base_context(request)
     context.update(
         {
@@ -1718,40 +1931,45 @@ def report(request):
     def amount_sum(queryset, field="amount"):
         return queryset.aggregate(total=Coalesce(Sum(field), Decimal("0")))["total"]
 
-    saving_balances = {}
-    for saving_type, _label in SavingTransaction.TYPE_CHOICES:
-        typed = savings.filter(saving_type=saving_type)
-        saving_balances[saving_type] = amount_sum(
-            typed.filter(direction="deposit")
-        ) - amount_sum(typed.filter(direction="withdrawal"))
+    balance_rows = _saving_balance_rows(savings)
+    saving_balances = {
+        saving_type: sum(
+            (
+                amount for (member_id, row_type), amount in balance_rows.items()
+                if row_type == saving_type
+            ),
+            Decimal("0"),
+        )
+        for saving_type, _label in SavingTransaction.TYPE_CHOICES
+    }
     total_savings = sum(saving_balances.values(), Decimal("0"))
 
-    ledger_to_date = [
-        row for row in _cash_bank_ledger(companies) if row["date"] <= period_end
-    ]
-    cash_balance = sum(
-        (row["cash_debit"] - row["cash_credit"] for row in ledger_to_date),
-        Decimal("0"),
-    )
-    bank_balance = sum(
-        (row["bank_debit"] - row["bank_credit"] for row in ledger_to_date),
-        Decimal("0"),
+    ledger_balances = _cash_bank_balances(companies, through_date=period_end)
+    cash_balance = ledger_balances["cash"]
+    bank_balance = ledger_balances["bank"]
+    annotated_loans = _annotate_paid_amount(
+        loans.exclude(status__in={"rejected", "cancelled"})
     )
     loan_receivables = sum(
-        (loan.outstanding_amount for loan in loans.exclude(status__in={"rejected", "cancelled"})),
+        (loan.outstanding_amount for loan in annotated_loans),
         Decimal("0"),
     )
 
     cash_income = amount_sum(cash_period.filter(transaction_type="income"))
     cash_expense = amount_sum(cash_period.filter(transaction_type="expense"))
-    business_income = sum(
-        (row.total_amount for row in business_period.filter(direction="income")),
-        Decimal("0"),
+    business_amount = ExpressionWrapper(
+        F("quantity") * F("unit_price"), output_field=MONEY_FIELD,
     )
-    business_expense = sum(
-        (row.total_amount for row in business_period.filter(direction="expense")),
-        Decimal("0"),
+    business_totals = business_period.aggregate(
+        income=Coalesce(
+            Sum(business_amount, filter=Q(direction="income")), ZERO_MONEY,
+        ),
+        expense=Coalesce(
+            Sum(business_amount, filter=Q(direction="expense")), ZERO_MONEY,
+        ),
     )
+    business_income = business_totals["income"]
+    business_expense = business_totals["expense"]
     loan_interest_income = amount_sum(
         loans.filter(installments__payment_date__range=(period_start, period_end)),
         "installments__interest_amount",
@@ -1762,15 +1980,23 @@ def report(request):
     total_assets = cash_balance + bank_balance + loan_receivables
     reserve_equity = total_assets - total_savings
 
-    member_rows = []
-    for member in members.filter(status="active").order_by("full_name"):
-        member_savings = member.saving_balance()
-        interest_paid = amount_sum(
-            member.loans.filter(
-                installments__payment_date__range=(period_start, period_end)
-            ),
-            "installments__interest_amount",
+    interest_by_member = {
+        row["loan__member_id"]: row["total"]
+        for row in LoanInstallment.objects.filter(
+            loan__member__in=members,
+            payment_date__range=(period_start, period_end),
+        ).values("loan__member_id").annotate(total=Sum("interest_amount"))
+    }
+    savings_by_member = {}
+    for (member_id, _saving_type), amount in balance_rows.items():
+        savings_by_member[member_id] = (
+            savings_by_member.get(member_id, Decimal("0")) + amount
         )
+    active_members = list(members.filter(status="active").order_by("full_name"))
+    member_rows = []
+    for member in active_members:
+        member_savings = savings_by_member.get(member.pk, Decimal("0"))
+        interest_paid = interest_by_member.get(member.pk, Decimal("0"))
         member_rows.append(
             {
                 "member": member,
@@ -1802,7 +2028,7 @@ def report(request):
             "companies": request.koperasi_companies,
             "selected_company": selected_company,
             "year": year,
-            "active_member_count": members.filter(status="active").count(),
+            "active_member_count": len(active_members),
             "saving_balances": saving_balances,
             "total_savings": total_savings,
             "active_loan_count": loans.filter(status="active").count(),
@@ -1841,14 +2067,23 @@ def report_csv(request):
     writer.writerow(
         ["Perusahaan", "Nomor Anggota", "Nama", "Status", "Saldo Simpanan"]
     )
-    for member in _scoped_members(request):
+    members = _scoped_members(request).select_related("company")
+    balance_rows = _saving_balance_rows(
+        SavingTransaction.objects.filter(member__in=members)
+    )
+    balances_by_member = {}
+    for (member_id, _saving_type), amount in balance_rows.items():
+        balances_by_member[member_id] = (
+            balances_by_member.get(member_id, Decimal("0")) + amount
+        )
+    for member in members:
         writer.writerow(
             [
                 member.company.name,
                 member.member_number,
                 member.full_name,
                 member.get_status_display(),
-                member.saving_balance(),
+                balances_by_member.get(member.pk, Decimal("0")),
             ]
         )
     return response
@@ -1882,27 +2117,33 @@ def bug_report(request):
             {steps}
             """
         ).strip()
-        email = EmailMessage(
+        attachments = []
+        attachment = encoded_attachment(screenshot)
+        if attachment:
+            attachments.append(attachment)
+        email_queued = queue_email_message(
             subject=f"Report Bug {title} from PWU KOPERASI",
             body=email_body,
-            to=[settings.EMAIL_TO_REPORT],
+            recipients=[settings.EMAIL_TO_REPORT],
+            attachments=attachments,
         )
-        if screenshot:
-            email.attach(
-                screenshot.name,
-                screenshot.read(),
-                screenshot.content_type,
+        if not email_queued:
+            messages.error(
+                request,
+                "Report belum dapat dikirim. Silakan coba lagi beberapa saat.",
             )
-        email.send()
+            context = _base_context(request)
+            context["form"] = form
+            return render(request, "koperasi/bug_report.html", context)
         record_activity(
             request=request,
             category="KOPERASI",
-            action="BUG_REPORT_SENT",
-            description="Koperasi bug report sent by email.",
+            action="BUG_REPORT_QUEUED",
+            description="Koperasi bug report queued for email delivery.",
             target_type="koperasi.Report",
             target_label=title or "Untitled report",
         )
-        messages.success(request, "Report berhasil dikirim.")
+        messages.success(request, "Report masuk antrean dan akan segera dikirim.")
         return redirect("koperasi:dashboard")
 
     context = _base_context(request)

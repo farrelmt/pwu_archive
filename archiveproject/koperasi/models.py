@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 
 MONEY_VALIDATORS = [MinValueValidator(Decimal("0.01"))]
@@ -155,13 +155,14 @@ class Member(models.Model):
         transactions = self.saving_transactions.all()
         if saving_type:
             transactions = transactions.filter(saving_type=saving_type)
-        deposits = transactions.filter(direction="deposit").aggregate(
-            total=Sum("amount")
-        )["total"] or Decimal("0")
-        withdrawals = transactions.filter(direction="withdrawal").aggregate(
-            total=Sum("amount")
-        )["total"] or Decimal("0")
-        return deposits - withdrawals
+        totals = transactions.aggregate(
+            deposits=Sum("amount", filter=Q(direction="deposit")),
+            withdrawals=Sum("amount", filter=Q(direction="withdrawal")),
+        )
+        return (
+            (totals["deposits"] or Decimal("0"))
+            - (totals["withdrawals"] or Decimal("0"))
+        )
 
 
 class SavingTransaction(models.Model):
@@ -206,7 +207,11 @@ class SavingTransaction(models.Model):
             models.Index(
                 fields=["member", "transaction_date"],
                 name="saving_member_date_idx",
-            )
+            ),
+            models.Index(
+                fields=["transaction_date", "direction"],
+                name="saving_date_direction_idx",
+            ),
         ]
         verbose_name = "Transaksi simpanan"
         verbose_name_plural = "Transaksi simpanan"
@@ -302,7 +307,11 @@ class Loan(models.Model):
     class Meta:
         ordering = ["-application_date", "-pk"]
         indexes = [
-            models.Index(fields=["member", "status"], name="loan_member_status_idx")
+            models.Index(fields=["member", "status"], name="loan_member_status_idx"),
+            models.Index(
+                fields=["status", "disbursed_date"],
+                name="loan_status_disbursed_idx",
+            ),
         ]
         verbose_name = "Pinjaman"
         verbose_name_plural = "Pinjaman"
@@ -326,6 +335,18 @@ class Loan(models.Model):
 
     @property
     def amount_paid(self):
+        annotated_total = getattr(self, "paid_amount", None)
+        if annotated_total is not None:
+            return annotated_total
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("installments")
+        if prefetched is not None:
+            return sum(
+                (
+                    installment.principal_amount + installment.interest_amount
+                    for installment in prefetched
+                ),
+                Decimal("0"),
+            )
         return self.installments.aggregate(
             total=Sum("principal_amount") + Sum("interest_amount")
         )["total"] or Decimal("0")
@@ -373,6 +394,12 @@ class LoanInstallment(models.Model):
 
     class Meta:
         ordering = ["-payment_date", "-pk"]
+        indexes = [
+            models.Index(
+                fields=["loan", "payment_date"],
+                name="installment_loan_date_idx",
+            ),
+        ]
         verbose_name = "Angsuran pinjaman"
         verbose_name_plural = "Angsuran pinjaman"
 
@@ -441,6 +468,12 @@ class CashTransaction(models.Model):
 
     class Meta:
         ordering = ["-transaction_date", "-pk"]
+        indexes = [
+            models.Index(
+                fields=["company", "unit", "transaction_date"],
+                name="cash_company_unit_date_idx",
+            ),
+        ]
         verbose_name = "Transaksi kas"
         verbose_name_plural = "Transaksi kas"
 
@@ -610,6 +643,12 @@ class BusinessTransaction(models.Model):
 
     class Meta:
         ordering = ["-transaction_date", "-pk"]
+        indexes = [
+            models.Index(
+                fields=["company", "status", "transaction_date"],
+                name="business_company_date_idx",
+            ),
+        ]
         verbose_name = "Transaksi Sie Usaha"
         verbose_name_plural = "Transaksi Sie Usaha"
 

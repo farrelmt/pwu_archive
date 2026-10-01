@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Prefetch, Q
+from django.db.models import Count, ExpressionWrapper, F, IntegerField, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -45,17 +45,6 @@ def activity_log(request):
         base_template="risk_management/base.html",
         activity_url_name="risk:activity_log",
     )
-
-
-def _level_counts(risks):
-    counts = {
-        "Sangat_Rendah": 0, "Rendah": 0, "Sedang": 0,
-        "Tinggi": 0, "Sangat_Tinggi": 0,
-    }
-    for risk in risks:
-        key = risk.risk_level.replace(" ", "_")
-        counts[key] += 1
-    return counts
 
 
 def _current_period():
@@ -116,8 +105,51 @@ def _monitoring_summary(monitorings):
 
 @risk_required
 def dashboard(request):
-    risks = list(risks_for_user(request.user))
-    counts = _level_counts(risks)
+    risks = risks_for_user(request.user).annotate(
+        calculated_residual_score=ExpressionWrapper(
+            F("residual_likelihood") * F("residual_impact"),
+            output_field=IntegerField(),
+        )
+    )
+    today = timezone.localdate()
+    summary = risks.aggregate(
+        total=Count("pk", distinct=True),
+        open=Count("pk", filter=~Q(status="closed"), distinct=True),
+        overdue=Count(
+            "pk",
+            filter=Q(target_date__lt=today) & ~Q(status="closed"),
+            distinct=True,
+        ),
+        divisions=Count("division_id", distinct=True),
+        very_low=Count(
+            "pk", filter=Q(calculated_residual_score__lt=3), distinct=True,
+        ),
+        low=Count(
+            "pk",
+            filter=Q(calculated_residual_score__gte=3, calculated_residual_score__lt=5),
+            distinct=True,
+        ),
+        medium=Count(
+            "pk",
+            filter=Q(calculated_residual_score__gte=5, calculated_residual_score__lt=10),
+            distinct=True,
+        ),
+        high=Count(
+            "pk",
+            filter=Q(calculated_residual_score__gte=10, calculated_residual_score__lt=17),
+            distinct=True,
+        ),
+        very_high=Count(
+            "pk", filter=Q(calculated_residual_score__gte=17), distinct=True,
+        ),
+    )
+    counts = {
+        "Sangat_Rendah": summary["very_low"],
+        "Rendah": summary["low"],
+        "Sedang": summary["medium"],
+        "Tinggi": summary["high"],
+        "Sangat_Tinggi": summary["very_high"],
+    }
     year, quarter = _current_period()
     current_monitorings = list(
         RiskMonitoring.objects.filter(
@@ -126,12 +158,12 @@ def dashboard(request):
     )
     division_rows, monitoring_totals = _monitoring_summary(current_monitorings)
     return render(request, "risk_management/dashboard.html", {
-        "total_risks": len(risks),
-        "open_risks": sum(r.status != "closed" for r in risks),
-        "overdue_risks": sum(bool(r.target_date and r.target_date < __import__('datetime').date.today() and r.status != "closed") for r in risks),
+        "total_risks": summary["total"],
+        "open_risks": summary["open"],
+        "overdue_risks": summary["overdue"],
         "level_counts": counts,
         "recent_risks": risks[:8],
-        "division_count": len({r.division_id for r in risks}),
+        "division_count": summary["divisions"],
         "monitoring_year": year,
         "monitoring_quarter": quarter,
         "monitoring_quarter_label": dict(RiskMonitoring.QUARTER_CHOICES)[quarter],

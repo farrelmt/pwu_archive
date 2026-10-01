@@ -33,11 +33,8 @@
             <a class="risk-nav {% if '/risiko/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:risk_list' %}">Register Risiko</a>
             <a class="risk-nav {% if '/pemantauan/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:monitoring_report' %}">Pemantauan Triwulan</a>
             <a class="risk-nav {% if '/pedoman-penilaian/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:scoring_guide' %}">Pedoman Penilaian</a>
-            {% if request.can_edit_risks %}<a class="risk-nav {% if '/impor-workbook/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:workbook_import' %}">Impor Workbook</a>{% endif %}
             <a class="risk-nav {% if '/divisi/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:divisions' %}">Divisi &amp; Penanggung Jawab</a>
             {% if request.user.is_superuser %}<a class="risk-nav {% if '/activity-log/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:activity_log' %}">Log Aktivitas</a>{% endif %}
-            <p class="mb-2 mt-7 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Akun</p>
-            <a class="risk-nav" href="{{ portal_settings_url }}">Pengaturan</a>
         </nav>
         <div class="border-t border-slate-200 p-3">
             <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50">Keluar</button></form>

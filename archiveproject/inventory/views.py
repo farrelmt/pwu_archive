@@ -4,8 +4,8 @@ from uuid import uuid4
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Count, F, Q
-from django.db.models.functions import Lower
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models.functions import Coalesce, Lower
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -47,15 +47,29 @@ def dashboard(request):
     if not request.can_edit_inventory:
         member = sync_company_member(request.user)
         return redirect("inventory:member_detail", pk=member.pk)
-    items = InventoryItem.objects.select_related("assigned_to")
-    total_value = sum((item.total_value for item in items), Decimal("0"))
+    items = InventoryItem.objects.all()
+    money_field = DecimalField(max_digits=20, decimal_places=2)
+    summary = items.aggregate(
+        item_count=Coalesce(Sum("quantity"), 0),
+        assigned_count=Count("pk", filter=Q(status="assigned")),
+        maintenance_count=Count("pk", filter=Q(status="maintenance")),
+        total_value=Coalesce(
+            Sum(
+                ExpressionWrapper(
+                    F("purchase_price") * F("quantity"),
+                    output_field=money_field,
+                )
+            ),
+            Value(Decimal("0"), output_field=money_field),
+        ),
+    )
     return render(request, "inventory/dashboard.html", {
         "member_count": CompanyMember.objects.filter(user__isnull=False, status="active").count(),
-        "item_count": sum(item.quantity for item in items),
-        "assigned_count": items.filter(status="assigned").count(),
-        "maintenance_count": items.filter(status="maintenance").count(),
-        "total_value": total_value,
-        "recent_items": items.order_by("-created_at")[:8],
+        "item_count": summary["item_count"],
+        "assigned_count": summary["assigned_count"],
+        "maintenance_count": summary["maintenance_count"],
+        "total_value": summary["total_value"],
+        "recent_items": items.select_related("assigned_to").order_by("-created_at")[:8],
     })
 
 

@@ -8,6 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.exceptions import PermissionDenied
+from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.http import FileResponse, Http404, JsonResponse, HttpResponse
 from django.conf import settings
@@ -47,7 +48,7 @@ from openpyxl.utils import get_column_letter
 
 
 def notify_shared_recipients(request, disposisi, selected_roles):
-    sent_count, failed_count = send_disposition_shared_notifications(
+    queued_count, failed_count = send_disposition_shared_notifications(
         request=request,
         disposisi=disposisi,
         recipient_roles=selected_roles,
@@ -55,10 +56,10 @@ def notify_shared_recipients(request, disposisi, selected_roles):
     if failed_count:
         messages.warning(
             request,
-            f'{failed_count} email notifikasi gagal dikirim. '
-            'Disposisi tetap berhasil dibagikan.',
+            'Email notifikasi belum dapat dimasukkan ke antrean. '
+            'Disposisi tetap berhasil dibagikan dan dapat dibuka di inbox.',
         )
-    return sent_count
+    return queued_count
 
 
 def _filtered_disposisi_queryset(request):
@@ -581,6 +582,45 @@ def tambah_disposisi(request):
         'form': form,
         'no_id_agenda': next_id_agenda,
     })
+
+
+@login_required
+@disposisi_editor_required
+@require_POST
+def refresh_agenda_numbers(request):
+    with transaction.atomic():
+        changed_count = Disposisi.refresh_agenda_numbers()
+
+    record_activity(
+        request=request,
+        category='DISPOSISI',
+        action='REFRESH_AGENDA',
+        description=(
+            f'Agenda numbers refreshed; {changed_count} records updated.'
+        ),
+        target_type='disposisi.Disposisi',
+        target_label='Nomor Agenda Surat Masuk',
+        metadata={'updated_records': changed_count},
+    )
+    if changed_count:
+        result_message = (
+            f'Nomor agenda berhasil diperbarui pada {changed_count} surat.'
+        )
+    else:
+        result_message = 'Nomor agenda sudah sesuai. Tidak ada perubahan.'
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'ok': True,
+            'updated_records': changed_count,
+            'message': result_message,
+        })
+
+    if changed_count:
+        messages.success(request, result_message)
+    else:
+        messages.info(request, result_message)
+    return redirect('disposisi:disposisi')
 
 @login_required
 @disposisi_editor_required
@@ -1502,42 +1542,43 @@ def download_disposisi_pdf(request, pk):
         target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
     )
 
-    html_string = render_to_string(
-        'disposisi_pdf.html',
-        {
-            'disposisi': disposisi,
-            'selected_recipient_roles': list(
-                disposisi.shared_recipients.values_list('role', flat=True)
-            ),
-        }
+    response = HttpResponse(
+        _render_disposisi_pdf(request, disposisi),
+        content_type='application/pdf',
     )
-
-    response = HttpResponse(content_type='application/pdf')
     filename = f'Disposisi-{disposisi.nomor_agenda}.pdf'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
-
-    HTML(
-        string=html_string,
-        base_url=request.build_absolute_uri('/')
-    ).write_pdf(response)
-
     return response
 
 
 def _render_disposisi_pdf(request, disposisi):
+    recipient_roles = sorted(
+        disposisi.shared_recipients.values_list('role', flat=True)
+    )
+    modified_version = int(disposisi.waktu_diedit.timestamp() * 1_000_000)
+    role_version = '-'.join(recipient_roles) or 'none'
+    cache_key = f'disposisi-pdf:{disposisi.pk}:{modified_version}:{role_version}'
+    cached_pdf = cache.get(cache_key)
+    if cached_pdf is not None:
+        return cached_pdf
+
     html_string = render_to_string(
         'disposisi_pdf.html',
         {
             'disposisi': disposisi,
-            'selected_recipient_roles': list(
-                disposisi.shared_recipients.values_list('role', flat=True)
-            ),
+            'selected_recipient_roles': recipient_roles,
         },
     )
-    return HTML(
+    pdf_bytes = HTML(
         string=html_string,
         base_url=request.build_absolute_uri('/'),
     ).write_pdf()
+    cache.set(
+        cache_key,
+        pdf_bytes,
+        timeout=settings.GENERATED_PDF_CACHE_TIMEOUT,
+    )
+    return pdf_bytes
 
 
 def _incoming_letter_pdf(document):
@@ -1567,24 +1608,34 @@ def combined_director_document(request, pk):
     if not disposisi.dokumen_surat_masuk:
         raise Http404
 
-    writer = PdfWriter()
-    try:
-        letter_reader = PdfReader(BytesIO(
-            _incoming_letter_pdf(disposisi.dokumen_surat_masuk)
-        ))
-        preview_reader = PdfReader(BytesIO(
-            _render_disposisi_pdf(request, disposisi)
-        ))
-        for page in preview_reader.pages:
-            writer.add_page(page)
-        for page in letter_reader.pages:
-            writer.add_page(page)
-    except (OSError, ValueError, PdfReadError) as exc:
-        raise Http404('Dokumen PDF tidak dapat diproses.') from exc
+    modified_version = int(disposisi.waktu_diedit.timestamp() * 1_000_000)
+    cache_key = f'disposisi-combined-pdf:{disposisi.pk}:{modified_version}'
+    combined_pdf = cache.get(cache_key)
+    if combined_pdf is None:
+        writer = PdfWriter()
+        try:
+            letter_reader = PdfReader(BytesIO(
+                _incoming_letter_pdf(disposisi.dokumen_surat_masuk)
+            ))
+            preview_reader = PdfReader(BytesIO(
+                _render_disposisi_pdf(request, disposisi)
+            ))
+            for page in preview_reader.pages:
+                writer.add_page(page)
+            for page in letter_reader.pages:
+                writer.add_page(page)
+        except (OSError, ValueError, PdfReadError) as exc:
+            raise Http404('Dokumen PDF tidak dapat diproses.') from exc
 
-    output = BytesIO()
-    writer.write(output)
-    response = HttpResponse(output.getvalue(), content_type='application/pdf')
+        output = BytesIO()
+        writer.write(output)
+        combined_pdf = output.getvalue()
+        cache.set(
+            cache_key,
+            combined_pdf,
+            timeout=settings.GENERATED_PDF_CACHE_TIMEOUT,
+        )
+    response = HttpResponse(combined_pdf, content_type='application/pdf')
     filename = f'Dokumen-Surat-{disposisi.nomor_agenda}.pdf'
     response['Content-Disposition'] = content_disposition_header(
         as_attachment=False,

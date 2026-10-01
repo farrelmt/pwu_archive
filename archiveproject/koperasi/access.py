@@ -46,29 +46,43 @@ def access_rows_for_user(user):
     )
 
 
+def _cached_access_rows(user):
+    if user.is_superuser:
+        return ()
+    cached = user.__dict__.get("_koperasi_access_rows_cache")
+    if cached is None:
+        cached = tuple(access_rows_for_user(user).select_related("company"))
+        user.__dict__["_koperasi_access_rows_cache"] = cached
+    return cached
+
+
 def accessible_companies(user):
     if user.is_superuser:
         return Company.objects.all()
-    rows = access_rows_for_user(user)
-    if not rows.exists() or rows.filter(company__isnull=True).exists():
+    rows = _cached_access_rows(user)
+    if not rows or any(row.company_id is None for row in rows):
         return Company.objects.all()
-    return Company.objects.filter(accesses__in=rows).distinct()
+    return Company.objects.filter(pk__in={row.company_id for row in rows})
 
 
 def roles_for_user(user):
     if user.is_superuser:
         return {"admin"}
-    roles = set(access_rows_for_user(user).values_list("role", flat=True))
+    cached = user.__dict__.get("_koperasi_roles_cache")
+    if cached is not None:
+        return cached
+    roles = {row.role for row in _cached_access_rows(user)}
+    user.__dict__["_koperasi_roles_cache"] = roles
     return roles
 
 
 def can_manage_global_access(user):
     if user.is_superuser:
         return True
-    return access_rows_for_user(user).filter(
-        company__isnull=True,
-        role__in=MANAGE_ROLES,
-    ).exists()
+    return any(
+        row.company_id is None and row.role in MANAGE_ROLES
+        for row in _cached_access_rows(user)
+    )
 
 
 def koperasi_required(view_func):

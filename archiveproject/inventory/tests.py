@@ -40,6 +40,20 @@ class InventoryPermissionTests(TestCase):
         response = self.client.get(reverse("inventory:item_edit", args=[self.item.pk]), HTTP_HOST="inventory.localhost")
         self.assertEqual(response.status_code, 200)
 
+    def test_manager_dashboard_uses_database_summary(self):
+        self.client.force_login(self.manager)
+
+        response = self.client.get(
+            reverse("inventory:dashboard"),
+            HTTP_HOST="inventory.localhost",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["item_count"], 1)
+        self.assertEqual(response.context["assigned_count"], 1)
+        self.assertEqual(response.context["maintenance_count"], 0)
+        self.assertEqual(response.context["total_value"], Decimal("12000000"))
+
     def test_member_list_supports_sorting_and_shows_all_current_members(self):
         User = get_user_model()
         zeta = User.objects.create(username="division_zeta", first_name="Zeta", role="employee")
@@ -84,8 +98,15 @@ class InventoryPermissionTests(TestCase):
             HTTP_HOST="inventory.localhost",
         )
 
-        self.assertEqual(response.context["page_obj"].paginator.num_pages, 2)
-        self.assertEqual(len(response.context["page_obj"]), 20)
+        expected_pages = (User.objects.count() + 19) // 20
+        self.assertEqual(
+            response.context["page_obj"].paginator.num_pages,
+            expected_pages,
+        )
+        self.assertEqual(
+            len(response.context["page_obj"]),
+            min(User.objects.count(), 20),
+        )
         self.assertContains(response, "Berikutnya")
         self.assertContains(response, "page=2")
 

@@ -1,5 +1,6 @@
 import environ
 import os
+import sys
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -78,6 +79,7 @@ TAILWIND_APP_NAME = 'theme'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'archiveproject.performance.RequestTimingMiddleware',
     'archiveproject.security.SecurityHeadersMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'archiveproject.host_routing.KoperasiHostMiddleware',
@@ -134,8 +136,45 @@ else:
             'PASSWORD': env('DB_PASSWORD'),
             'HOST': env('DB_HOST'),
             'PORT': env('DB_PORT'),
+            'CONN_MAX_AGE': env.int('DB_CONN_MAX_AGE', default=60),
+            'CONN_HEALTH_CHECKS': True,
+            'OPTIONS': {
+                'connect_timeout': env.int('DB_CONNECT_TIMEOUT', default=5),
+            },
         }
     }
+
+REDIS_URL = env('REDIS_URL', default='').strip()
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'socket_connect_timeout': 2,
+                'socket_timeout': 2,
+            },
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'pwu-local-cache',
+        }
+    }
+
+CELERY_BROKER_URL = env(
+    'CELERY_BROKER_URL',
+    default=REDIS_URL or 'redis://localhost:6379/0',
+)
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_ALWAYS_EAGER = env.bool('CELERY_TASK_ALWAYS_EAGER', default=False)
+GENERATED_PDF_CACHE_TIMEOUT = env.int('GENERATED_PDF_CACHE_TIMEOUT', default=300)
+SLOW_REQUEST_MS = env.int('SLOW_REQUEST_MS', default=1000)
 
 AUTH_USER_MODEL = 'accounts.SystemUser'
 
@@ -196,6 +235,13 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
+# Tests do not run collectstatic, so they should resolve source assets directly
+# instead of depending on a potentially stale production manifest.
+if 'test' in sys.argv:
+    STORAGES['staticfiles'] = {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    }
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'

@@ -122,6 +122,26 @@ class Disposisi(models.Model):
     waktu_dibuat = models.DateTimeField(auto_now_add=True)
     waktu_diedit = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=['-tanggal_surat_diterima', '-id'],
+                name='disp_received_pk_idx',
+            ),
+            models.Index(
+                fields=['tipe_disposisi', 'status_pengajuan'],
+                name='disp_type_status_idx',
+            ),
+            models.Index(
+                fields=['tujuan', 'status_pengajuan'],
+                name='disp_target_status_idx',
+            ),
+            models.Index(
+                fields=['status_pengajuan', 'deadline'],
+                name='disp_status_deadline_idx',
+            ),
+        ]
+
     def name_dokumen_surat_masuk(self):
         filename = os.path.basename(self.dokumen_surat_masuk.name)
         return filename.replace("_", "/")
@@ -139,41 +159,89 @@ class Disposisi(models.Model):
                 )
             })
 
-    def reassign_agenda_number(self):
-        all_disposisi = Disposisi.objects.all().order_by('tanggal_surat_diterima', 'pk')
+    def assign_initial_agenda_number(self):
+        """Assign only this new record without renumbering existing records."""
+        received_date = self.tanggal_surat_diterima
+        earlier_date_count = (
+            Disposisi.objects.filter(
+                tanggal_surat_diterima__year=received_date.year,
+                tanggal_surat_diterima__lt=received_date,
+            )
+            .values('tanggal_surat_diterima')
+            .distinct()
+            .count()
+        )
+        same_date_count = Disposisi.objects.filter(
+            tanggal_surat_diterima=received_date,
+        ).exclude(pk=self.pk).count()
 
+        base_number = earlier_date_count + 1
+        id_agenda_value = (
+            str(base_number)
+            if same_date_count == 0
+            else f'{base_number}.{same_date_count}'
+        )
+        nomor_agenda_value = (
+            f'{id_agenda_value}/{self.BULAN_ROMAWI[received_date.month]}/'
+            f'{received_date.year}'
+        )
+        Disposisi.objects.filter(pk=self.pk).update(
+            id_agenda=id_agenda_value,
+            nomor_agenda=nomor_agenda_value,
+        )
+        self.id_agenda = id_agenda_value
+        self.nomor_agenda = nomor_agenda_value
+
+    @classmethod
+    def refresh_agenda_numbers(cls):
+        """Recalculate every agenda number in one explicit bulk operation."""
+        all_disposisi = list(
+            cls.objects.only(
+                'pk', 'tanggal_surat_diterima', 'id_agenda', 'nomor_agenda',
+            ).order_by('tanggal_surat_diterima', 'pk')
+        )
         base_number = 0
         current_date = None
         current_year = None
         sub_count = 0
+        changed = []
 
-        for d in all_disposisi:
-            date = d.tanggal_surat_diterima
-
-            if date.year != current_year:
+        for disposisi in all_disposisi:
+            received_date = disposisi.tanggal_surat_diterima
+            if received_date.year != current_year:
                 base_number = 0
-                current_year = date.year
+                current_year = received_date.year
                 current_date = None
                 sub_count = 0
 
-            if date != current_date:
+            if received_date != current_date:
                 base_number += 1
-                current_date = date
+                current_date = received_date
                 sub_count = 0
                 id_agenda_value = str(base_number)
-
             else:
                 sub_count += 1
-                id_agenda_value = f"{base_number}.{sub_count}"
+                id_agenda_value = f'{base_number}.{sub_count}'
 
-            month = date.month
-            year = date.year
-            new_nomor_agenda = f"{id_agenda_value}/{Disposisi.BULAN_ROMAWI[month]}/{year}"
+            nomor_agenda_value = (
+                f'{id_agenda_value}/{cls.BULAN_ROMAWI[received_date.month]}/'
+                f'{received_date.year}'
+            )
+            if (
+                disposisi.id_agenda != id_agenda_value
+                or disposisi.nomor_agenda != nomor_agenda_value
+            ):
+                disposisi.id_agenda = id_agenda_value
+                disposisi.nomor_agenda = nomor_agenda_value
+                changed.append(disposisi)
 
-            Disposisi.objects.filter(pk=d.pk).update(
-                id_agenda=id_agenda_value,
-                nomor_agenda=new_nomor_agenda,
-        )
+        if changed:
+            cls.objects.bulk_update(
+                changed,
+                ['id_agenda', 'nomor_agenda'],
+                batch_size=500,
+            )
+        return len(changed)
 
     def save(self, *args, **kwargs):
         is_create = self.pk is None
@@ -216,7 +284,8 @@ class Disposisi(models.Model):
                         old.dokumen_disposisi.name
                     )
 
-        self.reassign_agenda_number()
+        if is_create:
+            self.assign_initial_agenda_number()
 
     def __str__(self):
         return f"{self.nomor_surat} ({self.nomor_agenda})"

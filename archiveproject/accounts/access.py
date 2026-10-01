@@ -38,20 +38,28 @@ def has_system_access(user, system):
         return False
     if user.is_superuser:
         return True
+    cache = user.__dict__.setdefault("_pwu_system_access_cache", {})
+    if system in cache:
+        return cache[system]
     if system == "archive":
-        return has_archive_access(user)
-    if system == "koperasi":
-        from koperasi.access import access_rows_for_user
+        allowed = has_archive_access(user)
+    elif system == "koperasi":
+        from koperasi.access import roles_for_user
 
-        return access_rows_for_user(user).exists()
-    if system == "risk":
-        return user.risk_accesses.filter(is_active=True).exists()
-    if system == "inventory":
+        allowed = bool(roles_for_user(user))
+    elif system == "risk":
+        from risk_management.access import has_risk_access
+
+        allowed = has_risk_access(user)
+    elif system == "inventory":
         try:
-            return user.inventory_access.is_active
+            allowed = user.inventory_access.is_active
         except ObjectDoesNotExist:
-            return False
-    return False
+            allowed = False
+    else:
+        allowed = False
+    cache[system] = allowed
+    return allowed
 
 
 def can_manage_members(user):

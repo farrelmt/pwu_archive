@@ -7,7 +7,6 @@ from django.db.models.deletion import ProtectedError
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
-from django.core.mail import EmailMessage
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from .models import AppSetting
@@ -15,6 +14,7 @@ from .forms import ReportForm
 from django.conf import settings
 from .services import inbox_disposisi_for_user, related_disposisi_for_user
 from accounts.audit import record_activity
+from accounts.tasks import encoded_attachment, queue_email_message
 from accounts.models import ActivityLog
 from accounts.access import can_manage_members, has_system_access, member_admin_required
 from accounts.forms import MemberAccessForm, PersonalSettingsForm
@@ -507,26 +507,32 @@ Steps:
 {steps}
         """).strip()
 
-        email = EmailMessage(
+        attachments = []
+        attachment = encoded_attachment(screenshot)
+        if attachment:
+            attachments.append(attachment)
+        email_queued = queue_email_message(
             subject=f"Report Bug {title} from PWU ARCHIVE",
             body=email_body,
-            to=[to_email],
+            recipients=[to_email],
+            attachments=attachments,
         )
-
-        if screenshot:
-            email.attach(screenshot.name, screenshot.read(), screenshot.content_type)
-
-        email.send()
+        if not email_queued:
+            messages.error(
+                request,
+                "Report belum dapat dikirim. Silakan coba lagi beberapa saat.",
+            )
+            return render(request, 'report.html', {'form': form})
         record_activity(
             request=request,
             category='SYSTEM',
-            action='BUG_REPORT_SENT',
-            description='Bug report sent by email.',
+            action='BUG_REPORT_QUEUED',
+            description='Bug report queued for email delivery.',
             target_type='homepage.Report',
             target_label=title or 'Untitled report',
         )
 
-        messages.success(request, "Report sent successfully")
+        messages.success(request, "Report masuk antrean dan akan segera dikirim.")
         return redirect("homepage:dashboard")
 
     return render(request, 'report.html', {'form': form})
