@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.http import Http404
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from archiveproject.host_routing import portal_base_url, request_hostname
 from accounts.access import has_system_access
@@ -50,8 +50,19 @@ def system_launch(request, system):
     _hosts, base_url = _system_hosts_and_url(request, system)
     if not has_system_access(request.user, system):
         raise PermissionDenied("Akun Anda tidak memiliki akses ke sistem ini.")
+    next_path = request.GET.get('next', '/')
+    if (
+        not next_path.startswith('/')
+        or next_path.startswith('//')
+        or not _can_follow_login_next(request.user, next_path)
+    ):
+        next_path = '/'
     token = signing.dumps(
-        {'user_id': request.user.pk, 'system': system},
+        {
+            'user_id': request.user.pk,
+            'system': system,
+            'next_path': next_path,
+        },
         salt=SYSTEM_HANDOFF_SALT,
         compress=True,
     )
@@ -65,6 +76,7 @@ def system_handoff(request):
         payload = signing.loads(token, salt=SYSTEM_HANDOFF_SALT, max_age=60)
         system = payload['system']
         user_id = payload['user_id']
+        next_path = payload.get('next_path', '/')
     except (signing.BadSignature, KeyError, TypeError):
         return redirect(f'{portal_base_url(request)}/accounts/login/')
 
@@ -76,8 +88,15 @@ def system_handoff(request):
         return redirect(f'{portal_base_url(request)}/accounts/login/')
     if not has_system_access(user, system):
         raise PermissionDenied("Akun Anda tidak memiliki akses ke sistem ini.")
+    if (
+        not isinstance(next_path, str)
+        or not next_path.startswith('/')
+        or next_path.startswith('//')
+        or not _can_follow_login_next(user, next_path)
+    ):
+        next_path = '/'
     auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-    return redirect('/')
+    return redirect(next_path)
 
 
 def _can_follow_login_next(user, next_url):
@@ -93,6 +112,40 @@ def _can_follow_login_next(user, next_url):
     if path.startswith('/disposisi/edit/'):
         return user.can_edit_disposisi
     return True
+
+
+def _allowed_login_hosts(request):
+    allowed_hosts = set(
+        settings.LANDING_HOSTS | settings.ARCHIVE_HOSTS
+        | settings.KOPERASI_HOSTS | settings.RISK_HOSTS
+        | settings.INVENTORY_HOSTS
+    )
+    if ':' in request.get_host():
+        port = request.get_host().rsplit(':', 1)[1]
+        allowed_hosts |= {f'{host}:{port}' for host in tuple(allowed_hosts)}
+    return allowed_hosts
+
+
+def _login_destination(request, user, next_url):
+    """Validate login targets and route Archive via a reliable GET handoff."""
+    if not next_url or not url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts=_allowed_login_hosts(request),
+        require_https=request.is_secure(),
+    ) or not _can_follow_login_next(user, next_url):
+        return None
+
+    parsed_url = urlsplit(next_url)
+    if (
+        parsed_url.hostname in settings.ARCHIVE_HOSTS
+        and request_hostname(request) in settings.LANDING_HOSTS
+    ):
+        archive_path = parsed_url.path or '/'
+        if parsed_url.query:
+            archive_path = f'{archive_path}?{parsed_url.query}'
+        launch_url = reverse('accounts:system_launch', args=['archive'])
+        return f'{launch_url}?{urlencode({"next": archive_path})}'
+    return next_url
 
 
 def _login_context(request, **extra):
@@ -153,11 +206,15 @@ def _login_context(request, **extra):
 
 @never_cache
 def login_view(request):
+    next_url = request.POST.get('next') or request.GET.get('next', '')
     if (
         request.method == 'GET'
         and request.user.is_authenticated
         and request_hostname(request) in settings.LANDING_HOSTS
     ):
+        destination = _login_destination(request, request.user, next_url)
+        if destination:
+            return redirect(destination)
         return redirect('homepage:dashboard')
     if request.method == 'POST':
         username = request.POST['username']
@@ -177,6 +234,7 @@ def login_view(request):
                         _login_context(
                             request,
                             error='Akun ini tidak memiliki akses ke Sistem Inventaris.',
+                            next_url=next_url,
                         ),
                     )
             if is_risk:
@@ -188,35 +246,24 @@ def login_view(request):
                         _login_context(
                             request,
                             error='Akun ini tidak memiliki akses ke Sistem Manajemen Risiko.',
+                            next_url=next_url,
                         ),
                     )
-            if is_koperasi and not user.is_superuser:
-                from koperasi.access import roles_for_user
-                if not roles_for_user(user):
+            if is_koperasi:
+                if not has_system_access(user, "koperasi"):
                     return render(
                         request,
                         'login.html',
                         _login_context(
                             request,
                             error='Akun ini tidak memiliki akses ke Sistem Koperasi.',
+                            next_url=next_url,
                         ),
                     )
             auth_login(request, user)
-            next_url = request.POST.get('next') or request.GET.get('next')
-            allowed_hosts = set(
-                settings.LANDING_HOSTS | settings.ARCHIVE_HOSTS
-                | settings.KOPERASI_HOSTS | settings.RISK_HOSTS
-                | settings.INVENTORY_HOSTS
-            )
-            if ':' in request.get_host():
-                port = request.get_host().rsplit(':', 1)[1]
-                allowed_hosts |= {f'{host}:{port}' for host in tuple(allowed_hosts)}
-            if next_url and url_has_allowed_host_and_scheme(
-                next_url,
-                allowed_hosts=allowed_hosts,
-                require_https=request.is_secure(),
-            ) and _can_follow_login_next(user, next_url):
-                return redirect(next_url)
+            destination = _login_destination(request, user, next_url)
+            if destination:
+                return redirect(destination)
             if request_hostname(request) in settings.KOPERASI_HOSTS:
                 return redirect('koperasi:dashboard')
             if request_hostname(request) in settings.RISK_HOSTS:
@@ -231,10 +278,15 @@ def login_view(request):
                 _login_context(
                     request,
                     error='Invalid username or password.',
+                    next_url=next_url,
                 ),
             )
 
-    return render(request, 'login.html', _login_context(request))
+    return render(
+        request,
+        'login.html',
+        _login_context(request, next_url=next_url),
+    )
 
 @login_required(login_url='accounts:login')
 @require_POST

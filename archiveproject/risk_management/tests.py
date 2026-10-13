@@ -73,6 +73,8 @@ class RiskPermissionTests(TestCase):
         self.assertEqual(response.context["total_risks"], 1)
         self.assertEqual(response.context["open_risks"], 1)
         self.assertEqual(response.context["level_counts"]["Sedang"], 1)
+        self.assertContains(response, "Kembali ke Portal Utama")
+        self.assertContains(response, ">Keluar<")
 
     def test_template_uses_five_risk_levels(self):
         expected = {

@@ -47,8 +47,6 @@ def access_rows_for_user(user):
 
 
 def _cached_access_rows(user):
-    if user.is_superuser:
-        return ()
     cached = user.__dict__.get("_koperasi_access_rows_cache")
     if cached is None:
         cached = tuple(access_rows_for_user(user).select_related("company"))
@@ -66,8 +64,6 @@ def accessible_companies(user):
 
 
 def roles_for_user(user):
-    if user.is_superuser:
-        return {"admin"}
     cached = user.__dict__.get("_koperasi_roles_cache")
     if cached is not None:
         return cached

@@ -76,6 +76,52 @@ class LogoutSecurityTests(TestCase):
             ).exists()
         )
 
+    @override_settings(
+        ALLOWED_HOSTS=[
+            "pwujatim.site", "archive.pwujatim.site", "koperasi.pwujatim.site",
+            "risk.pwujatim.site", "inventory.pwujatim.site",
+        ],
+        LANDING_HOSTS=frozenset({"pwujatim.site"}),
+        ARCHIVE_HOSTS=frozenset({"archive.pwujatim.site"}),
+        KOPERASI_HOSTS=frozenset({"koperasi.pwujatim.site"}),
+        RISK_HOSTS=frozenset({"risk.pwujatim.site"}),
+        INVENTORY_HOSTS=frozenset({"inventory.pwujatim.site"}),
+        PORTAL_BASE_URL="https://pwujatim.site",
+    )
+    def test_logout_from_every_system_clears_shared_session(self):
+        from koperasi.models import KoperasiAccess
+
+        self.user.is_superuser = True
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_superuser", "is_staff"])
+        KoperasiAccess.objects.create(
+            user=self.user,
+            company=None,
+            role="admin",
+            is_active=True,
+        )
+
+        for hostname in (
+            "archive.pwujatim.site",
+            "koperasi.pwujatim.site",
+            "risk.pwujatim.site",
+            "inventory.pwujatim.site",
+        ):
+            with self.subTest(hostname=hostname):
+                self.client.force_login(self.user)
+                response = self.client.post(
+                    "/accounts/logout/",
+                    HTTP_HOST=hostname,
+                )
+
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(
+                    response["Location"],
+                    "https://pwujatim.site/accounts/login/",
+                )
+                self.assertNotIn("_auth_user_id", self.client.session)
+                self.assertEqual(response.cookies["sessionid"]["domain"], ".pwujatim.site")
+
 
 @override_settings(ALLOWED_HOSTS=["testserver"])
 class AuthenticationAuditTests(TestCase):
@@ -237,6 +283,18 @@ class LoginThemeTests(TestCase):
         self.assertNotContains(response, "bg-green-950")
         self.assertContains(response, "Portal Sistem Informasi PWU Jatim")
 
+    def test_login_form_recovers_after_browser_restores_page(self):
+        response = self.client.get(
+            "/accounts/login/",
+            HTTP_HOST="localhost",
+        )
+
+        self.assertContains(response, 'window.addEventListener("pageshow", event =>')
+        self.assertContains(response, 'loginSubmit.removeAttribute("aria-disabled")')
+        self.assertContains(response, "window.location.reload()")
+        self.assertContains(response, "window.setTimeout(retryLoginNavigation, 15000)")
+        self.assertNotContains(response, "loginSubmit.disabled = true")
+
     def test_system_subdomain_login_redirects_to_central_portal(self):
         response = self.client.get(
             "/accounts/login/",
@@ -246,6 +304,93 @@ class LoginThemeTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response["Location"].startswith("http://localhost/accounts/login/"))
         self.assertIn("koperasi.localhost", response["Location"])
+
+    def test_archive_login_uses_same_origin_launch_then_archive_handoff(self):
+        user = SystemUser.objects.create_user(
+            username="archive-login-handoff",
+            password="password-for-tests",
+            role="kadiv_keuangan",
+        )
+        archive_url = "http://archive.localhost/monitor/?status=DIBAGIKAN"
+
+        login_response = self.client.post(
+            "/accounts/login/",
+            {
+                "username": user.username,
+                "password": "password-for-tests",
+                "next": archive_url,
+            },
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(login_response.status_code, 302)
+        self.assertEqual(
+            login_response["Location"],
+            "/accounts/system/archive/?next=%2Fmonitor%2F%3Fstatus%3DDIBAGIKAN",
+        )
+
+        launch_response = self.client.get(
+            login_response["Location"],
+            HTTP_HOST="localhost",
+        )
+        self.assertEqual(launch_response.status_code, 302)
+        self.assertTrue(
+            launch_response["Location"].startswith(
+                "http://archive.localhost/accounts/handoff/?token="
+            )
+        )
+
+        handoff_path = launch_response["Location"].split(
+            "archive.localhost", 1
+        )[1]
+        handoff_response = self.client.get(
+            handoff_path,
+            HTTP_HOST="archive.localhost",
+        )
+        self.assertEqual(handoff_response.status_code, 302)
+        self.assertEqual(
+            handoff_response["Location"],
+            "/monitor/?status=DIBAGIKAN",
+        )
+
+    def test_authenticated_login_reload_keeps_archive_destination(self):
+        user = SystemUser.objects.create_user(
+            username="archive-login-retry",
+            password="password-for-tests",
+            role="kadiv_keuangan",
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(
+            "/accounts/login/?next=http%3A%2F%2Farchive.localhost%2F",
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            "/accounts/system/archive/?next=%2F",
+        )
+
+    def test_failed_login_preserves_archive_destination(self):
+        archive_url = "http://archive.localhost/"
+
+        response = self.client.post(
+            "/accounts/login/",
+            {
+                "username": "missing-user",
+                "password": "incorrect-password",
+                "next": archive_url,
+            },
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'<input type="hidden" name="next" value="{archive_url}">',
+            html=True,
+        )
 
     def test_central_login_cannot_continue_to_koperasi_without_role(self):
         user = SystemUser.objects.create_user(

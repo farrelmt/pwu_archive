@@ -9,6 +9,19 @@ def request_hostname(request):
     return request.get_host().split(':', 1)[0].lower()
 
 
+def request_system(request):
+    hostname = request_hostname(request)
+    for name, hosts in (
+        ("archive", settings.ARCHIVE_HOSTS),
+        ("koperasi", settings.KOPERASI_HOSTS),
+        ("risk", settings.RISK_HOSTS),
+        ("inventory", settings.INVENTORY_HOSTS),
+    ):
+        if hostname in hosts:
+            return name
+    return None
+
+
 def portal_base_url(request):
     hostname = request_hostname(request)
     if hostname == "localhost" or hostname.endswith(".localhost"):

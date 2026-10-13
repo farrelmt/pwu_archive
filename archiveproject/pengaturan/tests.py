@@ -98,3 +98,134 @@ class ProfilePasswordSecurityTests(TestCase):
         self.assertEqual(self.user.phone, "089999999")
         self.assertEqual(self.user.username, "profile-user")
         self.assertEqual(self.user.role, "kadiv_risiko")
+
+    def test_profile_update_without_new_password_keeps_existing_password(self):
+        response = self.client.post(
+            self.url,
+            self.profile_payload(
+                first_name="Updated",
+                current_password="Existing-password-123",
+            ),
+        )
+
+        self.assertRedirects(response, self.url)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Updated")
+        self.assertTrue(self.user.check_password("Existing-password-123"))
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_empty_new_password_ignores_other_password_fields(self):
+        response = self.client.post(
+            self.url,
+            self.profile_payload(
+                first_name="Updated",
+                current_password="wrong password",
+                confirm_password="accidental autofill",
+            ),
+        )
+
+        self.assertRedirects(response, self.url)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Updated")
+        self.assertTrue(self.user.check_password("Existing-password-123"))
+
+
+@override_settings(
+    ALLOWED_HOSTS=["pwujatim.site", "archive.pwujatim.site"],
+    LANDING_HOSTS=frozenset({"pwujatim.site"}),
+    ARCHIVE_HOSTS=frozenset({"archive.pwujatim.site"}),
+    PORTAL_BASE_URL="https://pwujatim.site",
+)
+class SettingsReturnDestinationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="archive-settings-user",
+            password="Existing-password-123",
+            role="sekretaris",
+        )
+        self.client.force_login(self.user)
+
+    def test_archive_settings_link_and_legacy_routes_preserve_origin(self):
+        response = self.client.get("/", HTTP_HOST="archive.pwujatim.site")
+        self.assertContains(
+            response,
+            'href="https://pwujatim.site/settings/?from=archive"',
+        )
+        for path in ("/settings/", "/pengaturan/", f"/pengaturan/edit-profil/{self.user.pk}/"):
+            with self.subTest(path=path):
+                response = self.client.get(path, HTTP_HOST="archive.pwujatim.site")
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response.url, "https://pwujatim.site/settings/?from=archive")
+
+    def test_back_and_cancel_return_to_archive(self):
+        response = self.client.get("/settings/?from=archive", HTTP_HOST="pwujatim.site")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/accounts/system/archive/"', count=2)
+        launch_response = self.client.get(
+            "/accounts/system/archive/", HTTP_HOST="pwujatim.site"
+        )
+        self.assertEqual(launch_response.status_code, 302)
+        self.assertTrue(
+            launch_response.url.startswith(
+                "https://archive.pwujatim.site/accounts/handoff/"
+            )
+        )
+
+    def test_archive_referrer_is_kept_when_link_has_no_origin(self):
+        response = self.client.get(
+            "/settings/",
+            HTTP_HOST="pwujatim.site",
+            HTTP_REFERER="https://archive.pwujatim.site/",
+        )
+        self.assertContains(response, 'href="/accounts/system/archive/"', count=2)
+
+        response = self.client.post(
+            "/settings/",
+            {"first_name": "Updated"},
+            HTTP_HOST="pwujatim.site",
+            HTTP_REFERER="https://pwujatim.site/settings/",
+        )
+        self.assertRedirects(
+            response, "/settings/?from=archive", fetch_redirect_response=False
+        )
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Updated")
+        self.assertTrue(self.user.check_password("Existing-password-123"))
+
+    def test_portal_settings_link_clears_previous_archive_return(self):
+        self.client.get(
+            "/settings/",
+            HTTP_HOST="pwujatim.site",
+            HTTP_REFERER="https://archive.pwujatim.site/",
+        )
+        response = self.client.get(
+            "/settings/",
+            HTTP_HOST="pwujatim.site",
+            HTTP_REFERER="https://pwujatim.site/",
+        )
+        self.assertContains(response, 'href="/"', count=2)
+
+    def test_profile_save_keeps_archive_return_destination_and_password(self):
+        response = self.client.post(
+            "/settings/?from=archive",
+            {"first_name": "Updated"},
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertRedirects(
+            response,
+            "/settings/?from=archive",
+            fetch_redirect_response=False,
+        )
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Updated")
+        self.assertTrue(self.user.check_password("Existing-password-123"))
+
+    def test_untrusted_or_inaccessible_origin_returns_to_portal(self):
+        for origin in ("https://evil.example/", "inventory"):
+            with self.subTest(origin=origin):
+                response = self.client.get(
+                    "/settings/", {"from": origin}, HTTP_HOST="pwujatim.site"
+                )
+                self.assertContains(response, 'href="/"', count=2)

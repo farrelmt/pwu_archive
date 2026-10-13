@@ -65,9 +65,16 @@ urlpatterns = [
     ),
     path('<disposisi_id:pk>/online/cancel/', views.cancel_online_disposisi, name='cancelonline'),
     path('<disposisi_id:pk>/online/decision/', views.decide_online_disposisi, name='decisiononline'),
+    path(
+        '<disposisi_id:pk>/online/review-dirut/',
+        views.review_dirut_disposisi,
+        name='reviewdirut',
+    ),
+    path('<disposisi_id:pk>/online/return-dirut/', views.return_dirut_disposisi, name='returndirut'),
     path('<disposisi_id:pk>/online/isi/', views.isi_online_disposisi, name='isionline'),
     path('<disposisi_id:pk>/online/share/', views.share_online_disposisi, name='shareonline'),
     path('<disposisi_id:pk>/online/receive/', views.receive_shared_disposisi, name='receiveonline'),
     path('<disposisi_id:pk>/online/complete/', views.complete_shared_disposisi, name='completeonline'),
     path('<disposisi_id:pk>/online/final-approve/', views.approve_completed_disposisi, name='approvecomplete'),
+    path('<disposisi_id:pk>/online/final-cancel/', views.cancel_completed_disposisi, name='cancelcomplete'),
 ]

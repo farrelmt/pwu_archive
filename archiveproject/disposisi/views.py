@@ -626,23 +626,41 @@ def refresh_agenda_numbers(request):
 @disposisi_editor_required
 def update_disposisi(request, pk):
     disposisi = get_object_or_404(Disposisi, pk=pk)
+    if disposisi.status_pengajuan == 'SELESAI':
+        raise PermissionDenied
 
     if request.method == "POST":
-        form = DisposisiForm(request.POST, request.FILES, instance=disposisi)
-        if form.is_valid():
-            disposisi = form.save(commit=False)
-            if disposisi.status_pengajuan == "DIISI" and disposisi.dokumen_disposisi:
+        with transaction.atomic():
+            disposisi = get_object_or_404(
+                Disposisi.objects.select_for_update(), pk=pk,
+            )
+            if disposisi.status_pengajuan == 'SELESAI':
+                raise PermissionDenied
+            form = DisposisiForm(request.POST, request.FILES, instance=disposisi)
+            if form.is_valid():
+                disposisi = form.save(commit=False)
                 disposisi.dokumen_disposisi = None
-            disposisi.isi_disposisi = ''
-            disposisi.isi_disposisi_dirut = ''
-            disposisi.isi_disposisi_direktur = ''
-            disposisi.status_pengajuan = 'DIBUAT'
-            disposisi.deadline = None
-            disposisi.save()
-            disposisi.shared_recipients.all().delete()
-
-            create_log(disposisi, request.user, 'DIEDIT')
-            return redirect('disposisi:detaildisposisi', pk=pk)
+                disposisi.isi_disposisi = ''
+                disposisi.isi_disposisi_dirut = ''
+                disposisi.isi_disposisi_direktur = ''
+                disposisi.isi_disposisi_dirut_draft = ''
+                disposisi.dirut_signed_on = None
+                disposisi.direktur_signed_on = None
+                disposisi.signed_on = None
+                disposisi.suggested_recipient_roles = []
+                disposisi.dirut_reviewed_at = None
+                disposisi.dirut_reviewed_by = None
+                disposisi.tipe_disposisi = 'BELUM'
+                disposisi.status_pengajuan = 'DIBUAT'
+                disposisi.deadline = None
+                disposisi.save()
+                disposisi.shared_recipients.all().delete()
+                create_log(disposisi, request.user, 'DIEDIT')
+                messages.success(
+                    request,
+                    'Data surat masuk diperbarui. Disposisi kembali ke status Dibuat.',
+                )
+                return redirect('disposisi:detaildisposisi', pk=pk)
     else:
         form = DisposisiForm(instance=disposisi)
 
@@ -711,6 +729,12 @@ def detail_disposisi(request, pk):
                 and request.user.can_edit_disposisi
             )
         )
+        and not (
+            disposisi.tipe_disposisi == 'ONLINE'
+            and disposisi.tujuan == 'DIRUT'
+            and disposisi.status_pengajuan == 'DIISI'
+            and not disposisi.dirut_reviewed_at
+        )
     )
     show_combined_director_document = bool(disposisi.dokumen_surat_masuk)
 
@@ -734,6 +758,9 @@ def detail_disposisi(request, pk):
         user_name = log.user_log.get_full_name().strip()
         if not user_name:
             user_name = log.user_log.username.replace('_', ' ').replace('-', ' ').title()
+        role_label = log.user_log.get_role_display()
+        if role_label:
+            user_name = f'{user_name} - {role_label}'
 
         grouped_logs[date_key].append({
             'time': local_time.strftime('%H:%M'),
@@ -750,11 +777,22 @@ def detail_disposisi(request, pk):
         'can_approve_this_disposisi': disposisi.can_fill_online_disposition(
             request.user,
         ),
+        'can_review_dirut_input': disposisi.can_review_dirut_input(
+            request.user,
+        ),
         'online_waiting_label': (
-            'Menunggu Direktur'
+            'Telah Dilanjutkan ke Sekretaris'
             if (
                 disposisi.tujuan == 'DIREKSI'
                 and disposisi.isi_disposisi_dirut
+                and not disposisi.dirut_reviewed_at
+                and not disposisi.isi_disposisi_direktur
+            )
+            else 'Menunggu Direktur'
+            if (
+                disposisi.tujuan == 'DIREKSI'
+                and disposisi.isi_disposisi_dirut
+                and disposisi.dirut_reviewed_at
                 and not disposisi.isi_disposisi_direktur
             )
             else 'Menunggu Persetujuan'
@@ -780,11 +818,10 @@ def detail_disposisi(request, pk):
         'selected_recipient_roles': list(
             disposisi.shared_recipients.values_list('role', flat=True)
         ),
+        'suggested_recipient_roles': disposisi.suggested_recipient_roles,
         'today_date': timezone.localdate().isoformat(),
-        'is_deadline_overdue': (
-            disposisi.deadline is not None
-            and disposisi.deadline < timezone.localdate()
-            and disposisi.status_pengajuan != 'SELESAI'
+        'is_deadline_overdue': bool(
+            share_recipient and share_recipient.is_deadline_overdue
         ),
     })
 
@@ -823,12 +860,23 @@ def upload_disposisi(request, pk):
                 disposisi.isi_disposisi = ''
                 disposisi.isi_disposisi_dirut = ''
                 disposisi.isi_disposisi_direktur = ''
+                disposisi.isi_disposisi_dirut_draft = ''
+                disposisi.dirut_signed_on = None
+                disposisi.direktur_signed_on = None
+                disposisi.signed_on = None
+                disposisi.suggested_recipient_roles = []
+                disposisi.dirut_reviewed_at = None
+                disposisi.dirut_reviewed_by = None
                 disposisi.deadline = None
                 disposisi.tipe_disposisi = 'ONLINE'
                 disposisi.status_pengajuan = 'DIAJUKAN'
                 disposisi.save(update_fields=[
                     'dokumen_disposisi', 'isi_disposisi',
                     'isi_disposisi_dirut', 'isi_disposisi_direktur',
+                    'isi_disposisi_dirut_draft', 'dirut_signed_on',
+                    'direktur_signed_on', 'signed_on',
+                    'suggested_recipient_roles',
+                    'dirut_reviewed_at', 'dirut_reviewed_by',
                     'deadline', 'tipe_disposisi',
                     'status_pengajuan', 'waktu_diedit'
                 ])
@@ -956,10 +1004,21 @@ def cancel_online_disposisi(request, pk):
         disposisi.isi_disposisi = ''
         disposisi.isi_disposisi_dirut = ''
         disposisi.isi_disposisi_direktur = ''
+        disposisi.isi_disposisi_dirut_draft = ''
+        disposisi.dirut_signed_on = None
+        disposisi.direktur_signed_on = None
+        disposisi.signed_on = None
+        disposisi.suggested_recipient_roles = []
+        disposisi.dirut_reviewed_at = None
+        disposisi.dirut_reviewed_by = None
         disposisi.deadline = None
         disposisi.save(update_fields=[
             'tipe_disposisi', 'status_pengajuan', 'isi_disposisi',
             'isi_disposisi_dirut', 'isi_disposisi_direktur', 'deadline',
+            'isi_disposisi_dirut_draft', 'dirut_signed_on',
+            'direktur_signed_on', 'signed_on',
+            'suggested_recipient_roles',
+            'dirut_reviewed_at', 'dirut_reviewed_by',
             'waktu_diedit'
         ])
         disposisi.shared_recipients.all().delete()
@@ -1008,6 +1067,13 @@ def decide_online_disposisi(request, pk):
         disposisi.isi_disposisi = ''
         disposisi.isi_disposisi_dirut = ''
         disposisi.isi_disposisi_direktur = ''
+        disposisi.isi_disposisi_dirut_draft = ''
+        disposisi.dirut_signed_on = None
+        disposisi.direktur_signed_on = None
+        disposisi.signed_on = None
+        disposisi.suggested_recipient_roles = []
+        disposisi.dirut_reviewed_at = None
+        disposisi.dirut_reviewed_by = None
         disposisi.deadline = None
         action = 'TOLAK_DISPOSISI'
         description = alasan or 'Pengajuan online ditolak oleh Direktur.'
@@ -1016,6 +1082,10 @@ def decide_online_disposisi(request, pk):
         disposisi.save(update_fields=[
             'tipe_disposisi', 'status_pengajuan', 'isi_disposisi',
             'isi_disposisi_dirut', 'isi_disposisi_direktur', 'deadline',
+            'isi_disposisi_dirut_draft', 'dirut_signed_on',
+            'direktur_signed_on', 'signed_on',
+            'suggested_recipient_roles',
+            'dirut_reviewed_at', 'dirut_reviewed_by',
             'waktu_diedit'
         ])
         disposisi.shared_recipients.all().delete()
@@ -1023,6 +1093,76 @@ def decide_online_disposisi(request, pk):
 
     messages.success(request, success_message)
     return redirect('homepage:monitor')
+
+
+@login_required
+@require_POST
+def review_dirut_disposisi(request, pk):
+    with transaction.atomic():
+        disposisi = get_object_or_404(
+            Disposisi.objects.select_for_update(),
+            pk=pk,
+        )
+        if not disposisi.can_review_dirut_input(request.user):
+            raise PermissionDenied
+
+        disposisi.dirut_reviewed_at = timezone.now()
+        disposisi.dirut_reviewed_by = request.user
+        disposisi.save(update_fields=[
+            'dirut_reviewed_at', 'dirut_reviewed_by', 'waktu_diedit',
+        ])
+        next_step = (
+            'diteruskan kepada Direktur' if disposisi.tujuan == 'DIREKSI'
+            else 'siap dibagikan oleh Sekretaris'
+        )
+        create_log(
+            disposisi,
+            request.user,
+            'TINJAU_DIRUT',
+            f'Isi disposisi Direktur Utama telah ditinjau dan {next_step}.',
+        )
+
+    messages.success(
+        request,
+        f'Isi Direktur Utama telah ditinjau dan {next_step}.',
+    )
+    return redirect('disposisi:detaildisposisi', pk=pk)
+
+
+@login_required
+@require_POST
+def return_dirut_disposisi(request, pk):
+    reason = request.POST.get('alasan', '').strip()
+    with transaction.atomic():
+        disposisi = get_object_or_404(Disposisi.objects.select_for_update(), pk=pk)
+        if not disposisi.can_review_dirut_input(request.user):
+            raise PermissionDenied
+        if not reason:
+            messages.error(request, 'Alasan pengembalian wajib diisi.')
+            return redirect('disposisi:isionline', pk=pk)
+        if len(reason) > 2000:
+            messages.error(request, 'Alasan pengembalian maksimal 2.000 karakter.')
+            return redirect('disposisi:isionline', pk=pk)
+        # Preserve the returned content for editing while reopening Dirut's stage.
+        if disposisi.tujuan == 'DIREKSI':
+            disposisi.isi_disposisi_dirut_draft = disposisi.isi_disposisi_dirut
+            disposisi.isi_disposisi_dirut = ''
+            disposisi.dirut_signed_on = None
+        else:
+            disposisi.isi_disposisi_dirut_draft = disposisi.isi_disposisi
+            disposisi.isi_disposisi = ''
+            disposisi.signed_on = None
+            disposisi.status_pengajuan = 'DIAJUKAN'
+        disposisi.suggested_recipient_roles = []
+        disposisi.save(update_fields=[
+            'isi_disposisi_dirut', 'isi_disposisi_dirut_draft',
+            'isi_disposisi', 'dirut_signed_on', 'signed_on',
+            'status_pengajuan', 'suggested_recipient_roles', 'waktu_diedit',
+        ])
+        create_log(disposisi, request.user, 'KEMBALIKAN_DIRUT', reason)
+
+    messages.success(request, 'Isi disposisi dikembalikan kepada Direktur Utama.')
+    return redirect('disposisi:detaildisposisi', pk=pk)
 
 
 @login_required
@@ -1048,10 +1188,11 @@ def isi_online_disposisi(request, pk):
         return redirect('disposisi:detaildisposisi', pk=pk)
 
     can_approve_this = disposisi.can_fill_online_disposition(request.user)
-    if is_pending and not can_approve_this:
+    can_review_dirut = disposisi.can_review_dirut_input(request.user)
+    if is_pending and not (can_approve_this or can_review_dirut):
         raise PermissionDenied
 
-    read_only = is_approved
+    read_only = is_approved or can_review_dirut
     if request.method == 'POST':
         if read_only or not can_approve_this:
             raise PermissionDenied
@@ -1087,14 +1228,38 @@ def isi_online_disposisi(request, pk):
                     stage_field,
                     form.cleaned_data['isi_disposisi'],
                 )
+                signed_field = {
+                    'isi_disposisi_dirut': 'dirut_signed_on',
+                    'isi_disposisi_direktur': 'direktur_signed_on',
+                    'isi_disposisi': 'signed_on',
+                }[stage_field]
+                setattr(locked_disposisi, signed_field, timezone.localdate())
+                locked_disposisi.suggested_recipient_roles = (
+                    form.cleaned_data['suggested_recipients']
+                )
+                update_fields = [
+                    stage_field, signed_field, 'suggested_recipient_roles',
+                    'status_pengajuan', 'waktu_diedit',
+                ]
+                if (
+                    stage_field in {'isi_disposisi_dirut', 'isi_disposisi'}
+                    and locked_disposisi.tujuan in {'DIREKSI', 'DIRUT'}
+                ):
+                    # A newly submitted Dirut instruction must always pass the
+                    # Secretary checkpoint before the Director stage opens.
+                    locked_disposisi.dirut_reviewed_at = None
+                    locked_disposisi.dirut_reviewed_by = None
+                    locked_disposisi.isi_disposisi_dirut_draft = ''
+                    update_fields.extend([
+                        'dirut_reviewed_at', 'dirut_reviewed_by',
+                        'isi_disposisi_dirut_draft',
+                    ])
                 if (
                     locked_disposisi.tujuan != 'DIREKSI'
                     or stage_field == 'isi_disposisi_direktur'
                 ):
                     locked_disposisi.status_pengajuan = 'DIISI'
-                locked_disposisi.save(update_fields=[
-                    stage_field, 'status_pengajuan', 'waktu_diedit'
-                ])
+                locked_disposisi.save(update_fields=update_fields)
                 create_log(
                     locked_disposisi,
                     request.user,
@@ -1105,7 +1270,8 @@ def isi_online_disposisi(request, pk):
             if disposisi.tujuan == 'DIREKSI' and stage_field == 'isi_disposisi_dirut':
                 messages.success(
                     request,
-                    "Isi Direktur Utama berhasil dikirim. Menunggu Direktur.",
+                    "Isi Direktur Utama berhasil dikirim. "
+                    "Telah Dilanjutkan ke Sekretaris.",
                 )
             else:
                 messages.success(
@@ -1123,36 +1289,45 @@ def isi_online_disposisi(request, pk):
                 editor_content = disposisi.isi_disposisi
         else:
             editor_content = getattr(disposisi, stage_field, '')
-            if disposisi.tujuan == 'DIREKSI' and not editor_content:
-                heading = (
-                    'Direktur Utama:'
-                    if stage_field == 'isi_disposisi_dirut'
-                    else 'Direktur :'
-                )
-                editor_content = (
-                    f'<div>{heading}</div>'
-                    '<div>-&nbsp;</div>'
-                    '<div><br></div>'
-                    '<div><br></div>'
-                )
+            if stage_field == 'isi_disposisi_dirut' and not editor_content:
+                editor_content = disposisi.isi_disposisi_dirut_draft
+            if (
+                stage_field == 'isi_disposisi'
+                and disposisi.tujuan == 'DIRUT'
+                and not editor_content
+            ):
+                editor_content = disposisi.isi_disposisi_dirut_draft
         form = OnlineDisposisiIsiForm(
             instance=disposisi,
-            initial={'isi_disposisi': editor_content},
+            initial={
+                'isi_disposisi': editor_content,
+                'suggested_recipients': disposisi.suggested_recipient_roles,
+            },
             max_layout_units=1100 if disposisi.tujuan == 'DIREKSI' else 2400,
             require_signature=disposisi.tujuan == 'DIREKSI',
         )
 
+    selected_recipient_roles = list(
+        disposisi.shared_recipients.values_list('role', flat=True)
+    )
     return render(request, 'disposisi_isi_online.html', {
         'disposisi': disposisi,
         'form': form,
         'read_only': read_only,
+        'can_review_dirut_input': can_review_dirut,
         'editor_content': editor_content if request.method != 'POST' else request.POST.get('isi_disposisi', ''),
         'stage_label': stage_label,
         'is_dual_director': disposisi.tujuan == 'DIREKSI',
         'prior_director_content': disposisi.isi_disposisi_dirut,
-        'selected_recipient_roles': list(
-            disposisi.shared_recipients.values_list('role', flat=True)
-        ),
+        'selected_recipient_roles': selected_recipient_roles,
+        'has_final_recipient_roles': bool(selected_recipient_roles),
+        'suggested_recipient_roles': disposisi.suggested_recipient_roles,
+        'director_recipient_choices': Disposisi.ONLINE_SHARE_ROLE_CHOICES,
+        'editor_date': (
+            disposisi.dirut_signed_on if stage_field == 'isi_disposisi_dirut'
+            else disposisi.direktur_signed_on if stage_field == 'isi_disposisi_direktur'
+            else disposisi.signed_on
+        ) or timezone.localdate(),
     })
 
 
@@ -1170,7 +1345,6 @@ def share_online_disposisi(request, pk):
 
     form = ShareDisposisiForm(
         request.POST,
-        existing_deadline=requested_disposisi.deadline,
     )
     if not form.is_valid():
         first_error = next(iter(form.errors.values()))[0]
@@ -1194,6 +1368,13 @@ def share_online_disposisi(request, pk):
                 and disposisi.status_pengajuan == 'DIISI'
             )
         )
+        if (
+            disposisi.tipe_disposisi == 'ONLINE'
+            and disposisi.tujuan == 'DIRUT'
+            and disposisi.status_pengajuan == 'DIISI'
+            and not disposisi.dirut_reviewed_at
+        ):
+            raise PermissionDenied
         if not can_update_recipients:
             messages.error(request, "Disposisi ini belum siap dibagikan.")
             return redirect('disposisi:detaildisposisi', pk=pk)
@@ -1206,7 +1387,6 @@ def share_online_disposisi(request, pk):
             raise PermissionDenied
 
         selected_roles = form.cleaned_data['recipients']
-        deadline = form.cleaned_data['deadline']
         existing_roles = set(
             disposisi.shared_recipients.values_list('role', flat=True)
         )
@@ -1236,7 +1416,9 @@ def share_online_disposisi(request, pk):
             disposisi.status_pengajuan = 'DIBAGIKAN'
         else:
             disposisi.status_pengajuan = 'VERIFIKASI'
-        disposisi.deadline = deadline
+        # Deadlines belong to each actionable recipient and are chosen with
+        # that recipient's follow-up activity.
+        disposisi.deadline = None
         disposisi.save(update_fields=[
             'status_pengajuan', 'deadline', 'waktu_diedit'
         ])
@@ -1248,11 +1430,9 @@ def share_online_disposisi(request, pk):
             request.user,
             'BAGI_DISPOSISI',
             (
-                f'Penerima disposisi diperbarui menjadi: {recipient_names}. '
-                f'Deadline: {deadline:%d/%m/%Y}.'
+                f'Penerima disposisi diperbarui menjadi: {recipient_names}.'
                 if recipients_were_updated
-                else f'Disposisi dibagikan kepada: {recipient_names}. '
-                f'Deadline: {deadline:%d/%m/%Y}.'
+                else f'Disposisi dibagikan kepada: {recipient_names}.'
             ),
         )
         if is_offline:
@@ -1268,7 +1448,7 @@ def share_online_disposisi(request, pk):
                 request.user,
                 'AJUKAN_SELESAI',
                 'Penerima hanya Direksi dan tidak memerlukan '
-                'aktivitas. Menunggu persetujuan Sekretaris.',
+                'tindak lanjut. Menunggu persetujuan Sekretaris.',
             )
 
     notify_shared_recipients(request, disposisi, added_roles)
@@ -1337,8 +1517,8 @@ def receive_shared_disposisi(request, pk):
     )
     messages.success(
         request,
-        "Disposisi berhasil diterima. Selesaikan pekerjaan lalu isi aktivitas "
-        "dan hasil tindak lanjut.",
+        "Disposisi berhasil diterima. Selesaikan pekerjaan lalu isi tindak "
+        "lanjut dan hasil akhir.",
     )
     return redirect('disposisi:detaildisposisi', pk=pk)
 
@@ -1359,7 +1539,7 @@ def complete_shared_disposisi(request, pk):
         if not recipient.requires_action:
             messages.info(
                 request,
-                "Penerima Direksi tidak perlu mengisi aktivitas.",
+                "Penerima Direksi tidak perlu mengisi tindak lanjut.",
             )
             return redirect('disposisi:detaildisposisi', pk=pk)
         if not (
@@ -1376,7 +1556,10 @@ def complete_shared_disposisi(request, pk):
             return redirect('disposisi:detaildisposisi', pk=pk)
 
         is_edit = recipient.agreed_at is not None
-        form = RecipientActivityForm(request.POST)
+        form = RecipientActivityForm(
+            request.POST,
+            existing_deadline=recipient.deadline,
+        )
         if not form.is_valid():
             first_error = next(iter(form.errors.values()))[0]
             messages.error(request, first_error)
@@ -1384,13 +1567,16 @@ def complete_shared_disposisi(request, pk):
 
         activity_description = form.cleaned_data['activity_description']
         follow_up_result = form.cleaned_data['follow_up_result']
+        deadline = form.cleaned_data['deadline']
         recipient.activity_description = activity_description
         recipient.follow_up_result = follow_up_result
+        recipient.deadline = deadline
         recipient.completed_by = request.user
         recipient.agreed_at = timezone.now()
         recipient.save(update_fields=[
             'activity_description',
             'follow_up_result',
+            'deadline',
             'completed_by',
             'agreed_at',
         ])
@@ -1399,8 +1585,9 @@ def complete_shared_disposisi(request, pk):
             disposisi,
             request.user,
             'AKTIVITAS_PENERIMA',
-            f'{role_label} — Aktivitas: {activity_description} — '
-            f'Hasil: {follow_up_result}',
+            f'{role_label} — Deadline: {deadline:%d/%m/%Y} — '
+            f'Tindak lanjut: {activity_description} — '
+            f'Hasil akhir: {follow_up_result}',
         )
 
         is_complete = not disposisi.shared_recipients.exclude(
@@ -1416,7 +1603,7 @@ def complete_shared_disposisi(request, pk):
                 request.user,
                 'AJUKAN_SELESAI',
                 'Seluruh penerima telah menyelesaikan disposisi dan '
-                'mengisi aktivitas serta hasil tindak lanjut. '
+                'mengisi tindak lanjut serta hasil akhir. '
                 'Menunggu persetujuan Sekretaris.',
             )
 
@@ -1429,30 +1616,32 @@ def complete_shared_disposisi(request, pk):
             else 'RECIPIENT_ACTIVITY_SUBMITTED'
         ),
         description=(
-            f'{role_label} — Aktivitas: {activity_description} — '
-            f'Hasil: {follow_up_result}'
+            f'{role_label} — Deadline: {deadline:%d/%m/%Y} — '
+            f'Tindak lanjut: {activity_description} — '
+            f'Hasil akhir: {follow_up_result}'
         ),
         target_type='disposisi.Disposisi',
         target_id=disposisi.pk,
         target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
         metadata={
             'recipient_role': recipient.role,
+            'deadline': deadline.isoformat(),
             'follow_up_result': follow_up_result,
             'all_recipients_complete': is_complete,
         },
     )
     if is_edit:
-        messages.success(request, "Aktivitas berhasil diperbarui.")
+        messages.success(request, "Tindak lanjut berhasil diperbarui.")
     elif is_complete:
         messages.success(
             request,
-            "Semua penerima telah mengisi aktivitas. "
+            "Semua penerima telah mengisi tindak lanjut. "
             "Menunggu persetujuan Sekretaris.",
         )
     else:
         messages.success(
             request,
-            "Aktivitas berhasil dikirim. Menunggu penerima lainnya.",
+            "Tindak lanjut berhasil dikirim. Menunggu penerima lainnya.",
         )
     return redirect('disposisi:detaildisposisi', pk=pk)
 
@@ -1484,7 +1673,7 @@ def approve_completed_disposisi(request, pk):
         ).exists():
             messages.error(
                 request,
-                "Masih ada penerima yang belum mengisi aktivitas.",
+                "Masih ada penerima yang belum mengisi tindak lanjut.",
             )
             return redirect('disposisi:detaildisposisi', pk=pk)
 
@@ -1495,7 +1684,7 @@ def approve_completed_disposisi(request, pk):
             request.user,
             'SELESAI',
             'Sekretaris menyetujui penyelesaian disposisi setelah '
-            'memeriksa aktivitas seluruh penerima.',
+            'memeriksa tindak lanjut seluruh penerima.',
         )
 
     record_activity(
@@ -1508,6 +1697,46 @@ def approve_completed_disposisi(request, pk):
         target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
     )
     messages.success(request, "Penyelesaian disposisi telah disetujui.")
+    return redirect('disposisi:detaildisposisi', pk=pk)
+
+
+@login_required
+@require_POST
+def cancel_completed_disposisi(request, pk):
+    if not request.user.can_share_disposisi:
+        raise PermissionDenied
+
+    with transaction.atomic():
+        disposisi = get_object_or_404(
+            Disposisi.objects.select_for_update(),
+            pk=pk,
+        )
+        if not (
+            disposisi.tipe_disposisi == 'ONLINE'
+            and disposisi.status_pengajuan == 'SELESAI'
+        ):
+            messages.error(request, "Hanya disposisi online yang selesai dapat dikembalikan ke Verifikasi.")
+            return redirect('disposisi:detaildisposisi', pk=pk)
+
+        disposisi.status_pengajuan = 'VERIFIKASI'
+        disposisi.save(update_fields=['status_pengajuan', 'waktu_diedit'])
+        create_log(
+            disposisi,
+            request.user,
+            'BATAL_SELESAI',
+            'Sekretaris membatalkan status Selesai dan mengembalikan disposisi ke Verifikasi.',
+        )
+
+    record_activity(
+        request=request,
+        category='DISPOSISI',
+        action='COMPLETION_CANCELLED',
+        description='Sekretaris mengembalikan disposisi selesai ke Verifikasi.',
+        target_type='disposisi.Disposisi',
+        target_id=disposisi.pk,
+        target_label=disposisi.nomor_agenda or disposisi.nomor_surat,
+    )
+    messages.success(request, "Disposisi dikembalikan ke tahap Verifikasi.")
     return redirect('disposisi:detaildisposisi', pk=pk)
 
 
@@ -1557,7 +1786,7 @@ def _render_disposisi_pdf(request, disposisi):
     )
     modified_version = int(disposisi.waktu_diedit.timestamp() * 1_000_000)
     role_version = '-'.join(recipient_roles) or 'none'
-    cache_key = f'disposisi-pdf:{disposisi.pk}:{modified_version}:{role_version}'
+    cache_key = f'disposisi-pdf:layout-5:{disposisi.pk}:{modified_version}:{role_version}'
     cached_pdf = cache.get(cache_key)
     if cached_pdf is not None:
         return cached_pdf

@@ -28,12 +28,6 @@ def deliver_disposition_shared_notifications(
     )
     sent_count = 0
     failed_count = 0
-    deadline_line = (
-        f'Deadline: {disposisi.deadline:%d/%m/%Y}\n\n'
-        if disposisi.deadline
-        else ''
-    )
-
     for user in users:
         if not (user.email or '').strip():
             continue
@@ -43,7 +37,8 @@ def deliver_disposition_shared_notifications(
             f'Disposisi {disposisi.nomor_agenda} telah dibagikan kepada Anda.\n'
             f'Nomor surat: {disposisi.nomor_surat}\n'
             f'Perihal: {disposisi.perihal}\n\n'
-            f'{deadline_line}'
+            'Silakan buka dan terima disposisi. Isi deadline bersama tindak '
+            'lanjut dan hasil akhir saat menyelesaikannya.\n\n'
             f'Buka disposisi: {detail_url}\n'
         )
         try:

@@ -23,8 +23,10 @@ from koperasi.models import KoperasiAccess
 import textwrap
 import re
 from datetime import date
-from archiveproject.host_routing import portal_base_url, request_hostname
+from urllib.parse import urlsplit
+from archiveproject.host_routing import portal_base_url, request_hostname, request_system
 from django.urls import reverse
+from disposisi.models import Disposisi
 
 
 def _natural_sort_key(value):
@@ -45,6 +47,9 @@ def root(request):
         risk_url = reverse('accounts:system_launch', args=['risk'])
         inventory_url = reverse('accounts:system_launch', args=['inventory'])
 
+        director_archive_only = request.user.role in {
+            'direktur', 'direktur_utama', 'direktur_umum',
+        }
         return render(request, 'landing.html', {
             'archive_url': archive_url,
             'koperasi_url': koperasi_url,
@@ -52,9 +57,18 @@ def root(request):
             'inventory_url': inventory_url,
             'can_manage_members': can_manage_members(request.user),
             'can_access_archive': has_system_access(request.user, 'archive'),
-            'can_access_koperasi': has_system_access(request.user, 'koperasi'),
-            'can_access_risk': has_system_access(request.user, 'risk'),
-            'can_access_inventory': has_system_access(request.user, 'inventory'),
+            'can_access_koperasi': (
+                not director_archive_only
+                and has_system_access(request.user, 'koperasi')
+            ),
+            'can_access_risk': (
+                not director_archive_only
+                and has_system_access(request.user, 'risk')
+            ),
+            'can_access_inventory': (
+                not director_archive_only
+                and has_system_access(request.user, 'inventory')
+            ),
         })
     return dashboard(request)
 
@@ -225,7 +239,42 @@ def member_delete(request, pk):
 @require_http_methods(["GET", "POST"])
 def personal_settings(request):
     if request_hostname(request) not in settings.LANDING_HOSTS:
-        return redirect(f"{portal_base_url(request)}/settings/")
+        origin = request_system(request)
+        url = f"{portal_base_url(request)}/settings/"
+        return redirect(f"{url}?from={origin}" if origin else url)
+    origin = request.GET.get("from")
+    if origin is None:
+        try:
+            referrer = urlsplit(request.META.get("HTTP_REFERER", ""))
+            referrer_host = (referrer.hostname or "").lower()
+        except ValueError:
+            referrer = urlsplit("")
+            referrer_host = ""
+        system_hosts = {
+            "archive": settings.ARCHIVE_HOSTS,
+            "koperasi": settings.KOPERASI_HOSTS,
+            "risk": settings.RISK_HOSTS,
+            "inventory": settings.INVENTORY_HOSTS,
+        }
+        origin = next(
+            (system for system, hosts in system_hosts.items() if referrer_host in hosts),
+            None,
+        )
+        if origin is None and (
+            referrer_host not in settings.LANDING_HOSTS
+            or referrer.path == reverse("homepage:personal_settings")
+        ):
+            origin = request.session.get("settings_return_system")
+    if origin in {"archive", "koperasi", "risk", "inventory"} and has_system_access(request.user, origin):
+        request.session["settings_return_system"] = origin
+    else:
+        origin = None
+        request.session.pop("settings_return_system", None)
+    return_url = (
+        reverse("accounts:system_launch", args=[origin])
+        if origin
+        else reverse("homepage:dashboard")
+    )
     user = request.user
     original = {
         "username": user.username,
@@ -258,8 +307,9 @@ def personal_settings(request):
             metadata={"changed_fields": changed_fields},
         )
         messages.success(request, "Informasi akun berhasil diperbarui.")
-        return redirect("homepage:personal_settings")
-    return render(request, "personal_settings.html", {"form": form})
+        settings_url = reverse("homepage:personal_settings")
+        return redirect(f"{settings_url}?from={origin}" if origin else settings_url)
+    return render(request, "personal_settings.html", {"form": form, "return_url": return_url})
 
 
 @login_required(login_url='accounts:login')
@@ -297,7 +347,27 @@ def surat_keluar(request):
 
 
 def _document_list_context(request, queryset):
-    documents = queryset.order_by('-waktu_diedit')
+    allowed_sorts = {
+        'received': 'tanggal_surat_diterima',
+        'agenda': 'nomor_agenda',
+        'letter': 'nomor_surat',
+        'sender': 'pengirim',
+        'destination': 'tujuan',
+        'subject': 'perihal',
+        'status': 'status_pengajuan',
+    }
+    sort = request.GET.get('sort', 'updated')
+    order = request.GET.get('order', 'desc')
+    if sort not in allowed_sorts:
+        sort = 'updated'
+    if order not in {'asc', 'desc'}:
+        order = 'desc'
+
+    sort_field = allowed_sorts.get(sort, 'waktu_diedit')
+    if order == 'desc':
+        sort_field = f'-{sort_field}'
+    documents = queryset.order_by(sort_field, '-pk')
+
     search = request.GET.get('search', '').strip()
     if search:
         documents = documents.filter(
@@ -306,6 +376,42 @@ def _document_list_context(request, queryset):
             | Q(pengirim__icontains=search)
             | Q(perihal__icontains=search)
         )
+
+    letter_date = request.GET.get('letter_date', '').strip()
+    received_date = request.GET.get('received_date', '').strip()
+    destination = request.GET.get('destination', '').strip().upper()
+    status = request.GET.get('status', '').strip().upper()
+
+    try:
+        parsed_letter_date = date.fromisoformat(letter_date) if letter_date else None
+    except ValueError:
+        parsed_letter_date = None
+        letter_date = ''
+    try:
+        parsed_received_date = (
+            date.fromisoformat(received_date) if received_date else None
+        )
+    except ValueError:
+        parsed_received_date = None
+        received_date = ''
+
+    destination_choices = dict(Disposisi.TUJUAN_CHOICES)
+    status_choices = dict(Disposisi.STATUS_CHOICES)
+    if destination not in destination_choices:
+        destination = ''
+    if status not in status_choices:
+        status = ''
+
+    if parsed_letter_date:
+        documents = documents.filter(tanggal_surat=parsed_letter_date)
+    if parsed_received_date:
+        documents = documents.filter(
+            tanggal_surat_diterima=parsed_received_date,
+        )
+    if destination:
+        documents = documents.filter(tujuan=destination)
+    if status:
+        documents = documents.filter(status_pengajuan=status)
 
     try:
         page_limit = int(request.GET.get('limit', 20))
@@ -316,10 +422,36 @@ def _document_list_context(request, queryset):
 
     paginator = Paginator(documents, page_limit)
     page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    list_params = request.GET.copy()
+    list_params.pop('page', None)
+    list_params['limit'] = str(page_limit)
+
+    sort_urls = {}
+    for key in allowed_sorts:
+        params = list_params.copy()
+        next_order = 'desc' if sort == key and order == 'asc' else 'asc'
+        params['sort'] = key
+        params['order'] = next_order
+        sort_urls[key] = f'?{params.urlencode()}'
+
     return {
         'page_obj': page_obj,
         'page_limit': str(page_limit),
         'search': search,
+        'sort': sort,
+        'order': order,
+        'sort_urls': sort_urls,
+        'list_query': list_params.urlencode(),
+        'letter_date': letter_date,
+        'received_date': received_date,
+        'selected_destination': destination,
+        'selected_status': status,
+        'destination_choices': Disposisi.TUJUAN_CHOICES,
+        'status_choices': Disposisi.STATUS_CHOICES,
+        'has_document_filters': bool(
+            letter_date or received_date or destination or status
+        ),
     }
 
 

@@ -104,18 +104,23 @@
             <div class="disposisi-content dual-director-content">
                 <section class="director-entry">
                     <div class="director-entry-content">{% if disposisi.isi_disposisi_dirut %}{{ disposisi.isi_disposisi_dirut|normalize_signature_layout }}{% else %}<span class="empty-content">Belum diisi.</span>{% endif %}</div>
+                    {% if disposisi.dirut_signed_on %}<time class="signature-date" datetime="{{ disposisi.dirut_signed_on|date:'Y-m-d' }}">{{ disposisi.dirut_signed_on|date:'d-m-Y' }}</time>{% endif %}
                 </section>
+                {% if disposisi.isi_disposisi_direktur %}
                 <section class="director-entry">
-                    <div class="director-entry-content">{% if disposisi.isi_disposisi_direktur %}{{ disposisi.isi_disposisi_direktur|normalize_signature_layout }}{% else %}<span class="empty-content">Belum diisi.</span>{% endif %}</div>
+                    <div class="director-entry-content">{{ disposisi.isi_disposisi_direktur|normalize_signature_layout }}</div>
+                    {% if disposisi.direktur_signed_on %}<time class="signature-date" datetime="{{ disposisi.direktur_signed_on|date:'Y-m-d' }}">{{ disposisi.direktur_signed_on|date:'d-m-Y' }}</time>{% endif %}
                 </section>
+                {% endif %}
             </div>
             {% else %}
-            <div class="disposisi-content">
+            <div class="disposisi-content{% if disposisi.tujuan == 'DIRUT' %} director-only-content{% endif %}">
                 {% if disposisi.isi_disposisi %}
                     {{ disposisi.isi_disposisi|normalize_signature_layout }}
                 {% else %}
                     <span class="empty-content">Belum ada isi disposisi.</span>
                 {% endif %}
+                {% if disposisi.signed_on %}<time class="signature-date" datetime="{{ disposisi.signed_on|date:'Y-m-d' }}">{{ disposisi.signed_on|date:'d-m-Y' }}</time>{% endif %}
             </div>
             {% endif %}
         </div>

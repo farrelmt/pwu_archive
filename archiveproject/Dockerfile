@@ -23,6 +23,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-core \
+    fonts-liberation \
     libcairo2 \
     libffi8 \
     libgdk-pixbuf-2.0-0 \

@@ -12,6 +12,7 @@ from pypdf import PdfReader, PdfWriter
 from openpyxl import load_workbook
 
 from accounts.models import ActivityLog, SystemUser
+from .forms import sanitize_disposisi_rich_text
 from .models import Disposisi, DisposisiLog, DisposisiRecipient
 
 
@@ -30,6 +31,23 @@ from .models import Disposisi, DisposisiLog, DisposisiRecipient
     },
 )
 class DisposisiSecurityTests(TestCase):
+    def test_two_right_edge_signatures_survive_sanitization(self):
+        signatures = "".join(
+            '<svg data-signature-overlay="true" data-signature-layout="edge" '
+            'data-signature-width="120" data-signature-height="50" '
+            f'data-signature-top="{top}" viewBox="0 0 120 50">'
+            f'<path d="M 5 10 L {end} 40"></path></svg>'
+            for top, end in (("8", 70), ("40", 90))
+        )
+
+        cleaned = sanitize_disposisi_rich_text("<p>Arahan.</p>" + signatures)
+
+        self.assertEqual(cleaned.count('data-signature-layout="edge"'), 2)
+        self.assertIn('data-signature-top="8"', cleaned)
+        self.assertIn('data-signature-top="40"', cleaned)
+        self.assertIn('right: 0; top: 8%', cleaned)
+        self.assertIn('right: 0; top: 40%', cleaned)
+
     def setUp(self):
         self.editor = SystemUser.objects.create_user(
             username="editor",
@@ -439,7 +457,7 @@ class DisposisiSecurityTests(TestCase):
             reverse("disposisi:previewdisposisi", args=[self.disposisi.pk])
         )
 
-        self.assertNotContains(
+        self.assertContains(
             preview_response,
             '<span class="checkbox-text">Direktur</span>',
         )
@@ -455,8 +473,7 @@ class DisposisiSecurityTests(TestCase):
         online_response = self.client.get(
             reverse("disposisi:isionline", args=[self.disposisi.pk])
         )
-        self.assertNotContains(online_response, "</span>Direktur</div>")
-        self.assertContains(online_response, "</span>Wirajatim KSO</div>")
+        self.assertContains(online_response, "Wirajatim KSO")
         online_html = online_response.content.decode()
         self.assertLess(
             online_html.index("Kepala SPI"),
@@ -638,12 +655,7 @@ class DisposisiSecurityTests(TestCase):
         self.client.force_login(self.editor)
         return self.client.post(
             reverse("disposisi:shareonline", args=[self.disposisi.pk]),
-            {
-                "recipients": roles,
-                "deadline": (
-                    timezone.localdate() + timedelta(days=7)
-                ).isoformat(),
-            },
+            {"recipients": roles},
         )
 
     def test_editor_can_submit_online_request(self):
@@ -741,6 +753,87 @@ class DisposisiSecurityTests(TestCase):
         )
         self.assertTrue(self.disposisi.can_be_approved_by(self.director))
 
+    def test_secretary_can_return_dirut_content_for_revision(self):
+        self.disposisi.tujuan = 'DIREKSI'
+        self.disposisi.save(update_fields=['tujuan'])
+        self.submit_online()
+        isi_url = reverse('disposisi:isionline', args=[self.disposisi.pk])
+        return_url = reverse('disposisi:returndirut', args=[self.disposisi.pk])
+        signed_content = (
+            '<p>Arahan yang perlu diperbaiki.</p>'
+            '<svg data-signature-overlay="true" viewBox="0 0 700 200">'
+            '<path d="M 20 40 L 90 70"></path></svg>'
+        )
+
+        self.client.force_login(self.main_director)
+        self.assertEqual(self.client.post(isi_url, {
+            'isi_disposisi': signed_content,
+        }).status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertIsNotNone(self.disposisi.dirut_signed_on)
+        self.assertEqual(self.client.post(return_url, {'alasan': 'Perbaiki'}).status_code, 403)
+
+        self.client.force_login(self.editor)
+        self.assertContains(self.client.get(isi_url), 'Kembalikan ke Dirut')
+        self.assertEqual(self.client.post(return_url, {'alasan': ''}).status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertTrue(self.disposisi.isi_disposisi_dirut)
+        self.assertEqual(self.client.post(return_url, {
+            'alasan': 'Mohon perjelas arahan.',
+        }).status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.isi_disposisi_dirut, '')
+        self.assertIn('Arahan yang perlu diperbaiki', self.disposisi.isi_disposisi_dirut_draft)
+        self.assertIsNone(self.disposisi.dirut_signed_on)
+        self.assertTrue(self.disposisi.logs.filter(action_log='KEMBALIKAN_DIRUT').exists())
+
+        self.client.force_login(self.main_director)
+        self.assertContains(self.client.get(isi_url), 'Arahan yang perlu diperbaiki')
+        self.assertEqual(self.client.post(isi_url, {
+            'isi_disposisi': signed_content.replace('perlu diperbaiki', 'telah diperbaiki'),
+        }).status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertIn('telah diperbaiki', self.disposisi.isi_disposisi_dirut)
+        self.assertEqual(self.disposisi.isi_disposisi_dirut_draft, '')
+
+    def test_single_dirut_requires_secretary_review_before_sharing(self):
+        self.disposisi.tujuan = 'DIRUT'
+        self.disposisi.save(update_fields=['tujuan'])
+        self.submit_online()
+        isi_url = reverse('disposisi:isionline', args=[self.disposisi.pk])
+        share_url = reverse('disposisi:shareonline', args=[self.disposisi.pk])
+        return_url = reverse('disposisi:returndirut', args=[self.disposisi.pk])
+        signed_content = (
+            '<p>Arahan Dirut.</p>'
+            '<svg data-signature-overlay="true" viewBox="0 0 700 200">'
+            '<path d="M 20 40 L 90 70"></path></svg>'
+        )
+        self.client.force_login(self.main_director)
+        self.assertEqual(self.client.post(isi_url, {
+            'isi_disposisi': signed_content,
+        }).status_code, 302)
+        self.client.force_login(self.editor)
+        self.assertContains(self.client.get(isi_url), 'Kembalikan ke Dirut')
+        self.assertEqual(self.client.post(share_url, {
+            'recipients': ['kadiv_akuntansi'],
+        }).status_code, 403)
+        self.assertEqual(self.client.post(return_url, {
+            'alasan': 'Mohon diperjelas.',
+        }).status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.status_pengajuan, 'DIAJUKAN')
+        self.client.force_login(self.main_director)
+        self.assertContains(self.client.get(isi_url), 'Arahan Dirut.')
+        self.assertEqual(self.client.post(isi_url, {
+            'isi_disposisi': signed_content,
+        }).status_code, 302)
+        self.client.force_login(self.editor)
+        self.assertEqual(self.client.post(
+            reverse('disposisi:reviewdirut', args=[self.disposisi.pk]),
+        ).status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertIsNotNone(self.disposisi.dirut_reviewed_at)
+
     def test_direksi_online_input_is_sequential(self):
         self.disposisi.tujuan = "DIREKSI"
         self.disposisi.save(update_fields=["tujuan"])
@@ -749,6 +842,12 @@ class DisposisiSecurityTests(TestCase):
 
         self.client.force_login(self.regular_director)
         self.assertEqual(self.client.get(isi_url).status_code, 403)
+        self.assertEqual(
+            self.client.post(
+                reverse("disposisi:reviewdirut", args=[self.disposisi.pk])
+            ).status_code,
+            403,
+        )
         self.assertNotContains(
             self.client.get(reverse("homepage:inbox")),
             self.disposisi.nomor_surat,
@@ -762,8 +861,7 @@ class DisposisiSecurityTests(TestCase):
         main_editor = self.client.get(isi_url)
         self.assertEqual(
             main_editor.context['editor_content'],
-            '<div>Direktur Utama:</div><div>-&nbsp;</div>'
-            '<div><br></div><div><br></div>',
+            '',
         )
         self.client.post(
             isi_url,
@@ -790,6 +888,41 @@ class DisposisiSecurityTests(TestCase):
             'left: 300px; top: 250px"',
             self.disposisi.isi_disposisi_dirut,
         )
+        self.assertIsNone(self.disposisi.dirut_reviewed_at)
+
+        # The Director remains blocked until the Secretary has inspected and
+        # explicitly forwarded the Dirut instruction.
+        self.client.force_login(self.regular_director)
+        self.assertEqual(self.client.get(isi_url).status_code, 403)
+        self.assertNotContains(
+            self.client.get(reverse("homepage:inbox")),
+            self.disposisi.nomor_surat,
+        )
+
+        self.client.force_login(self.editor)
+        self.assertContains(
+            self.client.get(reverse("homepage:inbox")),
+            self.disposisi.nomor_surat,
+        )
+        review_page = self.client.get(isi_url)
+        self.assertEqual(review_page.status_code, 200)
+        self.assertTrue(review_page.context["read_only"])
+        self.assertContains(review_page, "Arahan pertama dari Dirut")
+        self.assertContains(review_page, "Lanjutkan ke Direktur")
+        self.assertNotContains(review_page, 'id="editorToolbar"')
+        review_response = self.client.post(
+            reverse("disposisi:reviewdirut", args=[self.disposisi.pk])
+        )
+        self.assertRedirects(
+            review_response,
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk]),
+        )
+        self.disposisi.refresh_from_db()
+        self.assertIsNotNone(self.disposisi.dirut_reviewed_at)
+        self.assertEqual(self.disposisi.dirut_reviewed_by, self.editor)
+        self.assertTrue(
+            self.disposisi.logs.filter(action_log="TINJAU_DIRUT").exists()
+        )
 
         self.client.force_login(self.regular_director)
         self.assertContains(
@@ -799,8 +932,7 @@ class DisposisiSecurityTests(TestCase):
         director_editor = self.client.get(isi_url)
         self.assertEqual(
             director_editor.context['editor_content'],
-            '<div>Direktur :</div><div>-&nbsp;</div>'
-            '<div><br></div><div><br></div>',
+            '',
         )
         self.client.post(
             isi_url,
@@ -819,6 +951,55 @@ class DisposisiSecurityTests(TestCase):
             reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
         )
         self.assertContains(detail_response, 'id="openShareModal"')
+
+    def test_director_recipient_suggestions_are_separate_from_secretary_choices(self):
+        self.submit_online()
+        self.client.force_login(self.director)
+
+        response = self.client.get(
+            reverse("disposisi:isionline", args=[self.disposisi.pk])
+        )
+        self.assertEqual(response.context["editor_content"], "")
+        self.assertContains(response, 'name="suggested_recipients"')
+
+        response = self.client.post(
+            reverse("disposisi:isionline", args=[self.disposisi.pk]),
+            {
+                "isi_disposisi": (
+                    "<p>Mohon ditindaklanjuti.</p>"
+                    '<svg data-signature-overlay="true" '
+                    'data-signature-layout="flow" '
+                    'data-signature-width="180" data-signature-height="60" '
+                    'viewBox="0 0 180 60">'
+                    '<path d="M 5 10 L 160 45"></path></svg>'
+                ),
+                "suggested_recipients": [
+                    "kadiv_akuntansi", "kadiv_keuangan",
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertEqual(
+            self.disposisi.suggested_recipient_roles,
+            ["kadiv_akuntansi", "kadiv_keuangan"],
+        )
+        self.assertFalse(self.disposisi.shared_recipients.exists())
+        self.assertIn('data-signature-layout="flow"', self.disposisi.isi_disposisi)
+
+        self.client.force_login(self.editor)
+        detail = self.client.get(
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
+        )
+        self.assertContains(detail, ">Saran Direksi</span>", count=2)
+        self.assertEqual(detail.context["selected_recipient_roles"], [])
+
+        read_only = self.client.get(
+            reverse("disposisi:isionline", args=[self.disposisi.pk])
+        )
+        self.assertContains(read_only, 'class="director-suggestion"', count=2)
+        self.assertFalse(read_only.context["has_final_recipient_roles"])
 
     def test_both_directors_get_one_combined_document_button_when_submitted(self):
         valid_letter = BytesIO()
@@ -851,11 +1032,10 @@ class DisposisiSecurityTests(TestCase):
                         args=[self.disposisi.pk],
                     )
                 )
-                self.assertContains(detail_response, combined_url)
-                self.assertContains(
-                    detail_response,
+                self.assertContains(detail_response, combined_url, count=1)
+                self.assertEqual(
+                    detail_response.context["combined_director_document_label"],
                     "Preview",
-                    count=1,
                 )
                 self.assertNotContains(detail_response, "Dokumen Surat")
                 self.assertNotContains(detail_response, preview_url)
@@ -938,6 +1118,14 @@ class DisposisiSecurityTests(TestCase):
             self.disposisi.isi_disposisi_dirut,
         )
         self.assertEqual(self.disposisi.isi_disposisi_direktur, "")
+
+        self.client.force_login(self.editor)
+        review_response = self.client.post(
+            reverse("disposisi:reviewdirut", args=[self.disposisi.pk])
+        )
+        self.assertEqual(review_response.status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.dirut_reviewed_by, self.editor)
 
         self.client.force_login(self.regular_director)
         director_editor = self.client.get(
@@ -1074,6 +1262,53 @@ class DisposisiSecurityTests(TestCase):
         self.assertEqual(self.disposisi.status_pengajuan, "DIBUAT")
         self.assertEqual(self.disposisi.isi_disposisi, "")
 
+    def test_secretary_edit_resets_unfinished_disposition_to_dibuat(self):
+        self.submit_online()
+        edit_url = reverse('disposisi:editdisposisi', args=[self.disposisi.pk])
+        detail_url = reverse('disposisi:detaildisposisi', args=[self.disposisi.pk])
+        self.client.force_login(self.editor)
+        self.assertContains(self.client.get(detail_url), edit_url)
+        form_data = {
+            'tanggal_surat_diterima': '2026-07-17',
+            'tanggal_surat': '2026-07-16',
+            'nomor_surat': '001/TEST',
+            'pengirim': 'Pengirim Baru',
+            'lampiran': '1',
+            'tujuan': 'DIR',
+            'tembusan': '-',
+            'perihal': 'Perihal baru',
+        }
+        self.assertEqual(self.client.post(edit_url, form_data).status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.status_pengajuan, 'DIBUAT')
+        self.assertEqual(self.disposisi.tipe_disposisi, 'BELUM')
+        self.assertEqual(self.disposisi.pengirim, 'Pengirim Baru')
+
+        self.disposisi.tipe_disposisi = 'ONLINE'
+        self.disposisi.status_pengajuan = 'DIBAGIKAN'
+        self.disposisi.isi_disposisi = '<p>Isi lama.</p>'
+        self.disposisi.save(update_fields=[
+            'tipe_disposisi', 'status_pengajuan', 'isi_disposisi',
+        ])
+        recipient = DisposisiRecipient.objects.create(
+            disposisi=self.disposisi, role='kadiv_akuntansi',
+        )
+        form_data['perihal'] = 'Perihal dibagikan diperbarui'
+        form_data['tujuan'] = 'DIRUT'
+        self.assertEqual(self.client.post(edit_url, form_data).status_code, 302)
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.status_pengajuan, 'DIBUAT')
+        self.assertEqual(self.disposisi.tipe_disposisi, 'BELUM')
+        self.assertEqual(self.disposisi.tujuan, 'DIRUT')
+        self.assertEqual(self.disposisi.isi_disposisi, '')
+        self.assertFalse(DisposisiRecipient.objects.filter(pk=recipient.pk).exists())
+
+        self.disposisi.status_pengajuan = 'SELESAI'
+        self.disposisi.save(update_fields=['status_pengajuan'])
+        self.assertNotContains(self.client.get(detail_url), edit_url)
+        self.assertEqual(self.client.get(edit_url).status_code, 403)
+        self.assertEqual(self.client.post(edit_url, form_data).status_code, 403)
+
     def test_director_sees_pending_request_and_can_approve(self):
         self.submit_online()
         self.client.force_login(self.director)
@@ -1117,18 +1352,15 @@ class DisposisiSecurityTests(TestCase):
         self.assertNotContains(detail_response, "Lanjutkan")
         self.assertContains(editor_response, 'contenteditable="true"')
         self.assertContains(editor_response, "editorToolbar")
-        self.assertContains(editor_response, "Gambar langsung pada dokumen")
+        self.assertContains(editor_response, "Tanda tangan di tepi kanan dokumen")
         self.assertNotContains(editor_response, "previewDocumentMount")
         self.assertNotContains(editor_response, "signatureModal")
         self.assertContains(editor_response, "width: 210mm")
         self.assertContains(editor_response, "height: 297mm")
         self.assertContains(editor_response, "max-height: 297mm")
         self.assertContains(editor_response, "aspect-ratio: 210 / 297")
-        self.assertContains(
-            editor_response,
-            "const horizontalOffset = (",
-        )
-        self.assertContains(editor_response, "const verticalOffset =")
+        self.assertContains(editor_response, "direct-drawing-canvas")
+        self.assertContains(editor_response, "drawingCanvas.addEventListener('pointerdown'")
         self.assertContains(editor_response, "editor.clientHeight")
         self.assertContains(editor_response, "contentLimitWarning")
         self.assertContains(editor_response, "body > div:first-of-type > div.flex")
@@ -1216,8 +1448,7 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(approved_detail, "Dibagikan Kepada")
         self.assertContains(approved_detail, "Belum ada penerima")
         self.assertContains(approved_detail, 'id="openShareModal"')
-        self.assertContains(approved_detail, 'id="shareDeadline"')
-        self.assertContains(approved_detail, 'type="date"')
+        self.assertNotContains(approved_detail, 'id="shareDeadline"')
         self.assertNotContains(approved_detail, 'id="openDeadlinePicker"')
         self.assertNotContains(approved_detail, 'value="direktur"')
         self.assertContains(approved_detail, 'value="wirajatim_kso"')
@@ -1226,9 +1457,6 @@ class DisposisiSecurityTests(TestCase):
             reverse("disposisi:shareonline", args=[self.disposisi.pk]),
             {
                 "recipients": ["kadiv_akuntansi", "kadiv_keuangan"],
-                "deadline": (
-                    timezone.localdate() + timedelta(days=7)
-                ).isoformat(),
             },
         )
 
@@ -1238,10 +1466,7 @@ class DisposisiSecurityTests(TestCase):
         )
         self.disposisi.refresh_from_db()
         self.assertEqual(self.disposisi.status_pengajuan, "DIBAGIKAN")
-        self.assertEqual(
-            self.disposisi.deadline,
-            timezone.localdate() + timedelta(days=7),
-        )
+        self.assertIsNone(self.disposisi.deadline)
         shared_detail = self.client.get(
             reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
         )
@@ -1271,10 +1496,7 @@ class DisposisiSecurityTests(TestCase):
             )
             self.assertIn(self.disposisi.nomor_surat, notification.body)
             self.assertIn(self.disposisi.perihal, notification.body)
-            self.assertIn(
-                self.disposisi.deadline.strftime("%d/%m/%Y"),
-                notification.body,
-            )
+            self.assertIn("Isi deadline bersama tindak lanjut", notification.body)
             self.assertIn(
                 "https://archive.pwujatim.site/disposisi/",
                 notification.body,
@@ -1296,11 +1518,7 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(shared_detail, "Kepala Divisi Keuangan")
         self.assertContains(shared_detail, "Belum diterima", count=2)
         self.assertContains(shared_detail, "bg-red-100")
-        self.assertContains(shared_detail, 'id="activityDeadline"')
-        self.assertContains(
-            shared_detail,
-            self.disposisi.deadline.strftime("%d/%m/%Y"),
-        )
+        self.assertNotContains(shared_detail, 'id="activityDeadline"')
 
     def test_incoming_mail_table_displays_colored_status_badge(self):
         self.client.force_login(self.editor)
@@ -1346,21 +1564,84 @@ class DisposisiSecurityTests(TestCase):
         self.assertEqual(self.disposisi.status_pengajuan, "DIISI")
         self.assertFalse(self.disposisi.shared_recipients.exists())
 
-    def test_secretary_must_set_deadline_when_sharing_online(self):
+    def test_recipient_sets_deadline_with_activity_after_receiving_online(self):
         self.approve_online()
         self.client.force_login(self.editor)
 
         response = self.client.post(
             reverse("disposisi:shareonline", args=[self.disposisi.pk]),
             {"recipients": ["kadiv_akuntansi"]},
-            follow=True,
         )
 
-        self.assertContains(response, "Deadline disposisi wajib dipilih.")
+        self.assertEqual(response.status_code, 302)
         self.disposisi.refresh_from_db()
-        self.assertEqual(self.disposisi.status_pengajuan, "DIISI")
+        self.assertEqual(self.disposisi.status_pengajuan, "DIBAGIKAN")
         self.assertIsNone(self.disposisi.deadline)
-        self.assertFalse(self.disposisi.shared_recipients.exists())
+        recipient = self.disposisi.shared_recipients.get(role="kadiv_akuntansi")
+        self.assertIsNone(recipient.deadline)
+
+        self.client.force_login(self.accounting_head)
+        detail_url = reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
+        detail = self.client.get(detail_url)
+        self.assertNotContains(detail, 'id="recipientDeadline"')
+        self.assertNotContains(detail, 'id="activityDeadline"')
+        self.assertContains(detail, "formnovalidate")
+        self.assertContains(
+            detail,
+            reverse("disposisi:combined_director_document", args=[self.disposisi.pk]),
+        )
+
+        accepted = self.client.post(
+            reverse("disposisi:receiveonline", args=[self.disposisi.pk]),
+        )
+        self.assertRedirects(accepted, detail_url)
+        recipient.refresh_from_db()
+        self.assertIsNotNone(recipient.received_at)
+        self.assertIsNone(recipient.deadline)
+
+        received_detail = self.client.get(detail_url)
+        self.assertContains(received_detail, 'id="activityDeadline"')
+        self.assertContains(received_detail, 'name="activity_description"')
+        self.assertContains(received_detail, 'name="follow_up_result"')
+
+        missing_deadline = self.client.post(
+            reverse("disposisi:completeonline", args=[self.disposisi.pk]),
+            {
+                "activity_description": "Memeriksa dokumen.",
+                "follow_up_result": "Dokumen telah diperiksa.",
+            },
+            follow=True,
+        )
+        self.assertContains(missing_deadline, "Deadline tindak lanjut wajib dipilih.")
+        recipient.refresh_from_db()
+        self.assertIsNone(recipient.agreed_at)
+
+        past_deadline = self.client.post(
+            reverse("disposisi:completeonline", args=[self.disposisi.pk]),
+            {
+                "activity_description": "Memeriksa dokumen.",
+                "deadline": (timezone.localdate() - timedelta(days=1)).isoformat(),
+                "follow_up_result": "Dokumen telah diperiksa.",
+            },
+            follow=True,
+        )
+        self.assertContains(past_deadline, "Deadline tidak boleh sebelum hari ini.")
+        recipient.refresh_from_db()
+        self.assertIsNone(recipient.agreed_at)
+
+        deadline = timezone.localdate() + timedelta(days=5)
+        completed = self.client.post(
+            reverse("disposisi:completeonline", args=[self.disposisi.pk]),
+            {
+                "activity_description": "Memeriksa dokumen.",
+                "deadline": deadline.isoformat(),
+                "follow_up_result": "Dokumen telah diperiksa.",
+            },
+        )
+        self.assertRedirects(completed, detail_url)
+        recipient.refresh_from_db()
+        self.assertEqual(recipient.deadline, deadline)
+        self.assertIsNotNone(recipient.agreed_at)
 
     def test_online_method_does_not_require_recipient_before_approval(self):
         self.client.force_login(self.editor)
@@ -1412,12 +1693,16 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(detail_response, receive_url)
         self.assertContains(detail_response, "Terima")
 
-        self.assertRedirects(self.client.post(receive_url), detail_url)
+        self.assertRedirects(
+            self.client.post(receive_url),
+            detail_url,
+        )
         self.assertRedirects(
             self.client.post(
                 complete_url,
                 {
                     "activity_description": "Tindak lanjut Wirajatim selesai.",
+                    "deadline": (timezone.localdate() + timedelta(days=7)).isoformat(),
                     "follow_up_result": "Dokumen Wirajatim telah diproses.",
                 },
             ),
@@ -1483,6 +1768,7 @@ class DisposisiSecurityTests(TestCase):
             complete_url,
             {
                 "activity_description": "Pemeriksaan akuntansi selesai.",
+                "deadline": (timezone.localdate() + timedelta(days=7)).isoformat(),
                 "follow_up_result": "Pemeriksaan dinyatakan lengkap.",
             },
         )
@@ -1553,12 +1839,13 @@ class DisposisiSecurityTests(TestCase):
 
         self.client.force_login(self.accounting_head)
         self.client.post(
-            reverse("disposisi:receiveonline", args=[self.disposisi.pk])
+            reverse("disposisi:receiveonline", args=[self.disposisi.pk]),
         )
         self.client.post(
             reverse("disposisi:completeonline", args=[self.disposisi.pk]),
             {
                 "activity_description": "Aktivitas akuntansi sudah selesai.",
+                "deadline": (timezone.localdate() + timedelta(days=7)).isoformat(),
                 "follow_up_result": "Dokumen akuntansi telah diarsipkan.",
             },
         )
@@ -1585,7 +1872,6 @@ class DisposisiSecurityTests(TestCase):
                     "kadiv_keuangan",
                     "kadiv_aset",
                 ],
-                "deadline": self.disposisi.deadline.isoformat(),
             },
         )
 
@@ -1618,12 +1904,13 @@ class DisposisiSecurityTests(TestCase):
 
         self.client.force_login(self.accounting_head)
         self.client.post(
-            reverse("disposisi:receiveonline", args=[self.disposisi.pk])
+            reverse("disposisi:receiveonline", args=[self.disposisi.pk]),
         )
         self.client.post(
             reverse("disposisi:completeonline", args=[self.disposisi.pk]),
             {
                 "activity_description": "Verifikasi akuntansi selesai.",
+                "deadline": (timezone.localdate() + timedelta(days=7)).isoformat(),
                 "follow_up_result": "Data akuntansi telah sesuai.",
             },
         )
@@ -1642,7 +1929,6 @@ class DisposisiSecurityTests(TestCase):
             reverse("disposisi:shareonline", args=[self.disposisi.pk]),
             {
                 "recipients": ["kadiv_akuntansi", "kadiv_aset"],
-                "deadline": self.disposisi.deadline.isoformat(),
             },
         )
 
@@ -1678,6 +1964,7 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(detail_response, "Terima")
         self.assertNotContains(detail_response, complete_url)
 
+        recipient_deadline = timezone.localdate() + timedelta(days=7)
         receive_response = self.client.post(receive_url)
 
         self.assertRedirects(
@@ -1688,6 +1975,7 @@ class DisposisiSecurityTests(TestCase):
             role="kadiv_akuntansi"
         )
         self.assertIsNotNone(accounting_recipient.received_at)
+        self.assertIsNone(accounting_recipient.deadline)
         self.assertIsNone(accounting_recipient.agreed_at)
         acceptance_log = self.disposisi.logs.get(action_log="TERIMA_DISPOSISI")
         self.assertEqual(acceptance_log.user_log, self.accounting_head)
@@ -1718,6 +2006,7 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(received_detail, "Done")
         self.assertContains(received_detail, complete_url)
         self.assertContains(received_detail, 'name="activity_description"')
+        self.assertContains(received_detail, 'name="deadline"')
         self.assertContains(received_detail, 'name="follow_up_result"')
 
         empty_activity_response = self.client.post(
@@ -1727,7 +2016,7 @@ class DisposisiSecurityTests(TestCase):
         )
         self.assertContains(
             empty_activity_response,
-            "Aktivitas wajib diisi",
+            "Tindak lanjut wajib diisi",
         )
         accounting_recipient.refresh_from_db()
         self.assertIsNone(accounting_recipient.agreed_at)
@@ -1736,13 +2025,14 @@ class DisposisiSecurityTests(TestCase):
             complete_url,
             {
                 "activity_description": "Memeriksa dokumen.",
+                "deadline": recipient_deadline.isoformat(),
                 "follow_up_result": "   ",
             },
             follow=True,
         )
         self.assertContains(
             empty_result_response,
-            "Hasil tindak lanjut wajib diisi.",
+            "Hasil akhir wajib diisi.",
         )
         accounting_recipient.refresh_from_db()
         self.assertIsNone(accounting_recipient.agreed_at)
@@ -1753,6 +2043,7 @@ class DisposisiSecurityTests(TestCase):
             complete_url,
             {
                 "activity_description": accounting_activity,
+                "deadline": recipient_deadline.isoformat(),
                 "follow_up_result": accounting_result,
             },
         )
@@ -1764,6 +2055,7 @@ class DisposisiSecurityTests(TestCase):
         self.assertEqual(self.disposisi.status_pengajuan, "DIBAGIKAN")
         accounting_recipient.refresh_from_db()
         self.assertIsNotNone(accounting_recipient.agreed_at)
+        self.assertEqual(accounting_recipient.deadline, recipient_deadline)
         self.assertEqual(
             accounting_recipient.activity_description,
             accounting_activity,
@@ -1791,12 +2083,12 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(activity_table_detail, self.accounting_head.username)
         self.assertContains(activity_table_detail, accounting_activity)
         self.assertContains(activity_table_detail, accounting_result)
-        self.assertContains(activity_table_detail, "Aktivitas yang Dilakukan")
-        self.assertContains(activity_table_detail, "Hasil Tindak Lanjut")
-        self.assertContains(activity_table_detail, "Edit Activity")
+        self.assertContains(activity_table_detail, "Tindak Lanjut")
+        self.assertContains(activity_table_detail, "Hasil Akhir")
+        self.assertContains(activity_table_detail, "Edit Tindak Lanjut")
         self.assertContains(
             activity_table_detail,
-            "waiting for other recipients",
+            "menunggu penerima lainnya",
         )
         history_actions = [
             log["action"]
@@ -1808,10 +2100,12 @@ class DisposisiSecurityTests(TestCase):
         updated_accounting_activity = (
             "Memeriksa dokumen, meneruskan ke tim, dan mengarsipkan hasil."
         )
+        updated_deadline = recipient_deadline + timedelta(days=2)
         edit_response = self.client.post(
             complete_url,
             {
                 "activity_description": updated_accounting_activity,
+                "deadline": updated_deadline.isoformat(),
                 "follow_up_result": "Hasil tindak lanjut diperbarui.",
             },
         )
@@ -1824,6 +2118,7 @@ class DisposisiSecurityTests(TestCase):
             accounting_recipient.activity_description,
             updated_accounting_activity,
         )
+        self.assertEqual(accounting_recipient.deadline, updated_deadline)
         self.assertTrue(
             ActivityLog.objects.filter(
                 actor=self.accounting_head,
@@ -1848,6 +2143,7 @@ class DisposisiSecurityTests(TestCase):
             complete_url,
             {
                 "activity_description": finance_activity,
+                "deadline": (timezone.localdate() + timedelta(days=10)).isoformat(),
                 "follow_up_result": "Anggaran telah diverifikasi.",
             },
         )
@@ -1876,11 +2172,11 @@ class DisposisiSecurityTests(TestCase):
         pending_approval_detail = self.client.get(
             reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
         )
-        self.assertContains(pending_approval_detail, "Edit Activity")
+        self.assertContains(pending_approval_detail, "Edit Tindak Lanjut")
         self.assertContains(pending_approval_detail, finance_activity)
         self.assertContains(
             pending_approval_detail,
-            "waiting for Sekretaris approval",
+            "menunggu persetujuan Sekretaris",
         )
 
         edited_finance_activity = (
@@ -1917,7 +2213,8 @@ class DisposisiSecurityTests(TestCase):
             reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
         )
         self.assertContains(secretary_detail, approval_url)
-        self.assertContains(secretary_detail, "Approve Done")
+        self.assertContains(secretary_detail, "Approve", count=1)
+        self.assertNotContains(secretary_detail, "Approve Done")
         approval_response = self.client.post(approval_url)
         self.assertRedirects(
             approval_response,
@@ -1977,12 +2274,13 @@ class DisposisiSecurityTests(TestCase):
         self.share_online(["kadiv_akuntansi"])
         self.client.force_login(self.accounting_head)
         self.client.post(
-            reverse("disposisi:receiveonline", args=[self.disposisi.pk])
+            reverse("disposisi:receiveonline", args=[self.disposisi.pk]),
         )
         self.client.post(
             reverse("disposisi:completeonline", args=[self.disposisi.pk]),
             {
                 "activity_description": "Pekerjaan telah selesai.",
+                "deadline": (timezone.localdate() + timedelta(days=7)).isoformat(),
                 "follow_up_result": "Dokumen telah ditindaklanjuti.",
             },
         )
@@ -2000,6 +2298,69 @@ class DisposisiSecurityTests(TestCase):
         self.assertEqual(post_response.status_code, 403)
         self.disposisi.refresh_from_db()
         self.assertEqual(self.disposisi.status_pengajuan, "VERIFIKASI")
+
+    def test_secretary_can_cancel_completed_online_disposition_to_verification(self):
+        self.disposisi.tipe_disposisi = "ONLINE"
+        self.disposisi.status_pengajuan = "SELESAI"
+        self.disposisi.save(update_fields=["tipe_disposisi", "status_pengajuan"])
+        recipient = DisposisiRecipient.objects.create(
+            disposisi=self.disposisi,
+            role="kadiv_akuntansi",
+            received_at=timezone.now(),
+            agreed_at=timezone.now(),
+            deadline=timezone.localdate() + timedelta(days=5),
+            activity_description="Dokumen diperiksa.",
+            follow_up_result="Dokumen sesuai.",
+            completed_by=self.accounting_head,
+        )
+        detail_url = reverse("disposisi:detaildisposisi", args=[self.disposisi.pk])
+        cancel_url = reverse("disposisi:cancelcomplete", args=[self.disposisi.pk])
+        approve_url = reverse("disposisi:approvecomplete", args=[self.disposisi.pk])
+
+        self.client.force_login(self.accounting_head)
+        self.assertNotContains(self.client.get(detail_url), cancel_url)
+        self.assertEqual(self.client.post(cancel_url).status_code, 403)
+
+        self.client.force_login(self.editor)
+        completed_detail = self.client.get(detail_url)
+        self.assertContains(completed_detail, cancel_url)
+        self.assertContains(completed_detail, 'id="cancelCompletedDisposisi"')
+        self.assertLess(
+            completed_detail.content.index(b'id="activityLogButton"'),
+            completed_detail.content.index(b'id="cancelCompletedDisposisi"'),
+        )
+        self.assertLess(
+            completed_detail.content.index(b'id="cancelCompletedDisposisi"'),
+            completed_detail.content.index(b'id="btnPreview"'),
+        )
+        self.assertEqual(self.client.get(cancel_url).status_code, 405)
+        self.assertRedirects(self.client.post(cancel_url), detail_url)
+        self.disposisi.refresh_from_db()
+        recipient.refresh_from_db()
+        self.assertEqual(self.disposisi.status_pengajuan, "VERIFIKASI")
+        self.assertEqual(recipient.activity_description, "Dokumen diperiksa.")
+        self.assertEqual(recipient.follow_up_result, "Dokumen sesuai.")
+        self.assertEqual(
+            recipient.deadline,
+            timezone.localdate() + timedelta(days=5),
+        )
+        self.assertTrue(self.disposisi.logs.filter(action_log="BATAL_SELESAI").exists())
+        self.assertTrue(ActivityLog.objects.filter(
+            actor=self.editor,
+            action="COMPLETION_CANCELLED",
+            target_id=str(self.disposisi.pk),
+        ).exists())
+        self.assertContains(self.client.get(detail_url), approve_url)
+        self.assertRedirects(self.client.post(approve_url), detail_url)
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.status_pengajuan, "SELESAI")
+
+        self.disposisi.tipe_disposisi = "OFFLINE"
+        self.disposisi.save(update_fields=["tipe_disposisi"])
+        self.assertNotContains(self.client.get(detail_url), cancel_url)
+        self.assertRedirects(self.client.post(cancel_url), detail_url)
+        self.disposisi.refresh_from_db()
+        self.assertEqual(self.disposisi.status_pengajuan, "SELESAI")
 
     def test_unselected_role_cannot_complete_shared_disposition(self):
         self.share_online(["kadiv_akuntansi"])
@@ -2189,8 +2550,12 @@ class DisposisiSecurityTests(TestCase):
         self.assertIn("private", response["Cache-Control"])
         self.assertIn("no-store", response["Cache-Control"])
 
-    def test_incoming_document_opens_preview_before_download(self):
+    def test_incoming_document_opens_combined_preview(self):
         self.client.force_login(self.editor)
+        combined_url = reverse(
+            "disposisi:combined_director_document",
+            args=[self.disposisi.pk],
+        )
         preview_url = reverse(
             "disposisi:preview_document",
             args=[self.disposisi.pk, "surat-masuk"],
@@ -2210,7 +2575,8 @@ class DisposisiSecurityTests(TestCase):
         preview_response = self.client.get(preview_url)
         inline_response = self.client.get(view_url)
 
-        self.assertContains(detail_response, preview_url)
+        self.assertContains(detail_response, combined_url)
+        self.assertNotContains(detail_response, preview_url)
         self.assertContains(preview_response, view_url)
         self.assertContains(preview_response, download_url)
         self.assertContains(preview_response, "Download")

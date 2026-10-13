@@ -130,23 +130,32 @@
                         class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                border border-blue-950 bg-white px-4 text-sm font-semibold text-blue-950
                                hover:bg-blue-50 cursor-pointer">
-                    Activity
+                    Tindak Lanjut
                 </button>
                 {% if is_share_recipient and share_recipient.agreed_at and is_shared_online %}
                 <button type="button" id="openActivityModal"
                         class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                bg-blue-950 px-5 text-sm font-semibold text-white
                                hover:bg-blue-900 cursor-pointer">
-                    Edit Activity
+                    Edit Tindak Lanjut
                 </button>
                 {% endif %}
                 {% endif %}
+                {% if disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'SELESAI' and request.user.can_share_disposisi %}
+                <button type="submit"
+                        id="cancelCompletedDisposisi"
+                        formaction="{% url 'disposisi:cancelcomplete' disposisi.id %}"
+                        formmethod="post"
+                        data-confirm="Batalkan status Selesai dan kembalikan disposisi ke Verifikasi?"
+                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                               border border-red-700 bg-white px-4 text-sm font-semibold text-red-700
+                               hover:bg-red-50 cursor-pointer">
+                    Batalkan Selesai
+                </button>
+                {% endif %}
                 {% if request.user|can_edit_disposisi %}
-                {% if disposisi.tipe_disposisi != 'ONLINE' or disposisi.status_pengajuan != 'DIAJUKAN' %}
+                {% if disposisi.status_pengajuan != 'SELESAI' %}
                 <a href="{% url 'disposisi:editdisposisi' disposisi.id %}"
-                   {% if disposisi.status_pengajuan != 'DIBUAT' %}
-                        data-confirm="Peringatan: Mengedit atau mengubah data disposisi akan mereset progress disposisi kembali ke awal. Apakah Anda yakin ingin melanjutkan?"
-                   {% endif %}
                    class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                           bg-blue-950 px-4 text-sm font-semibold text-white hover:bg-blue-900">
                     Edit
@@ -181,7 +190,13 @@
                     </a>
                     {% endif %}
                 {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIAJUKAN' %}
-                    {% if can_approve_this_disposisi %}
+                    {% if can_review_dirut_input %}
+                    <a href="{% url 'disposisi:isionline' disposisi.id %}"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
+                              bg-blue-950 px-4 text-sm font-semibold text-white hover:bg-blue-900">
+                        Tinjau Isi Dirut
+                    </a>
+                    {% elif can_approve_this_disposisi %}
                     <a href="{% url 'disposisi:isionline' disposisi.id %}"
                        class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                               bg-green-700 px-4 text-sm font-semibold text-white hover:bg-green-800">
@@ -237,7 +252,12 @@
                     </span>
                     {% endif %}
                 {% elif disposisi.tipe_disposisi == 'ONLINE' and disposisi.status_pengajuan == 'DIISI' %}
-                    {% if can_share_this_disposisi %}
+                    {% if can_review_dirut_input %}
+                    <a href="{% url 'disposisi:isionline' disposisi.id %}"
+                       class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded bg-blue-950 px-4 text-sm font-semibold text-white hover:bg-blue-900">
+                        Tinjau Isi Dirut
+                    </a>
+                    {% elif can_share_this_disposisi %}
                     <button type="button" id="openShareModal"
                             class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                    bg-blue-950 px-5 text-sm font-semibold text-white
@@ -269,9 +289,9 @@
                     <span class="inline-flex min-h-10 max-w-md items-center justify-center rounded
                                  bg-yellow-100 px-4 py-2 text-center text-sm font-semibold text-yellow-800">
                         {% if disposisi.status_pengajuan == 'VERIFIKASI' %}
-                            Activity already submitted — waiting for Sekretaris approval
+                            Tindak lanjut sudah dikirim — menunggu persetujuan Sekretaris
                         {% else %}
-                            Activity already submitted — waiting for other recipients
+                            Tindak lanjut sudah dikirim — menunggu penerima lainnya
                         {% endif %}
                     </span>
                     {% elif share_recipient.received_at %}
@@ -285,7 +305,7 @@
                     <button type="submit"
                             formaction="{% url 'disposisi:receiveonline' disposisi.id %}"
                             formmethod="post"
-                            data-confirm="Terima disposisi ini?"
+                            formnovalidate
                             class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                    bg-blue-950 px-5 text-sm font-semibold text-white
                                    hover:bg-blue-900 cursor-pointer">
@@ -301,7 +321,7 @@
                             class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
                                    bg-green-700 px-5 text-sm font-semibold text-white
                                    hover:bg-green-800 cursor-pointer">
-                        Approve Done
+                        Approve
                     </button>
                     {% elif disposisi.status_pengajuan == 'VERIFIKASI' %}
                     <span class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded
@@ -355,26 +375,12 @@
                         <h2 id="shareModalTitle" class="text-lg font-bold text-blue-950">
                             {% if disposisi.status_pengajuan == 'DIISI' %}Bagikan Disposisi{% else %}Edit Penerima Disposisi{% endif %}
                         </h2>
-                        <p class="mt-1 text-sm text-gray-600">Pilih satu atau beberapa penerima.</p>
+                        <p class="mt-1 text-sm text-gray-600">
+                            Pilih penerima final. Label Saran Direksi hanya menjadi referensi dan tidak otomatis dicentang.
+                        </p>
                     </div>
                     <button type="button" id="closeShareModal" aria-label="Tutup"
                             class="rounded px-3 py-1 text-2xl text-gray-500 hover:bg-gray-100 cursor-pointer">&times;</button>
-                </div>
-                <div class="border-b px-5 py-4">
-                    <label for="shareDeadline" class="mb-2 block text-sm font-semibold text-gray-900">
-                        Deadline
-                    </label>
-                    <div>
-                        <input id="shareDeadline"
-                               type="date"
-                               name="deadline"
-                               min="{{ today_date }}"
-                               value="{{ disposisi.deadline|date:'Y-m-d' }}"
-                               inputmode="none"
-                               required
-                               class="h-11 w-full cursor-pointer appearance-none rounded border border-gray-300 bg-white px-3 text-sm focus:border-blue-900 focus:outline-none">
-                    </div>
-                    <p class="mt-1 text-xs text-gray-500">Batas waktu penerima menyelesaikan tindak lanjut.</p>
                 </div>
                 <fieldset class="grid max-h-[55vh] grid-cols-1 gap-2 overflow-y-auto p-5 sm:grid-cols-2">
                     <legend class="sr-only">Tujuan pembagian disposisi</legend>
@@ -383,7 +389,12 @@
                         <input type="checkbox" name="recipients" value="{{ role_code }}"
                                {% if role_code in selected_recipient_roles %}checked{% endif %}
                                class="mt-1 h-4 w-4 accent-blue-900">
-                        <span class="text-sm font-medium text-gray-900">{{ role_label }}</span>
+                        <span class="text-sm font-medium text-gray-900">
+                            {{ role_label }}
+                            {% if role_code in suggested_recipient_roles %}
+                            <span class="ml-1 inline-flex rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">Saran Direksi</span>
+                            {% endif %}
+                        </span>
                     </label>
                     {% endfor %}
                 </fieldset>
@@ -411,16 +422,11 @@
                 <div class="flex items-start justify-between border-b px-5 py-4">
                     <div>
                         <h2 id="recipientActivityLogTitle" class="text-lg font-bold text-blue-950">
-                            Aktivitas Penerima
+                            Tindak Lanjut Penerima
                         </h2>
                         <p class="mt-1 text-sm text-gray-600">
                             Tindak lanjut yang dikirim oleh setiap penerima disposisi.
                         </p>
-                        {% if disposisi.deadline %}
-                        <p id="activityDeadline" class="mt-2 inline-flex rounded px-3 py-1 text-sm font-semibold {% if is_deadline_overdue %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-900{% endif %}">
-                            Deadline: {{ disposisi.deadline|date:"d/m/Y" }}
-                        </p>
-                        {% endif %}
                     </div>
                     <button type="button" id="closeRecipientActivityLog" aria-label="Tutup"
                             class="rounded px-3 py-1 text-2xl text-gray-500 hover:bg-gray-100 cursor-pointer">&times;</button>
@@ -431,10 +437,11 @@
                             <tr>
                                 <th class="border border-gray-300 px-3 py-2">User</th>
                                 <th class="border border-gray-300 px-3 py-2">Role</th>
-                                <th class="border border-gray-300 px-3 py-2">Aktivitas yang Dilakukan</th>
+                                <th class="border border-gray-300 px-3 py-2">Tindak Lanjut</th>
+                                <th class="border border-gray-300 px-3 py-2">Deadline</th>
                                 <th class="border border-gray-300 px-3 py-2">Receive Time</th>
                                 <th class="border border-gray-300 px-3 py-2">Done Time</th>
-                                <th class="border border-gray-300 px-3 py-2">Hasil Tindak Lanjut</th>
+                                <th class="border border-gray-300 px-3 py-2">Hasil Akhir</th>
                                 <th class="border border-gray-300 px-3 py-2">Status</th>
                             </tr>
                         </thead>
@@ -453,6 +460,9 @@
                                 </td>
                                 <td class="max-w-md whitespace-pre-wrap break-words border border-gray-300 px-3 py-2">
                                     {{ recipient.activity_description|default:"-" }}
+                                </td>
+                                <td class="whitespace-nowrap border border-gray-300 px-3 py-2 {% if recipient.is_deadline_overdue %}font-semibold text-red-700{% endif %}">
+                                    {% if recipient.deadline %}{{ recipient.deadline|date:"d/m/Y" }}{% else %}-{% endif %}
                                 </td>
                                 <td class="whitespace-nowrap border border-gray-300 px-3 py-2">
                                     {% if recipient.received_at %}
@@ -507,28 +517,21 @@
         <div id="activityModal"
              class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4"
              role="dialog" aria-modal="true" aria-labelledby="activityModalTitle">
-            <div class="w-full max-w-lg rounded-lg bg-white shadow-2xl">
+            <div class="flex max-h-[85vh] w-full max-w-lg flex-col rounded-lg bg-white shadow-2xl">
                 <div class="flex items-start justify-between border-b px-5 py-4">
                     <div>
                         <h2 id="activityModalTitle" class="text-lg font-bold text-blue-950">
-                            {% if share_recipient.agreed_at %}Edit Aktivitas{% else %}Isi Aktivitas{% endif %}
+                            {% if share_recipient.agreed_at %}Edit Tindak Lanjut{% else %}Isi Tindak Lanjut{% endif %}
                         </h2>
-                        <p class="mt-1 text-sm text-gray-600">
-                            Jelaskan pekerjaan atau tindak lanjut yang telah dilakukan.
-                        </p>
+                        <p class="mt-1 text-sm text-gray-600">Isi tindak lanjut, deadline, dan hasil akhir.</p>
                     </div>
                     <button type="button" id="closeActivityModal" aria-label="Tutup"
                             class="rounded px-3 py-1 text-2xl text-gray-500 hover:bg-gray-100 cursor-pointer">&times;</button>
                 </div>
-                <div class="space-y-4 p-5">
-                    {% if disposisi.deadline %}
-                    <p class="rounded px-3 py-2 text-sm font-semibold {% if is_deadline_overdue %}bg-red-100 text-red-800{% else %}bg-blue-50 text-blue-900{% endif %}">
-                        Deadline: {{ disposisi.deadline|date:"d/m/Y" }}
-                    </p>
-                    {% endif %}
+                <div class="space-y-4 overflow-y-auto p-5">
                     <div>
                     <label for="activityDescription" class="mb-2 block text-sm font-semibold text-gray-900">
-                        Aktivitas yang Dilakukan
+                        Tindak Lanjut
                     </label>
                     <textarea id="activityDescription"
                               name="activity_description"
@@ -540,8 +543,15 @@
                     <p class="mt-1 text-xs text-gray-500">Maksimal 2.000 karakter.</p>
                     </div>
                     <div>
+                    <label for="activityDeadline" class="mb-2 block text-sm font-semibold text-gray-900">Deadline</label>
+                    <input id="activityDeadline" type="date" name="deadline"
+                           value="{{ share_recipient.deadline|date:'Y-m-d' }}"
+                           {% if not is_deadline_overdue %}min="{{ today_date }}"{% endif %} required
+                           class="h-11 w-full rounded border border-gray-300 bg-white px-3 text-sm focus:border-blue-900 focus:outline-none">
+                    </div>
+                    <div>
                     <label for="followUpResult" class="mb-2 block text-sm font-semibold text-gray-900">
-                        Hasil Tindak Lanjut
+                        Hasil Akhir
                     </label>
                     <textarea id="followUpResult"
                               name="follow_up_result"
@@ -572,11 +582,12 @@
 </div>
 
 <style>
-    #shareDeadline::-webkit-calendar-picker-indicator {
-        display: none;
-        -webkit-appearance: none;
+    #activityDeadline { color-scheme: light; }
+    #activityDeadline::-webkit-calendar-picker-indicator {
+        filter: brightness(0);
+        opacity: 1;
+        cursor: pointer;
     }
-
     .step{
         position: relative;
         margin-right: -8px;
@@ -611,21 +622,6 @@
     const openShareModal = document.getElementById('openShareModal');
     const closeShareModal = document.getElementById('closeShareModal');
     const cancelShareModal = document.getElementById('cancelShareModal');
-    const shareDeadline = document.getElementById('shareDeadline');
-
-    const showDeadlinePicker = () => {
-        if (!shareDeadline) return;
-        try {
-            shareDeadline.showPicker?.();
-        } catch (error) {
-            shareDeadline.focus();
-        }
-    };
-
-    shareDeadline?.addEventListener('click', showDeadlinePicker);
-    shareDeadline?.addEventListener('keydown', (event) => {
-        if (event.key !== 'Tab') event.preventDefault();
-    });
 
     const hideShareModal = () => {
         shareModal?.classList.add('hidden');

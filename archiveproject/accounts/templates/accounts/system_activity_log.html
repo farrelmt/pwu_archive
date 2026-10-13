@@ -17,7 +17,7 @@
             <label for="activityActor" class="text-xs font-bold text-slate-600">User</label>
             <select id="activityActor" name="actor" class="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">
                 <option value="">Semua user</option>
-                {% for system_user in users %}<option value="{{ system_user.pk }}" {% if selected_actor == system_user.pk|stringformat:"s" %}selected{% endif %}>{{ system_user.username }}</option>{% endfor %}
+                {% for system_user in users %}<option value="{{ system_user.pk }}" {% if selected_actor == system_user.pk|stringformat:"s" %}selected{% endif %}>{{ system_user.get_full_name|default:system_user.username }} - {{ system_user.get_role_display }}</option>{% endfor %}
             </select>
         </div>
         <div>
@@ -69,7 +69,7 @@
                     {% for log in page_obj %}
                     <tr class="align-top hover:bg-slate-50">
                         <td class="whitespace-nowrap px-4 py-3">{{ log.created_at|date:"d/m/Y H:i:s" }}</td>
-                        <td class="px-4 py-3 font-bold">{{ log.actor_username|default:"Anonymous" }}</td>
+                        <td class="px-4 py-3 font-bold">{{ log.actor_display_label }}</td>
                         <td class="px-4 py-3"><span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold">{{ log.action }}</span></td>
                         <td class="px-4 py-3">{{ log.target_label|default:"-" }}</td>
                         <td class="whitespace-nowrap px-4 py-3">{{ log.ip_address|default:"-" }}</td>

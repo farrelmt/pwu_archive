@@ -39,11 +39,18 @@ def inbox_disposisi_for_user(user):
                 status_pengajuan='DIAJUKAN',
                 tujuan='DIREKSI',
                 isi_disposisi_dirut__gt='',
+                dirut_reviewed_at__isnull=False,
                 isi_disposisi_direktur='',
             )
 
         if user.role == 'sekretaris':
-            filters |= Q(status_pengajuan__in=['DIISI', 'VERIFIKASI'])
+            filters |= Q(status_pengajuan__in=['DIISI', 'VERIFIKASI']) | Q(
+                status_pengajuan='DIAJUKAN',
+                tujuan='DIREKSI',
+                isi_disposisi_dirut__gt='',
+                dirut_reviewed_at__isnull=True,
+                isi_disposisi_direktur='',
+            )
 
         if (
             user.role in dict(Disposisi.SHARE_ROLE_CHOICES)

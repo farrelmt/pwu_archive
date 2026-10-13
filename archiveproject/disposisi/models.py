@@ -3,6 +3,7 @@ from django.db.models import Max
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.utils import timezone
 from django.utils.text import slugify
 import os
 
@@ -104,7 +105,20 @@ class Disposisi(models.Model):
     tujuan_disposisi = models.CharField(max_length=50)
     isi_disposisi = models.TextField(blank=True, default='')
     isi_disposisi_dirut = models.TextField(blank=True, default='')
+    isi_disposisi_dirut_draft = models.TextField(blank=True, default='')
     isi_disposisi_direktur = models.TextField(blank=True, default='')
+    dirut_signed_on = models.DateField(blank=True, null=True)
+    direktur_signed_on = models.DateField(blank=True, null=True)
+    signed_on = models.DateField(blank=True, null=True)
+    suggested_recipient_roles = models.JSONField(blank=True, default=list)
+    dirut_reviewed_at = models.DateTimeField(blank=True, null=True)
+    dirut_reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='reviewed_dirut_dispositions',
+    )
     status_pengajuan = models.CharField(max_length=10, choices=STATUS_CHOICES, default="DIBUAT")
     deadline = models.DateField(blank=True, null=True)
 
@@ -321,11 +335,35 @@ class Disposisi(models.Model):
 
         if not self.isi_disposisi_dirut:
             return user.is_superuser or user.role == 'direktur_utama'
+        if not self.dirut_reviewed_at:
+            return False
         if not self.isi_disposisi_direktur:
             return user.is_superuser or user.role in {
                 'direktur', 'direktur_umum',
             }
         return False
+
+    def can_review_dirut_input(self, user):
+        """Return whether Secretary owns the checkpoint after Dirut input."""
+        return bool(
+            user.is_authenticated
+            and user.can_share_disposisi
+            and self.tipe_disposisi == 'ONLINE'
+            and (
+                (
+                    self.tujuan == 'DIREKSI'
+                    and self.status_pengajuan == 'DIAJUKAN'
+                    and self.isi_disposisi_dirut
+                )
+                or (
+                    self.tujuan == 'DIRUT'
+                    and self.status_pengajuan == 'DIISI'
+                    and self.isi_disposisi
+                )
+            )
+            and not self.dirut_reviewed_at
+            and not self.isi_disposisi_direktur
+        )
 
     def online_input_stage_for(self, user):
         """Identify the field and label for the active director stage."""
@@ -352,6 +390,7 @@ class DisposisiRecipient(models.Model):
     )
     role = models.CharField(max_length=30, choices=Disposisi.SHARE_ROLE_CHOICES)
     received_at = models.DateTimeField(blank=True, null=True)
+    deadline = models.DateField(blank=True, null=True)
     agreed_at = models.DateTimeField(blank=True, null=True)
     activity_description = models.TextField(blank=True, default='')
     follow_up_result = models.TextField(blank=True, default='')
@@ -366,6 +405,14 @@ class DisposisiRecipient(models.Model):
     @property
     def requires_action(self):
         return self.role not in Disposisi.INFORMATIONAL_RECIPIENT_ROLES
+
+    @property
+    def is_deadline_overdue(self):
+        return bool(
+            self.deadline
+            and self.deadline < timezone.localdate()
+            and self.agreed_at is None
+        )
 
     class Meta:
         ordering = ['role']
@@ -389,12 +436,15 @@ class DisposisiLog(models.Model):
         ('BATAL_PENGAJUAN', 'Pengajuan Dibatalkan'),
         ('TOLAK_DISPOSISI', 'Pengajuan Ditolak'),
         ('SETUJUI_DISPOSISI', 'Pengajuan Disetujui'),
+        ('TINJAU_DIRUT', 'Isi Dirut Ditinjau Sekretaris'),
+        ('KEMBALIKAN_DIRUT', 'Isi Dirut Dikembalikan Sekretaris'),
         ('ISI_DISPOSISI', 'Diisi'),
         ('BAGI_DISPOSISI', 'Dibagi'),
         ('TERIMA_DISPOSISI', 'Diterima Penerima'),
-        ('AKTIVITAS_PENERIMA', 'Aktivitas Penerima'),
+        ('AKTIVITAS_PENERIMA', 'Tindak Lanjut Penerima'),
         ('AJUKAN_SELESAI', 'Diajukan ke Sekretaris'),
         ('SELESAI', 'Selesai'),
+        ('BATAL_SELESAI', 'Penyelesaian Dibatalkan'),
     ]
 
     disposisi = models.ForeignKey(Disposisi, on_delete=models.CASCADE, related_name='logs')

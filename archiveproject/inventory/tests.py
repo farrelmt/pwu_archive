@@ -165,8 +165,8 @@ class InventoryPermissionTests(TestCase):
         )
 
         self.assertContains(response, "Inventaris Saya")
+        self.assertContains(response, "Kembali ke Portal Utama")
         self.assertContains(response, ">Keluar<")
-        self.assertContains(response, "Log Out")
         self.assertNotContains(response, ">Ringkasan<")
         self.assertNotContains(response, ">Anggota Perusahaan<")
         self.assertNotContains(response, ">Barang &amp; Hardware<")

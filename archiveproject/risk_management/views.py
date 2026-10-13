@@ -204,15 +204,17 @@ def risk_list(request):
 def workbook_import(request):
     form = RiskWorkbookImportForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
-        is_manager = request.user.is_superuser or request.risk_accesses.filter(
-            role__in=MANAGER_ROLES
-        ).exists()
+        access_rows = request.risk_accesses
+        is_manager = request.user.is_superuser or any(
+            access.role in MANAGER_ROLES for access in access_rows
+        )
         allowed_division_ids = None
         if not is_manager:
-            allowed_division_ids = set(
-                request.risk_accesses.exclude(division__isnull=True)
-                .values_list("division_id", flat=True)
-            )
+            allowed_division_ids = {
+                access.division_id
+                for access in access_rows
+                if access.division_id is not None
+            }
         try:
             stats = import_risk_workbook(
                 form.cleaned_data["workbook"],

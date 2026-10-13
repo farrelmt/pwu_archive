@@ -53,8 +53,8 @@
 
             <form id="loginForm" method="POST" action="{% url 'accounts:login' %}" class="space-y-5">
                 {% csrf_token %}
-                {% if request.GET.next %}
-                <input type="hidden" name="next" value="{{ request.GET.next }}">
+                {% if next_url %}
+                <input type="hidden" name="next" value="{{ next_url }}">
                 {% endif %}
                 <div>
                     <label for="username" class="mb-2 block text-sm font-semibold text-slate-700">Username</label>
@@ -121,6 +121,22 @@
     const eyeClosed = document.getElementById("eyeClosed");
     const loginForm = document.getElementById("loginForm");
     const loginSubmit = document.getElementById("loginSubmit");
+    const loginSubmitLabel = loginSubmit?.textContent.trim() || "Masuk";
+    let loginResetTimer;
+
+    function resetLoginFormState() {
+        if (!loginForm || !loginSubmit) return;
+        delete loginForm.dataset.submitted;
+        loginSubmit.removeAttribute("aria-disabled");
+        loginSubmit.textContent = loginSubmitLabel;
+        window.clearTimeout(loginResetTimer);
+    }
+
+    function retryLoginNavigation() {
+        if (loginForm?.dataset.submitted !== "true") return;
+        resetLoginFormState();
+        window.location.reload();
+    }
 
     loginForm?.addEventListener("submit", event => {
         if (loginForm.dataset.submitted === "true") {
@@ -128,8 +144,19 @@
             return;
         }
         loginForm.dataset.submitted = "true";
-        loginSubmit.disabled = true;
+        loginSubmit.setAttribute("aria-disabled", "true");
         loginSubmit.textContent = "Memproses...";
+        loginResetTimer = window.setTimeout(retryLoginNavigation, 15000);
+    });
+
+    // Browsers can restore the login document after a completed or interrupted
+    // navigation. Retry the authenticated GET instead of requiring a refresh.
+    window.addEventListener("pageshow", event => {
+        if (event.persisted && loginForm?.dataset.submitted === "true") {
+            retryLoginNavigation();
+            return;
+        }
+        resetLoginFormState();
     });
 
     passwordToggle?.addEventListener("click", () => {

@@ -24,7 +24,7 @@
                 <option value="">Semua user</option>
                 {% for system_user in users %}
                 <option value="{{ system_user.pk }}" {% if selected_actor == system_user.pk|stringformat:"s" %}selected{% endif %}>
-                    {{ system_user.username }} — {{ system_user.get_role_display }}
+                    {{ system_user.get_full_name|default:system_user.username }} - {{ system_user.get_role_display }}
                 </option>
                 {% endfor %}
             </select>
@@ -112,7 +112,7 @@
                     {% for log in page_obj %}
                     <tr class="align-top hover:bg-yellow-50">
                         <td class="whitespace-nowrap border px-3 py-2">{{ log.created_at|date:"d/m/Y H:i:s" }}</td>
-                        <td class="border px-3 py-2 font-semibold">{{ log.actor_username|default:"Anonymous" }}</td>
+                        <td class="border px-3 py-2 font-semibold">{{ log.actor_display_label }}</td>
                         <td class="border px-3 py-2">{{ log.get_category_display }}</td>
                         <td class="border px-3 py-2">{{ log.action }}</td>
                         <td class="border px-3 py-2">{{ log.target_label|default:"-" }}</td>

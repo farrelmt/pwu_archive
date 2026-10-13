@@ -65,13 +65,10 @@ class PersonalSettingsForm(forms.ModelForm):
         current_password = cleaned.get("current_password")
         new_password = cleaned.get("new_password")
         confirmation = cleaned.get("confirm_password")
-        wants_password_change = any((current_password, new_password, confirmation))
-        if wants_password_change:
+        if new_password:
             if not current_password or not self.instance.check_password(current_password):
                 self.add_error("current_password", "Password saat ini tidak benar.")
-            if not new_password:
-                self.add_error("new_password", "Password baru wajib diisi.")
-            elif new_password != confirmation:
+            if new_password != confirmation:
                 self.add_error("confirm_password", "Password baru tidak sama.")
             else:
                 try:

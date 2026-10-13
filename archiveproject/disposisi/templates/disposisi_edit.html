@@ -5,6 +5,16 @@
 <div class="bg-gray-50/10 p-4 select-none w-full">
     <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
+        {% if disposisi.status_pengajuan != 'DIBUAT' %}
+        <p class="mb-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            Menyimpan perubahan akan mengembalikan disposisi ke status Dibuat dan menghapus isi, tanda tangan, serta penerima.
+        </p>
+        {% endif %}
+        {% if form.non_field_errors or form.dokumen_disposisi.errors %}
+        <div role="alert" class="mb-3 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+            {{ form.non_field_errors|striptags }} {{ form.dokumen_disposisi.errors|striptags }}
+        </div>
+        {% endif %}
         <div class="space-y-2">
             <div class="flex items-center justify-between">
                 <div class="flex">
@@ -13,7 +23,7 @@
                             class="border border-black rounded-md shadow-sm pl-1"
                             value="{{ disposisi.tanggal_surat_diterima|date:'Y-m-d' }}">
                 </div>
-                <div>
+                {% if disposisi.status_pengajuan == 'DIBUAT' %}<div>
                     <button type="submit"
                        formaction="{% url 'disposisi:hapusdisposisi' disposisi.id %}"
                        formmethod="post"
@@ -22,7 +32,7 @@
                         rounded w-20 h-8 text-sm font-bold hover:bg-red-800 cursor-pointer">
                         Hapus
                     </button>
-                </div>
+                </div>{% endif %}
             </div>
 
 <!--            <div class="flex items-center">-->
@@ -90,6 +100,7 @@
                         Direksi
                     </option>
                 </select>
+                {% if form.tujuan.errors %}<p class="text-sm text-red-700">{{ form.tujuan.errors|striptags }}</p>{% endif %}
             </div>
 
             <div class="flex items-center">
@@ -207,6 +218,7 @@
             </a>
 
             <button type="submit" id="submitBtn"
+                    {% if disposisi.status_pengajuan != 'DIBUAT' %}data-confirm="Kembalikan disposisi ke status Dibuat dan hapus progres sebelumnya?"{% endif %}
                     class="bg-blue-950 text-white font-semibold rounded w-30 h-10 text-md
                     hover:bg-blue-900 cursor-pointer">
                 Simpan

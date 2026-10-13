@@ -46,6 +46,12 @@ class KoperasiHostTests(TestCase):
         self.user.is_superuser = True
         self.user.set_password("test-password")
         self.user.save()
+        KoperasiAccess.objects.create(
+            user=self.user,
+            company=None,
+            role="admin",
+            is_active=True,
+        )
 
     def test_koperasi_host_requires_login(self):
         response = self.client.get("/", HTTP_HOST="koperasi.localhost:8000")
@@ -62,7 +68,10 @@ class KoperasiHostTests(TestCase):
         self.assertContains(response, "Koperasi Karyawan Wira Jatim")
         self.assertContains(response, "Sie Simpan Pinjam")
         self.assertContains(response, 'href="/report/"')
-        self.assertContains(response, 'href="http://localhost:8000/settings/"')
+        self.assertContains(response, 'href="http://localhost:8000/settings/?from=koperasi"')
+        self.assertContains(response, "Kembali ke Portal Utama")
+        self.assertContains(response, 'href="http://localhost:8000/"')
+        self.assertContains(response, ">Keluar<")
 
     def test_only_superuser_can_open_koperasi_activity_log(self):
         self.client.force_login(self.user)
@@ -101,7 +110,7 @@ class KoperasiHostTests(TestCase):
         self.assertEqual(report_response.status_code, 200)
         self.assertContains(report_response, "Report Bug")
         self.assertEqual(settings_response.status_code, 302)
-        self.assertEqual(settings_response.url, "http://localhost:8000/settings/")
+        self.assertEqual(settings_response.url, "http://localhost:8000/settings/?from=koperasi")
 
     def test_koperasi_login_redirects_to_central_portal(self):
         response = self.client.get(
@@ -152,6 +161,18 @@ class KoperasiHostTests(TestCase):
             HTTP_HOST="koperasi.localhost:8000",
         )
         self.assertEqual(dashboard_response.status_code, 403)
+
+    def test_superuser_without_koperasi_role_cannot_open_koperasi(self):
+        superuser = get_user_model().objects.create_superuser(
+            username="superuser_without_koperasi",
+            password="test-password",
+            role="admin",
+        )
+        self.client.force_login(superuser)
+
+        response = self.client.get("/", HTTP_HOST="koperasi.localhost:8000")
+
+        self.assertEqual(response.status_code, 403)
 
     def test_legacy_viewer_row_does_not_grant_koperasi_access(self):
         user = get_user_model().objects.create_user(

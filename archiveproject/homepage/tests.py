@@ -62,6 +62,24 @@ class HostRoutingTests(TestCase):
         self.assertNotContains(response, "Kelola Member")
         self.assertNotContains(response, "Masuk ke akun Anda")
 
+    def test_directors_only_see_archive_on_main_portal(self):
+        self.user.role = "direktur_utama"
+        self.user.save(update_fields=["role"])
+        KoperasiAccess.objects.create(
+            user=self.user,
+            company=None,
+            role="supervisor",
+            is_active=True,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get("/", HTTP_HOST="pwujatim.site")
+
+        self.assertContains(response, ">Sistem Arsip<")
+        self.assertNotContains(response, ">Sistem Koperasi<")
+        self.assertNotContains(response, ">Manajemen Risiko<")
+        self.assertNotContains(response, ">Sistem Inventaris<")
+
     def test_public_domain_exposes_central_login(self):
         response = self.client.get(
             reverse("accounts:login"),
@@ -135,6 +153,24 @@ class HostRoutingTests(TestCase):
         self.assertContains(response, ">Sistem Koperasi<")
         self.assertContains(response, "/accounts/system/koperasi/")
 
+    def test_portal_hides_koperasi_from_superuser_without_koperasi_role(self):
+        superuser = get_user_model().objects.create_superuser(
+            username="portal_superuser_without_koperasi",
+            password="test-password",
+            role="admin",
+        )
+        self.client.force_login(superuser)
+
+        response = self.client.get("/", HTTP_HOST="pwujatim.site")
+
+        self.assertNotContains(response, ">Sistem Koperasi<")
+        self.assertNotContains(response, "/accounts/system/koperasi/")
+        launch_response = self.client.get(
+            reverse("accounts:system_launch", args=["koperasi"]),
+            HTTP_HOST="pwujatim.site",
+        )
+        self.assertEqual(launch_response.status_code, 403)
+
     def test_portal_ignores_legacy_koperasi_viewer_role(self):
         KoperasiAccess.objects.create(
             user=self.user,
@@ -182,6 +218,11 @@ class HostRoutingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Akses Cepat")
+        self.assertContains(response, ">Keluar<")
+        self.assertContains(response, 'href="https://pwujatim.site/"')
+        self.assertContains(response, 'id="exitToMainMenu"')
+        self.assertContains(response, 'id="archiveLogoutButton"')
+        self.assertContains(response, ">Log Out<")
 
 
 @override_settings(
@@ -522,6 +563,8 @@ class DivisionUserListTests(TestCase):
                 "is_active": True,
             },
         )
+        self.wirajatim_user.set_password("wirajatim_kso")
+        self.wirajatim_user.save(update_fields=["password"])
 
     def test_division_page_lists_all_users_and_their_roles(self):
         self.client.force_login(self.secretary)
@@ -540,7 +583,7 @@ class DivisionUserListTests(TestCase):
         self.assertNotContains(response, "Kepala Divisi SPI")
         self.assertContains(response, "Nonaktif")
         self.assertContains(response, ">wirajatim_kso<")
-        self.assertContains(response, "Wirajatim KSO", count=2)
+        self.assertContains(response, "Wirajatim KSO")
         for username in ("dirut", "it_pwu", "akuntan1", "akuntan2"):
             with self.subTest(username=username):
                 self.assertContains(response, f">{username}<")
@@ -705,6 +748,52 @@ class DocumentQueueTests(TestCase):
         self.assertContains(response, "PENDING-001")
         self.assertContains(response, "DONE-001")
         self.assertNotContains(response, "OTHER-001")
+        self.assertContains(response, 'id="openMonitorFilter"')
+        self.assertContains(response, "Filter Dokumen")
+
+    def test_monitor_can_sort_related_documents(self):
+        self.pending.nomor_agenda = "Z-AGENDA"
+        self.pending.save(update_fields=["nomor_agenda"])
+        self.completed.nomor_agenda = "A-AGENDA"
+        self.completed.save(update_fields=["nomor_agenda"])
+        self.client.force_login(self.finance_head)
+
+        response = self.client.get(
+            reverse("homepage:monitor"),
+            {"sort": "agenda", "order": "asc"},
+        )
+
+        self.assertEqual(
+            list(response.context["page_obj"].object_list),
+            [self.completed, self.pending],
+        )
+        self.assertContains(response, "Nomor Agenda ↑")
+
+    def test_monitor_can_filter_related_documents(self):
+        self.completed.tanggal_surat = date(2026, 8, 1)
+        self.completed.tanggal_surat_diterima = date(2026, 8, 2)
+        self.completed.save(update_fields=[
+            "tanggal_surat", "tanggal_surat_diterima",
+        ])
+        self.client.force_login(self.finance_head)
+
+        response = self.client.get(
+            reverse("homepage:monitor"),
+            {
+                "letter_date": "2026-07-27",
+                "received_date": "2026-07-27",
+                "destination": "DIR",
+                "status": "DIBAGIKAN",
+            },
+        )
+
+        self.assertEqual(
+            list(response.context["page_obj"].object_list),
+            [self.pending],
+        )
+        self.assertContains(response, "PENDING-001")
+        self.assertNotContains(response, "DONE-001")
+        self.assertContains(response, "Filter Aktif")
 
     def test_inbox_only_lists_documents_needing_action(self):
         self.client.force_login(self.finance_head)
@@ -744,6 +833,7 @@ class ActivityLogAccessTests(TestCase):
             username="audit-viewer",
             password="test-password",
             role="kadiv_keuangan",
+            first_name="Alzira",
         )
         ActivityLog.objects.create(
             actor=self.regular_user,
@@ -763,7 +853,7 @@ class ActivityLogAccessTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Activity Log")
-        self.assertContains(response, "audit-viewer")
+        self.assertContains(response, "Alzira - Kepala Divisi Keuangan")
         self.assertContains(response, "DIEDIT")
         self.assertContains(response, "12/VII/2026")
 

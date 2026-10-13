@@ -36,7 +36,8 @@
             <a class="risk-nav {% if '/divisi/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:divisions' %}">Divisi &amp; Penanggung Jawab</a>
             {% if request.user.is_superuser %}<a class="risk-nav {% if '/activity-log/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:activity_log' %}">Log Aktivitas</a>{% endif %}
         </nav>
-        <div class="border-t border-slate-200 p-3">
+        <div class="space-y-2 border-t border-slate-200 p-3">
+            <a class="block w-full rounded-xl bg-blue-50 px-3 py-2.5 text-left text-sm font-bold text-blue-800 hover:bg-blue-100" href="{{ portal_home_url }}">Kembali ke Portal Utama</a>
             <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50">Keluar</button></form>
         </div>
     </aside>

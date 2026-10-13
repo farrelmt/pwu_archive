@@ -2,13 +2,15 @@ from django.core.cache import cache
 
 from .services import inbox_disposisi_for_user
 from archiveproject.host_routing import portal_base_url
+from archiveproject.host_routing import request_system
 
 
 def action_notifications(request):
     portal_url = portal_base_url(request)
+    origin = request_system(request)
     base_context = {
         'portal_home_url': f'{portal_url}/',
-        'portal_settings_url': f'{portal_url}/settings/',
+        'portal_settings_url': f'{portal_url}/settings/?from={origin}' if origin else f'{portal_url}/settings/',
     }
     if not request.user.is_authenticated:
         return {**base_context, 'action_notification_count': 0}

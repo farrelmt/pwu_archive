@@ -36,17 +36,19 @@ def has_system_access(user, system):
     """Return whether an account has an active role in the requested system."""
     if not user.is_authenticated or not user.is_active:
         return False
-    if user.is_superuser:
-        return True
     cache = user.__dict__.setdefault("_pwu_system_access_cache", {})
     if system in cache:
         return cache[system]
-    if system == "archive":
-        allowed = has_archive_access(user)
-    elif system == "koperasi":
+    if system == "koperasi":
+        # Koperasi is always opt-in. Even a Django superuser must have an
+        # explicit active Koperasi role before the system is exposed.
         from koperasi.access import roles_for_user
 
         allowed = bool(roles_for_user(user))
+    elif user.is_superuser:
+        allowed = True
+    elif system == "archive":
+        allowed = has_archive_access(user)
     elif system == "risk":
         from risk_management.access import has_risk_access
 

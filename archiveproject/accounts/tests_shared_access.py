@@ -7,6 +7,11 @@ from risk_management.models import RiskAccess
 
 
 class SharedSystemAccessTests(TransactionTestCase):
+    # This test needs transaction commits for the on_commit access-provisioning
+    # signal. Restore migration-created reference rows after its database flush
+    # so later test classes can still use the core accounts and divisions.
+    serialized_rollback = True
+
     def test_new_user_receives_baseline_access_to_every_system(self):
         user = get_user_model().objects.create_user(
             username="shared_employee",

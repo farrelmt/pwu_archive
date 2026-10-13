@@ -16,7 +16,7 @@
             </div>
             {% endif %}
 
-            <article id="disposisiDocument" class="disposisi-sheet text-gray-950 shadow-2xl">
+            <article id="disposisiDocument" class="disposisi-sheet{% if read_only %} read-only-sheet{% endif %} text-gray-950 shadow-2xl">
                 <header class="online-document-header">
                     <p>PT. PANCA WIRA USAHA JAWA TIMUR</p>
                     <p>LEMBAR DISPOSISI</p>
@@ -53,15 +53,20 @@
                             <span class="document-label">Diteruskan Kepada</span>
                             <span>:</span>
                         </div>
-                        <div class="destination-option"><span>{% if 'direktur_utama' in selected_recipient_roles %}✓{% endif %}</span>Direktur Utama</div>
-                        <div class="destination-option"><span>{% if 'direktur_umum' in selected_recipient_roles %}✓{% endif %}</span>Direktur</div>
-                        <div class="destination-option"><span>{% if 'kadiv_akuntansi' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Akuntansi</div>
-                        <div class="destination-option"><span>{% if 'kadiv_risiko' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Manajemen Risiko</div>
-                        <div class="destination-option"><span>{% if 'kadiv_keuangan' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Keuangan</div>
-                        <div class="destination-option"><span>{% if 'kadiv_legal_umum' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Legal &amp; Umum / Sekretaris Perusahaan</div>
-                        <div class="destination-option"><span>{% if 'kadiv_aset' in selected_recipient_roles %}✓{% endif %}</span>Kepala Divisi Aset</div>
-                        <div class="destination-option"><span>{% if 'kadiv_spi' in selected_recipient_roles %}✓{% endif %}</span>Kepala SPI</div>
-                        <div class="destination-option"><span>{% if 'wirajatim_kso' in selected_recipient_roles %}✓{% endif %}</span>Wirajatim KSO</div>
+                        {% for role_code, role_label in director_recipient_choices %}
+                        <label class="destination-option">
+                            {% if not read_only %}
+                            <input type="checkbox" name="suggested_recipients" value="{{ role_code }}"
+                                   {% if role_code in suggested_recipient_roles %}checked{% endif %}
+                                   aria-label="Sarankan {{ role_label }}">
+                            {% else %}
+                            <span{% if not has_final_recipient_roles and role_code in suggested_recipient_roles %} class="director-suggestion" title="Saran Direksi"{% endif %}>
+                                {% if role_code in selected_recipient_roles %}✓{% elif not has_final_recipient_roles and role_code in suggested_recipient_roles %}✓{% endif %}
+                            </span>
+                            {% endif %}
+                            {{ role_label }}
+                        </label>
+                        {% endfor %}
                     </div>
                 </div>
 
@@ -74,10 +79,14 @@
                     <div id="isiEditor" class="dual-director-results">
                         <section class="director-result">
                             <div class="director-content">{{ disposisi.isi_disposisi_dirut|normalize_signature_layout }}</div>
+                            {% if disposisi.dirut_signed_on %}<time class="signature-date" datetime="{{ disposisi.dirut_signed_on|date:'Y-m-d' }}">{{ disposisi.dirut_signed_on|date:'d-m-Y' }}</time>{% endif %}
                         </section>
+                        {% if disposisi.isi_disposisi_direktur %}
                         <section class="director-result">
                             <div class="director-content">{{ disposisi.isi_disposisi_direktur|normalize_signature_layout }}</div>
+                            {% if disposisi.direktur_signed_on %}<time class="signature-date" datetime="{{ disposisi.direktur_signed_on|date:'Y-m-d' }}">{{ disposisi.direktur_signed_on|date:'d-m-Y' }}</time>{% endif %}
                         </section>
+                        {% endif %}
                     </div>
                     {% else %}
                     {% if not read_only %}
@@ -105,7 +114,7 @@
                             <button type="button" data-command="redo" title="Ulangi" aria-label="Ulangi">&#8631;</button>
                             <button type="button" data-command="removeFormat" title="Hapus format" aria-label="Hapus format">Tx</button>
                             <span class="toolbar-separator" aria-hidden="true"></span>
-                            <button type="button" id="signatureButton" title="Gambar langsung pada dokumen" aria-label="Aktifkan pena">&#9998; Pen</button>
+                            <button type="button" id="signatureButton" title="Tanda tangan di tepi kanan dokumen" aria-label="Aktifkan pena">&#9998; Pen</button>
                             <button type="button" id="clearDrawingButton" class="hidden" title="Hapus semua coretan">Hapus Coretan</button>
                             <button type="button" id="cancelDrawingButton" class="hidden" title="Batalkan perubahan coretan">Batal</button>
                         </div>
@@ -115,13 +124,15 @@
                     {% if is_dual_director and prior_director_content and stage_label == 'Direktur' %}
                     <section class="prior-director-result" aria-label="Isi disposisi Direktur Utama yang terkunci">
                         <div class="director-content">{{ prior_director_content|normalize_signature_layout }}</div>
+                        {% if disposisi.dirut_signed_on %}<time class="signature-date" datetime="{{ disposisi.dirut_signed_on|date:'Y-m-d' }}">{{ disposisi.dirut_signed_on|date:'d-m-Y' }}</time>{% endif %}
                     </section>
                     {% endif %}
 
                     <div id="isiEditor"
-                         class="isi-editor{% if is_dual_director and prior_director_content and stage_label == 'Direktur' %} continuation-editor{% endif %}"
+                         class="isi-editor{% if is_dual_director and prior_director_content and stage_label == 'Direktur' %} continuation-editor{% endif %}{% if is_dual_director or disposisi.tujuan == 'DIRUT' %} director-input{% endif %}"
                          {% if not read_only %}contenteditable="true" role="textbox" aria-multiline="true" aria-label="Isi disposisi"{% endif %}
                          data-placeholder="Tulis isi disposisi di sini...">{{ editor_content|normalize_signature_layout }}</div>
+                    <time class="signature-date" datetime="{{ editor_date|date:'Y-m-d' }}">{{ editor_date|date:'d-m-Y' }}</time>
                     {% if not read_only %}
                     <p id="contentLimitWarning" class="content-limit-warning hidden" role="alert">
                         Batas satu halaman A4 tercapai. Kurangi isi sebelum menambah teks.
@@ -139,6 +150,21 @@
             Kembali
         </a>
         <div class="flex gap-3 lg:flex-col">
+            {% if can_review_dirut_input %}
+            <details class="rounded border border-red-300 p-2 text-sm">
+                <summary class="cursor-pointer font-semibold text-red-700">Kembalikan ke Dirut</summary>
+                <label for="returnReason" class="mt-2 block font-medium text-gray-800">Alasan pengembalian</label>
+                <textarea id="returnReason" name="alasan" maxlength="2000" rows="3" class="mt-1 w-full rounded border border-gray-300 p-2" placeholder="Jelaskan bagian yang perlu diperbaiki"></textarea>
+                <button type="submit" formaction="{% url 'disposisi:returndirut' disposisi.pk %}" formmethod="post" class="mt-2 inline-flex min-h-10 w-full items-center justify-center rounded bg-red-700 px-3 text-sm font-semibold text-white hover:bg-red-800">Kirim Kembali</button>
+            </details>
+            <button type="submit"
+                    formaction="{% url 'disposisi:reviewdirut' disposisi.pk %}"
+                    formmethod="post"
+                    data-confirm="{% if is_dual_director %}Isi Direktur Utama sudah diperiksa dan siap diteruskan kepada Direktur?{% else %}Isi Direktur Utama sudah diperiksa dan siap dibagikan?{% endif %}"
+                    class="inline-flex min-h-10 items-center justify-center rounded bg-blue-950 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-blue-900 cursor-pointer">
+                {% if is_dual_director %}Lanjutkan ke Direktur{% else %}Setujui Isi Dirut{% endif %}
+            </button>
+            {% endif %}
             {% if not read_only %}
             <button type="submit" id="sendButton"
                     class="inline-flex h-10 items-center justify-center rounded bg-green-700 px-5 text-sm font-semibold text-white hover:bg-green-800 cursor-pointer">
@@ -215,6 +241,19 @@
         background: #fff9c4;
         overflow: hidden;
         box-sizing: border-box;
+    }
+
+    .disposisi-sheet.read-only-sheet {
+        height: auto !important;
+        min-height: 297mm !important;
+        max-height: none !important;
+        block-size: auto !important;
+        overflow: visible;
+    }
+
+    .read-only-sheet .isi-section,
+    .read-only-sheet .isi-editor {
+        overflow: visible;
     }
 
     .document-stage {
@@ -298,6 +337,20 @@
         line-height: 1;
     }
 
+    .destination-option > input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin-right: 8px;
+        accent-color: #172554;
+        cursor: pointer;
+    }
+
+    .destination-option > .director-suggestion {
+        border-color: #b45309;
+        color: #92400e;
+        background: #fef3c7;
+    }
+
     .isi-section {
         position: relative;
         display: flex;
@@ -368,7 +421,7 @@
         min-height: 0;
         flex: 1;
         margin: 12px 24px 24px;
-        padding: 14px;
+        padding: 14px 160px 14px 14px;
         font-family: Arial, sans-serif;
         font-size: 14px;
         line-height: 1.55;
@@ -377,6 +430,9 @@
         overflow-x: hidden;
         overflow-y: auto;
         overflow-wrap: anywhere;
+    }
+    .isi-editor.director-input {
+        padding-right: 33.333%;
     }
 
     .isi-editor[contenteditable="true"]:focus {
@@ -414,6 +470,38 @@
         pointer-events: none;
     }
 
+    .isi-editor svg[data-signature-overlay="true"],
+    .director-content svg[data-signature-overlay="true"] {
+        position: absolute !important;
+        right: 0 !important;
+        bottom: auto !important;
+        left: auto !important;
+        display: block;
+        max-width: 150px !important;
+        max-height: 70px !important;
+        margin: 0;
+        pointer-events: none;
+    }
+
+    .isi-editor > svg[data-signature-overlay="true"]:not([data-signature-layout="edge"]),
+    .director-content > svg[data-signature-overlay="true"]:not([data-signature-layout="edge"]) { top: 8% !important; }
+    .director-content svg[data-signature-overlay="true"] { top: 4px !important; }
+    .isi-editor > svg[data-signature-overlay="true"]:not([data-signature-layout="edge"]):nth-of-type(2),
+    .director-content > svg[data-signature-overlay="true"]:not([data-signature-layout="edge"]):nth-of-type(2) { top: 34% !important; }
+    .isi-editor > svg[data-signature-overlay="true"]:not([data-signature-layout="edge"]):nth-of-type(3),
+    .director-content > svg[data-signature-overlay="true"]:not([data-signature-layout="edge"]):nth-of-type(3) { top: 60% !important; }
+
+    .signature-date {
+        position: absolute;
+        right: 0;
+        top: 78px;
+        width: 150px;
+        text-align: center;
+        z-index: 6;
+        font: 13px Arial, sans-serif;
+    }
+    .isi-section > .signature-date { top: calc(8% + 245px); right: 24px; }
+
     .dual-director-results {
         display: flex;
         min-height: 0;
@@ -431,14 +519,14 @@
     }
 
     .director-result {
-        flex: 0 1 auto;
+        flex: 0 0 auto;
     }
 
     .director-content {
         position: relative;
-        min-height: 0;
+        min-height: 100px;
         height: auto;
-        padding: 4px 14px;
+        padding: 4px 33.333% 4px 14px;
         overflow: visible;
         font-family: Arial, sans-serif;
         font-size: 14px;
@@ -457,7 +545,7 @@
 
     .prior-director-result {
         z-index: 20;
-        flex: 0 1 auto;
+        flex: 0 0 auto;
         margin: 8px 24px 0;
         pointer-events: none;
     }
@@ -489,10 +577,12 @@
 
     .direct-drawing-canvas {
         position: absolute;
-        inset: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
         z-index: 10;
         display: block;
-        width: 100%;
+        width: 240px;
         height: 100%;
         border: 2px dashed #2563eb;
         background: rgba(255, 255, 255, 0.08);
@@ -512,6 +602,7 @@
     }
 </style>
 
+{% if not read_only %}
 <script nonce="{{ request.csp_nonce }}">
     (() => {
         const form = document.getElementById('isiDisposisiForm');
@@ -526,7 +617,6 @@
         let drawingContext = null;
         let strokes = [];
         let currentStroke = null;
-        let originalOverlays = [];
         let lastValidEditorHtml = editor.innerHTML;
 
         const editorOverflowsA4 = () => (
@@ -550,25 +640,6 @@
             selection.removeAllRanges();
             selection.addRange(range);
         };
-
-        const moveCaretToInitialDirectorLine = () => {
-            if (!editor.hasAttribute('contenteditable')) return;
-            const firstLine = editor.children[0];
-            const entryLine = editor.children[1];
-            const isDirectorTemplate = ['Direktur Utama:', 'Direktur :']
-                .includes(firstLine?.textContent.trim());
-            if (!isDirectorTemplate || entryLine?.textContent.trim() !== '-') return;
-
-            const range = document.createRange();
-            range.selectNodeContents(entryLine);
-            range.collapse(false);
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-            editor.focus();
-        };
-
-        moveCaretToInitialDirectorLine();
 
         if (toolbar) {
             toolbar.addEventListener('mousedown', (event) => event.preventDefault());
@@ -628,52 +699,6 @@
             });
         };
 
-        const parseOverlayStrokes = (overlay, targetWidth, targetHeight) => {
-            const viewBox = (overlay.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
-            if (viewBox.length !== 4 || !viewBox[2] || !viewBox[3]) return [];
-            if (['inline', 'positioned'].includes(overlay.dataset.signatureLayout)) {
-                const originX = Number(overlay.dataset.signatureOriginX || 0);
-                const originY = Number(overlay.dataset.signatureOriginY || 0);
-                return Array.from(overlay.querySelectorAll('path')).map((path) => {
-                    const tokens = (path.getAttribute('d') || '').match(/[MLml]|-?\d+(?:\.\d+)?/g) || [];
-                    const points = [];
-                    for (let index = 0; index + 2 < tokens.length; index += 3) {
-                        const x = Number(tokens[index + 1]);
-                        const y = Number(tokens[index + 2]);
-                        if (Number.isFinite(x) && Number.isFinite(y)) {
-                            points.push({x: x + originX, y: y + originY});
-                        }
-                    }
-                    return points;
-                }).filter((stroke) => stroke.length > 1);
-            }
-            const proportionalScale = Math.min(
-                targetWidth / viewBox[2],
-                targetHeight / viewBox[3]
-            );
-            const horizontalOffset = (
-                targetWidth - (viewBox[2] * proportionalScale)
-            ) / 2;
-            const verticalOffset = (
-                targetHeight - (viewBox[3] * proportionalScale)
-            );
-            return Array.from(overlay.querySelectorAll('path')).map((path) => {
-                const tokens = (path.getAttribute('d') || '').match(/[MLml]|-?\d+(?:\.\d+)?/g) || [];
-                const points = [];
-                for (let index = 0; index + 2 < tokens.length; index += 3) {
-                    const x = Number(tokens[index + 1]);
-                    const y = Number(tokens[index + 2]);
-                    if (Number.isFinite(x) && Number.isFinite(y)) {
-                        points.push({
-                            x: (x * proportionalScale) + horizontalOffset,
-                            y: (y * proportionalScale) + verticalOffset,
-                        });
-                    }
-                }
-                return points;
-            }).filter((stroke) => stroke.length > 1);
-        };
-
         const leaveDrawingMode = () => {
             drawingCanvas?.remove();
             drawingCanvas = null;
@@ -711,24 +736,35 @@
                 );
                 const signatureWidth = Math.max(10, maximumX - minimumX);
                 const signatureHeight = Math.max(10, maximumY - minimumY);
+                const displayScale = Math.min(
+                    1,
+                    240 / signatureWidth,
+                    120 / signatureHeight,
+                );
+                const displayWidth = Math.max(10, Math.round(signatureWidth * displayScale));
+                const displayHeight = Math.max(10, Math.round(signatureHeight * displayScale));
+                const topPercent = Math.max(
+                    0,
+                    Math.min(
+                        100 * minimumY / drawingCanvas.height,
+                        100 * (drawingCanvas.height - displayHeight) / drawingCanvas.height,
+                    ),
+                );
                 const svgNamespace = 'http://www.w3.org/2000/svg';
                 const overlay = document.createElementNS(svgNamespace, 'svg');
                 overlay.setAttribute('viewBox', `0 0 ${signatureWidth} ${signatureHeight}`);
                 overlay.setAttribute('data-signature-overlay', 'true');
-                overlay.setAttribute('data-signature-layout', 'positioned');
-                overlay.setAttribute('data-signature-width', signatureWidth);
-                overlay.setAttribute('data-signature-height', signatureHeight);
-                overlay.setAttribute('data-signature-margin-left', minimumX);
-                overlay.setAttribute('data-signature-margin-top', 0);
-                overlay.setAttribute('data-signature-origin-x', minimumX);
-                overlay.setAttribute('data-signature-origin-y', minimumY);
+                overlay.setAttribute('data-signature-layout', 'edge');
+                overlay.setAttribute('data-signature-width', displayWidth);
+                overlay.setAttribute('data-signature-height', displayHeight);
+                overlay.setAttribute('data-signature-top', topPercent.toFixed(2));
                 overlay.setAttribute('preserveAspectRatio', 'xMinYMin meet');
                 overlay.setAttribute('role', 'img');
                 overlay.setAttribute('aria-label', 'Tanda tangan digital');
-                overlay.style.width = `${signatureWidth}px`;
-                overlay.style.height = `${signatureHeight}px`;
-                overlay.style.left = `${minimumX}px`;
-                overlay.style.top = `${minimumY}px`;
+                overlay.style.width = `${displayWidth}px`;
+                overlay.style.height = `${displayHeight}px`;
+                overlay.style.right = '0';
+                overlay.style.top = `${topPercent.toFixed(2)}%`;
 
                 usableStrokes.forEach((stroke) => {
                     const path = document.createElementNS(svgNamespace, 'path');
@@ -746,21 +782,12 @@
                 });
                 editor.append(overlay);
             }
-            originalOverlays = [];
             leaveDrawingMode();
             editor.dispatchEvent(new Event('input', {bubbles: true}));
         };
 
         const cancelDrawing = () => {
             if (!drawingCanvas) return;
-            originalOverlays.forEach((overlay) => {
-                if (['inline', 'positioned'].includes(overlay.dataset.signatureLayout)) {
-                    editor.append(overlay);
-                } else {
-                    editor.prepend(overlay);
-                }
-            });
-            originalOverlays = [];
             leaveDrawingMode();
         };
 
@@ -781,21 +808,15 @@
             clearDrawingButton.classList.remove('hidden');
             cancelDrawingButton.classList.remove('hidden');
 
-            const width = Math.max(1, Math.round(editor.clientWidth));
+            const width = Math.max(1, Math.min(240, Math.round(editor.clientWidth)));
             const height = Math.max(1, Math.round(editor.clientHeight));
-            originalOverlays = Array.from(
-                editor.querySelectorAll(':scope > svg[data-signature-overlay="true"]')
-            ).map((overlay) => overlay.cloneNode(true));
-            strokes = Array.from(
-                editor.querySelectorAll(':scope > svg[data-signature-overlay="true"]')
-            ).flatMap((overlay) => parseOverlayStrokes(overlay, width, height));
-            editor.querySelectorAll(':scope > svg[data-signature-overlay="true"]').forEach((overlay) => overlay.remove());
+            strokes = [];
 
             drawingCanvas = document.createElement('canvas');
             drawingCanvas.width = width;
             drawingCanvas.height = height;
             drawingCanvas.className = 'direct-drawing-canvas';
-            drawingCanvas.setAttribute('aria-label', 'Gambar langsung pada isi disposisi');
+            drawingCanvas.setAttribute('aria-label', 'Tanda tangan di tepi kanan isi disposisi');
             editor.setAttribute('contenteditable', 'false');
             editor.appendChild(drawingCanvas);
             drawingContext = drawingCanvas.getContext('2d');
@@ -856,4 +877,5 @@
         });
     })();
 </script>
+{% endif %}
 {% endblock %}

@@ -62,7 +62,9 @@ class DisposisiRichTextSanitizer(HTMLParser):
                 height = float(viewbox_match.group(2))
                 signature_layout = attribute_map.get("data-signature-layout")
                 is_positioned = signature_layout in {"inline", "positioned"}
-                minimum_size = 10 if is_positioned else 100
+                is_flow = signature_layout == "flow"
+                is_edge = signature_layout == "edge"
+                minimum_size = 10 if (is_positioned or is_flow or is_edge) else 100
                 if not (
                     minimum_size <= width <= 4000
                     and minimum_size <= height <= 4000
@@ -70,7 +72,38 @@ class DisposisiRichTextSanitizer(HTMLParser):
                     return
                 inline_attributes = ""
                 preserve_aspect_ratio = "xMidYMax meet"
-                if is_positioned:
+                if is_flow or is_edge:
+                    try:
+                        display_width = float(attribute_map["data-signature-width"])
+                        display_height = float(attribute_map["data-signature-height"])
+                        edge_top = float(attribute_map["data-signature-top"]) if is_edge else None
+                    except (KeyError, TypeError, ValueError):
+                        return
+                    if not (
+                        10 <= display_width <= 300
+                        and 10 <= display_height <= 180
+                        and (not is_edge or 0 <= edge_top <= 100)
+                    ):
+                        return
+                    preserve_aspect_ratio = "xMinYMin meet"
+                    if is_edge:
+                        inline_attributes = (
+                            ' data-signature-layout="edge"'
+                            f' data-signature-width="{display_width:g}"'
+                            f' data-signature-height="{display_height:g}"'
+                            f' data-signature-top="{edge_top:g}"'
+                            f' style="position: absolute; width: {display_width:g}px; '
+                            f'height: {display_height:g}px; right: 0; top: {edge_top:g}%"'
+                        )
+                    else:
+                        inline_attributes = (
+                            ' data-signature-layout="flow"'
+                            f' data-signature-width="{display_width:g}"'
+                            f' data-signature-height="{display_height:g}"'
+                            f' style="width: {display_width:g}px; '
+                            f'height: {display_height:g}px"'
+                        )
+                elif is_positioned:
                     numeric_values = {}
                     for name in (
                         "data-signature-width",
@@ -312,6 +345,11 @@ class DisposisiUploadForm(forms.ModelForm):
 
 
 class OnlineDisposisiIsiForm(forms.ModelForm):
+    suggested_recipients = forms.MultipleChoiceField(
+        required=False,
+        choices=Disposisi.ONLINE_SHARE_ROLE_CHOICES,
+    )
+
     def __init__(
         self,
         *args,
@@ -327,6 +365,10 @@ class OnlineDisposisiIsiForm(forms.ModelForm):
         model = Disposisi
         fields = ["isi_disposisi"]
         widgets = {"isi_disposisi": forms.HiddenInput()}
+
+    def clean_suggested_recipients(self):
+        """Keep Director recommendations separate from Secretary recipients."""
+        return list(dict.fromkeys(self.cleaned_data.get("suggested_recipients", [])))
 
     def clean_isi_disposisi(self):
         raw_content = self.cleaned_data.get("isi_disposisi", "")
@@ -367,16 +409,6 @@ class ShareDisposisiForm(forms.Form):
             "invalid_choice": "Tujuan disposisi tidak valid.",
         },
     )
-    deadline = forms.DateField(
-        label="Deadline",
-        required=True,
-        widget=forms.DateInput(attrs={"type": "date"}),
-        error_messages={
-            "required": "Deadline disposisi wajib dipilih.",
-            "invalid": "Format deadline tidak valid.",
-        },
-    )
-
     def __init__(
         self,
         *args,
@@ -390,42 +422,54 @@ class ShareDisposisiForm(forms.Form):
         self.fields["recipients"].choices = (
             choices or Disposisi.ONLINE_SHARE_ROLE_CHOICES
         )
-        if not include_deadline:
-            self.fields.pop("deadline")
-
-    def clean_deadline(self):
-        deadline = self.cleaned_data["deadline"]
-        if deadline < timezone.localdate() and deadline != self.existing_deadline:
-            raise forms.ValidationError("Deadline tidak boleh sebelum hari ini.")
-        return deadline
 
 
 class RecipientActivityForm(forms.Form):
     activity_description = forms.CharField(
-        label="Aktivitas yang Dilakukan",
+        label="Tindak Lanjut",
         max_length=2000,
         strip=True,
         widget=forms.Textarea(attrs={
             "rows": 5,
             "placeholder": (
-                "Jelaskan aktivitas atau tindak lanjut yang telah dilakukan."
+                "Jelaskan tindak lanjut yang telah dilakukan."
             ),
         }),
         error_messages={
-            "required": "Aktivitas wajib diisi sebelum disposisi diselesaikan.",
-            "max_length": "Aktivitas maksimal 2.000 karakter.",
+            "required": "Tindak lanjut wajib diisi sebelum disposisi diselesaikan.",
+            "max_length": "Tindak lanjut maksimal 2.000 karakter.",
+        },
+    )
+    deadline = forms.DateField(
+        label="Deadline",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        error_messages={
+            "invalid": "Format deadline tidak valid.",
         },
     )
     follow_up_result = forms.CharField(
-        label="Hasil Tindak Lanjut",
+        label="Hasil Akhir",
         max_length=2000,
         strip=True,
         widget=forms.Textarea(attrs={
             "rows": 5,
-            "placeholder": "Jelaskan hasil dari tindak lanjut tersebut.",
+            "placeholder": "Jelaskan hasil akhir dari tindak lanjut tersebut.",
         }),
         error_messages={
-            "required": "Hasil tindak lanjut wajib diisi.",
-            "max_length": "Hasil tindak lanjut maksimal 2.000 karakter.",
+            "required": "Hasil akhir wajib diisi.",
+            "max_length": "Hasil akhir maksimal 2.000 karakter.",
         },
     )
+
+    def __init__(self, *args, existing_deadline=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.existing_deadline = existing_deadline
+
+    def clean_deadline(self):
+        deadline = self.cleaned_data["deadline"] or self.existing_deadline
+        if deadline is None:
+            raise forms.ValidationError("Deadline tindak lanjut wajib dipilih.")
+        if deadline < timezone.localdate() and deadline != self.existing_deadline:
+            raise forms.ValidationError("Deadline tidak boleh sebelum hari ini.")
+        return deadline

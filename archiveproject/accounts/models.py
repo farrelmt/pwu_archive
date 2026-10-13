@@ -36,7 +36,7 @@ class SystemUser(AbstractUser):
 
     @property
     def can_view_activity_log(self):
-        return self.is_superuser
+        return self.is_active and self.username == 'it_pwu'
 
     @property
     def can_edit_disposisi(self):
@@ -100,3 +100,15 @@ class ActivityLog(models.Model):
     def __str__(self):
         actor = self.actor_username or 'Anonymous'
         return f'{actor} - {self.action} - {self.created_at:%Y-%m-%d %H:%M}'
+
+    @property
+    def actor_display_label(self):
+        if self.actor is None:
+            return self.actor_username or 'Anonymous'
+        name = (
+            self.actor.get_full_name().strip()
+            or self.actor_username
+            or self.actor.get_username()
+        )
+        role = self.actor.get_role_display()
+        return f'{name} - {role}' if role else name

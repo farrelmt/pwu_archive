@@ -47,7 +47,8 @@ def normalize_signature_layout(value):
     def normalize_svg(match):
         attrs = match.group('attrs')
         body = match.group('body')
-        if 'data-signature-layout="positioned"' in attrs:
+        if ('data-signature-layout="positioned"' in attrs
+                or 'data-signature-layout="edge"' in attrs):
             return match.group(0)
         if 'data-signature-layout="inline"' in attrs:
             values = {}
