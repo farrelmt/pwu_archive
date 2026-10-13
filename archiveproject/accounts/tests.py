@@ -291,9 +291,95 @@ class LoginThemeTests(TestCase):
 
         self.assertContains(response, 'window.addEventListener("pageshow", event =>')
         self.assertContains(response, 'loginSubmit.removeAttribute("aria-disabled")')
-        self.assertContains(response, "window.location.reload()")
-        self.assertContains(response, "window.setTimeout(retryLoginNavigation, 15000)")
+        self.assertContains(response, 'credentials: "same-origin"')
+        self.assertContains(response, "window.location.replace(status.destination)")
+        self.assertContains(response, "window.setTimeout(retryLoginNavigation, 20000)")
+        self.assertNotContains(response, "window.location.reload()")
         self.assertNotContains(response, "loginSubmit.disabled = true")
+
+    def test_login_recovery_waits_for_authenticated_session(self):
+        status_url = reverse("accounts:login_status")
+        guest = self.client.get(status_url, HTTP_HOST="localhost")
+        self.assertEqual(guest.json(), {"authenticated": False})
+        self.assertIn("no-store", guest["Cache-Control"])
+        self.assertEqual(
+            self.client.post(status_url, HTTP_HOST="localhost").status_code,
+            405,
+        )
+
+        user = SystemUser.objects.create_user(
+            username="login-recovery-user",
+            password="password-for-tests",
+            role="kadiv_keuangan",
+        )
+        archive_url = "http://archive.localhost/monitor/?status=DIBAGIKAN"
+        login_response = self.client.post(
+            reverse("accounts:login"),
+            {
+                "username": user.username,
+                "password": "password-for-tests",
+                "next": archive_url,
+            },
+            HTTP_HOST="localhost",
+        )
+        self.assertEqual(login_response.status_code, 302)
+
+        status = self.client.get(
+            status_url,
+            {"next": archive_url},
+            HTTP_HOST="localhost",
+        )
+        self.assertEqual(status.status_code, 200)
+        self.assertEqual(status.json(), {
+            "authenticated": True,
+            "destination": login_response["Location"],
+        })
+        self.assertIn("no-store", status["Cache-Control"])
+
+        unsafe = self.client.get(
+            status_url,
+            {"next": "https://untrusted.example/"},
+            HTTP_HOST="localhost",
+        )
+        self.assertEqual(unsafe.json()["destination"], reverse("homepage:dashboard"))
+
+    @override_settings(
+        ALLOWED_HOSTS=["pwujatim.site", "archive.pwujatim.site"],
+        LANDING_HOSTS=frozenset({"pwujatim.site"}),
+        ARCHIVE_HOSTS=frozenset({"archive.pwujatim.site"}),
+    )
+    def test_production_login_recovery_uses_shared_session_and_safe_destination(self):
+        user = SystemUser.objects.create_user(
+            username="production-recovery-user",
+            password="password-for-tests",
+            role="kadiv_keuangan",
+        )
+        archive_url = "https://archive.pwujatim.site/monitor/"
+        request_headers = {
+            "HTTP_HOST": "pwujatim.site",
+            "HTTP_X_FORWARDED_PROTO": "https",
+        }
+        login_response = self.client.post(
+            reverse("accounts:login"),
+            {
+                "username": user.username,
+                "password": "password-for-tests",
+                "next": archive_url,
+            },
+            **request_headers,
+        )
+        self.assertEqual(login_response.status_code, 302)
+        self.assertEqual(login_response.cookies["sessionid"]["domain"], ".pwujatim.site")
+
+        status = self.client.get(
+            reverse("accounts:login_status"),
+            {"next": archive_url},
+            **request_headers,
+        )
+        self.assertEqual(status.json(), {
+            "authenticated": True,
+            "destination": login_response["Location"],
+        })
 
     def test_system_subdomain_login_redirects_to_central_portal(self):
         response = self.client.get(

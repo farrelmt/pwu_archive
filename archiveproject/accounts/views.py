@@ -8,6 +8,7 @@ from django.core import signing
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
 from django.http import Http404
+from django.http import JsonResponse
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from urllib.parse import urlencode, urlsplit
@@ -148,6 +149,34 @@ def _login_destination(request, user, next_url):
     return next_url
 
 
+def _successful_login_destination(request, user, next_url):
+    destination = _login_destination(request, user, next_url)
+    if destination:
+        return destination
+    if request_hostname(request) in settings.KOPERASI_HOSTS:
+        return reverse('koperasi:dashboard')
+    if request_hostname(request) in settings.RISK_HOSTS:
+        return reverse('risk:dashboard')
+    if request_hostname(request) in settings.INVENTORY_HOSTS:
+        return reverse('inventory:dashboard')
+    return reverse('homepage:dashboard')
+
+
+@never_cache
+def login_status(request):
+    """Let a stalled login page recover only after its session is established."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'authenticated': False})
+    return JsonResponse({
+        'authenticated': True,
+        'destination': _successful_login_destination(
+            request, request.user, request.GET.get('next', ''),
+        ),
+    })
+
+
 def _login_context(request, **extra):
     is_portal = request_hostname(request) in settings.LANDING_HOSTS
     is_koperasi = request_hostname(request) in settings.KOPERASI_HOSTS
@@ -212,10 +241,7 @@ def login_view(request):
         and request.user.is_authenticated
         and request_hostname(request) in settings.LANDING_HOSTS
     ):
-        destination = _login_destination(request, request.user, next_url)
-        if destination:
-            return redirect(destination)
-        return redirect('homepage:dashboard')
+        return redirect(_successful_login_destination(request, request.user, next_url))
     if request.method == 'POST':
         username = request.POST['username']
         password = request.POST['password']
@@ -261,16 +287,7 @@ def login_view(request):
                         ),
                     )
             auth_login(request, user)
-            destination = _login_destination(request, user, next_url)
-            if destination:
-                return redirect(destination)
-            if request_hostname(request) in settings.KOPERASI_HOSTS:
-                return redirect('koperasi:dashboard')
-            if request_hostname(request) in settings.RISK_HOSTS:
-                return redirect('risk:dashboard')
-            if request_hostname(request) in settings.INVENTORY_HOSTS:
-                return redirect('inventory:dashboard')
-            return redirect('homepage:dashboard')
+            return redirect(_successful_login_destination(request, user, next_url))
         else:
             return render(
                 request,

@@ -105,6 +105,8 @@
                         class="inline-flex h-12 w-full items-center justify-center rounded-xl {% if is_koperasi %}bg-green-800 shadow-green-950/20 hover:bg-green-900 focus:ring-emerald-200{% else %}bg-blue-950 shadow-blue-950/15 hover:bg-blue-900 focus:ring-blue-200{% endif %} px-5 font-semibold text-white shadow-lg transition focus:outline-none focus:ring-4 active:translate-y-px">
                     Masuk
                 </button>
+                <p id="loginRecoveryMessage" role="status" class="hidden text-sm text-slate-600"></p>
+                <a id="loginContinue" class="hidden text-sm font-semibold text-blue-800 underline" href="#">Lanjutkan ke sistem</a>
             </form>
         </div>
 
@@ -121,21 +123,51 @@
     const eyeClosed = document.getElementById("eyeClosed");
     const loginForm = document.getElementById("loginForm");
     const loginSubmit = document.getElementById("loginSubmit");
+    const loginRecoveryMessage = document.getElementById("loginRecoveryMessage");
+    const loginContinue = document.getElementById("loginContinue");
     const loginSubmitLabel = loginSubmit?.textContent.trim() || "Masuk";
     let loginResetTimer;
 
-    function resetLoginFormState() {
+    function resetLoginFormState(message = "") {
         if (!loginForm || !loginSubmit) return;
         delete loginForm.dataset.submitted;
         loginSubmit.removeAttribute("aria-disabled");
         loginSubmit.textContent = loginSubmitLabel;
         window.clearTimeout(loginResetTimer);
+        loginRecoveryMessage.textContent = message;
+        loginRecoveryMessage.classList.toggle("hidden", !message);
+        loginContinue.classList.add("hidden");
     }
 
-    function retryLoginNavigation() {
-        if (loginForm?.dataset.submitted !== "true") return;
-        resetLoginFormState();
-        window.location.reload();
+    async function retryLoginNavigation(checkRestoredPage = false) {
+        const wasSubmitted = loginForm?.dataset.submitted === "true";
+        if (!wasSubmitted && !checkRestoredPage) return;
+        const statusUrl = new URL("{% url 'accounts:login_status' %}", window.location.origin);
+        const nextInput = loginForm.elements.namedItem("next");
+        if (nextInput?.value) statusUrl.searchParams.set("next", nextInput.value);
+        try {
+            const response = await fetch(statusUrl, {
+                credentials: "same-origin",
+                cache: "no-store",
+                headers: {"Accept": "application/json"},
+            });
+            if (!response.ok) throw new Error("Login status unavailable");
+            const status = await response.json();
+            if (status.authenticated && status.destination) {
+                loginRecoveryMessage.textContent = "Login berhasil. Membuka sistem...";
+                loginRecoveryMessage.classList.remove("hidden");
+                loginContinue.href = status.destination;
+                loginContinue.classList.remove("hidden");
+                window.location.replace(status.destination);
+                loginResetTimer = window.setTimeout(retryLoginNavigation, 20000);
+                return;
+            }
+        } catch (error) {
+            // Keep the form usable if the status request cannot complete.
+        }
+        resetLoginFormState(
+            wasSubmitted ? "Login belum selesai. Silakan coba masuk lagi." : ""
+        );
     }
 
     loginForm?.addEventListener("submit", event => {
@@ -146,14 +178,13 @@
         loginForm.dataset.submitted = "true";
         loginSubmit.setAttribute("aria-disabled", "true");
         loginSubmit.textContent = "Memproses...";
-        loginResetTimer = window.setTimeout(retryLoginNavigation, 15000);
+        loginResetTimer = window.setTimeout(retryLoginNavigation, 20000);
     });
 
-    // Browsers can restore the login document after a completed or interrupted
-    // navigation. Retry the authenticated GET instead of requiring a refresh.
+    // A restored login page may already have an authenticated session.
     window.addEventListener("pageshow", event => {
-        if (event.persisted && loginForm?.dataset.submitted === "true") {
-            retryLoginNavigation();
+        if (event.persisted) {
+            retryLoginNavigation(true);
             return;
         }
         resetLoginFormState();
