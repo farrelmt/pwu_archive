@@ -1,0 +1,61 @@
+{% load risk_sorting %}
+<div class="overflow-x-auto" role="region" aria-label="Tabel pemantauan triwulan" tabindex="0">
+    <table class="monitoring-document-table report-table w-full border-collapse text-left text-sm">
+        <colgroup><col class="monitor-number"><col class="monitor-risk"><col class="monitor-text"><col class="monitor-text"><col class="monitor-date"><col class="monitor-owner"><col class="monitor-score"><col class="monitor-score"><col class="monitor-score"><col class="monitor-level"><col class="monitor-score"><col class="monitor-score"><col class="monitor-score"><col class="monitor-level"><col class="monitor-score"><col class="monitor-score"><col class="monitor-score"><col class="monitor-level"><col class="monitor-score"><col class="monitor-text"></colgroup>
+        <caption class="sr-only">Formulir Pemantauan Triwulan: realisasi dan penilaian risiko sebelum perlakuan, saat pelaporan, dan yang diharapkan.</caption>
+        <thead class="bg-blue-50 text-xs text-blue-900">
+            <tr>
+                <th rowspan="2" scope="col">No.</th>
+                <th rowspan="2" scope="col">{% sort_header 'title' 'Nama Risiko' %}</th>
+                <th rowspan="2" scope="col">{% sort_header 'plan' 'Rencana Aksi Perlakuan Risiko' %}</th>
+                <th rowspan="2" scope="col">{% sort_header 'realization' 'Realisasi' %}</th>
+                <th rowspan="2" scope="col">{% sort_header 'target_date' 'Jadwal Pelaksanaan' %}</th>
+                <th rowspan="2" scope="col">{% sort_header 'owner' 'Penanggung Jawab' %}</th>
+                <th colspan="4" scope="colgroup" class="text-center">Level Risiko Sebelum Perlakuan</th>
+                <th colspan="4" scope="colgroup" class="text-center">Level Risiko Saat Pelaporan</th>
+                <th colspan="4" scope="colgroup" class="text-center">Level Risiko yang Diharapkan</th>
+                <th rowspan="2" scope="col">{% sort_header 'deviation' 'Deviasi' %}</th>
+                <th rowspan="2" scope="col">{% sort_header 'notes' 'Keterangan' %}</th>
+            </tr>
+            <tr>
+                <th scope="col">{% sort_header 'initial_likelihood' 'Kemungkinan' %}</th><th scope="col">{% sort_header 'initial_impact' 'Dampak' %}</th><th scope="col">{% sort_header 'initial_score' 'Skor Risiko' %}</th><th scope="col">{% sort_header 'initial_score' 'Level Risiko' %}</th>
+                <th scope="col">{% sort_header 'final_likelihood' 'Kemungkinan' %}</th><th scope="col">{% sort_header 'final_impact' 'Dampak' %}</th><th scope="col">{% sort_header 'final_score' 'Skor Risiko' %}</th><th scope="col">{% sort_header 'final_score' 'Level Risiko' %}</th>
+                <th scope="col">{% sort_header 'expected_likelihood' 'Kemungkinan' %}</th><th scope="col">{% sort_header 'expected_impact' 'Dampak' %}</th><th scope="col">{% sort_header 'expected_score' 'Skor Risiko' %}</th><th scope="col">{% sort_header 'expected_score' 'Level Risiko' %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for monitoring in monitorings %}
+                {% with risk_number=forloop.counter plans=monitoring.action_plans.all %}
+                    {% with row_count=plans|length|default:1 %}
+                        {% for action in plans %}
+                            <tr>
+                                {% if forloop.first %}
+                                    <td rowspan="{{ row_count }}" class="text-center">{{ risk_number }}</td>
+                                    <td rowspan="{{ row_count }}"><a href="{% url 'risk:risk_detail' monitoring.risk.pk %}" class="font-semibold text-blue-800">{{ monitoring.risk.title }}</a></td>
+                                {% endif %}
+                                <td class="whitespace-pre-line">{{ action.description }}{% if can_edit_this %}<a href="{% url 'risk:action_edit' action.pk %}" class="mt-2 block text-xs font-bold text-blue-700">Edit Rencana Aksi</a>{% endif %}</td>
+                                <td class="whitespace-pre-line">{{ action.realization|default:'-' }}{% if action.realization_date %}<p class="mt-2 text-xs text-slate-500">{{ action.realization_date|date:'d M Y' }}</p>{% endif %}</td>
+                                <td>{{ action.target_date|date:'d M Y'|default:'-' }}</td>
+                                <td>{{ action.responsible_person|default:'-' }}</td>
+                                {% if forloop.first %}{% include 'risk_management/monitoring_shared_cells.html' %}{% endif %}
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td class="text-center">{{ risk_number }}</td>
+                                <td><a href="{% url 'risk:risk_detail' monitoring.risk.pk %}" class="font-semibold text-blue-800">{{ monitoring.risk.title }}</a></td>
+                                <td>Belum ada rencana aksi.</td><td>-</td><td>-</td><td>-</td>
+                                {% include 'risk_management/monitoring_shared_cells.html' %}
+                            </tr>
+                        {% endfor %}
+                    {% endwith %}
+                {% endwith %}
+            {% empty %}
+                <tr><td colspan="20" class="text-center text-slate-500">Belum ada pemantauan pada periode ini.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<style nonce="{{ request.csp_nonce }}">
+    .monitoring-document-table{width:2640px;table-layout:fixed}.monitoring-document-table .monitor-number{width:50px}.monitoring-document-table .monitor-risk{width:200px}.monitoring-document-table .monitor-text{width:280px}.monitoring-document-table .monitor-date{width:120px}.monitoring-document-table .monitor-owner{width:160px}.monitoring-document-table .monitor-score{width:85px}.monitoring-document-table .monitor-level{width:140px}.monitoring-document-table th,.monitoring-document-table td{border:1px solid #cbd5e1;padding:.75rem;vertical-align:top;overflow-wrap:anywhere}.monitoring-document-table th{vertical-align:middle}.monitoring-document-table .risk-badge{white-space:normal}
+    @media print{.monitoring-document-table{width:100%;min-width:0;font-size:7pt;table-layout:fixed}.monitoring-document-table col{width:auto!important}.monitoring-document-table th,.monitoring-document-table td{padding:3px;overflow-wrap:anywhere}.monitoring-document-table .risk-badge{white-space:normal;font-size:7pt;padding:0;background:none}.monitoring-document-table thead{display:table-header-group}}
+</style>

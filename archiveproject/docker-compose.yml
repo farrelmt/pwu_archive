@@ -101,6 +101,8 @@ services:
       RISK_HOSTS: ${RISK_HOSTS:-risk.pwujatim.site,risk.localhost}
       INVENTORY_HOSTS: ${INVENTORY_HOSTS:-inventory.pwujatim.site,inventory.localhost}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-pwu_sessionid}
+      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-.pwujatim.site}
       CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-true}
       CSRF_COOKIE_HTTPONLY: "true"
       SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-true}

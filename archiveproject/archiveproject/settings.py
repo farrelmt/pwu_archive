@@ -278,6 +278,8 @@ INVENTORY_BASE_URL = env(
 ).rstrip('/')
 
 SESSION_COOKIE_AGE = env.int('SESSION_COOKIE_AGE', default=28800)
+SESSION_COOKIE_NAME = env('SESSION_COOKIE_NAME', default='pwu_sessionid')
+SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_EXPIRE_AT_BROWSER_CLOSE = env.bool(
     'SESSION_EXPIRE_AT_BROWSER_CLOSE',
     default=True,
@@ -302,6 +304,10 @@ SECURE_REFERRER_POLICY = 'same-origin'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 
 if not DEBUG:
+    SESSION_COOKIE_DOMAIN = env(
+        'SESSION_COOKIE_DOMAIN',
+        default='.pwujatim.site',
+    )
     SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=True)
     CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=True)
     CSRF_COOKIE_HTTPONLY = env.bool('CSRF_COOKIE_HTTPONLY', default=True)

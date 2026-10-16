@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from django.conf import settings
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -369,7 +370,10 @@ class LoginThemeTests(TestCase):
             **request_headers,
         )
         self.assertEqual(login_response.status_code, 302)
-        self.assertEqual(login_response.cookies["sessionid"]["domain"], ".pwujatim.site")
+        self.assertEqual(
+            login_response.cookies[settings.SESSION_COOKIE_NAME]["domain"],
+            ".pwujatim.site",
+        )
 
         status = self.client.get(
             reverse("accounts:login_status"),
@@ -497,7 +501,38 @@ class LoginThemeTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("homepage:dashboard"))
-        self.assertEqual(self.client.cookies["sessionid"]["domain"], "")
+        self.assertEqual(
+            self.client.cookies[settings.SESSION_COOKIE_NAME]["domain"],
+            "",
+        )
+
+    def test_async_login_saves_session_before_browser_navigation(self):
+        user = SystemUser.objects.create_user(
+            username="async-login-test",
+            password="password-for-tests",
+            role="employee",
+        )
+
+        response = self.client.post(
+            "/accounts/login/",
+            {
+                "username": user.username,
+                "password": "password-for-tests",
+            },
+            HTTP_HOST="localhost",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {"ok": True, "redirect_url": reverse("homepage:dashboard")},
+        )
+        self.assertEqual(
+            int(self.client.session["_auth_user_id"]),
+            user.pk,
+        )
 
     def test_central_login_can_continue_to_koperasi_with_role(self):
         from koperasi.models import KoperasiAccess

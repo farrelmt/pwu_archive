@@ -63,6 +63,10 @@ def can_edit_risks(user):
     return bool(roles_for_user(user).intersection(EDITOR_ROLES))
 
 
+def can_manage_division_pic(user):
+    return user.is_superuser or bool(roles_for_user(user).intersection(MANAGER_ROLES))
+
+
 def can_edit_risk(user, risk):
     if user.is_superuser:
         return True

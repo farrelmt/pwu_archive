@@ -1,0 +1,12 @@
+{% extends 'risk_management/base.html' %}
+{% block title %}Edit PIC - {{ division.name }}{% endblock %}
+{% block content %}
+<div class="mb-6"><a href="{% url 'risk:divisions' %}" class="text-sm font-semibold text-slate-500">&larr; Divisi &amp; Penanggung Jawab</a><h1 class="mt-2 text-3xl font-bold">Edit PIC</h1><p class="mt-2 text-sm text-slate-500">{{ division.name }}</p></div>
+<form method="post" class="max-w-4xl space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <p class="text-sm text-slate-600">Pilih pengguna untuk setiap peran. Gunakan Ctrl (Windows) atau Command (Mac) untuk memilih lebih dari satu pengguna. Kosongkan pilihan untuk menghapus PIC pada peran tersebut.</p>
+    <div class="grid gap-5 sm:grid-cols-2">{% for field in form %}<div><label for="{{ field.id_for_label }}" class="block text-sm font-semibold text-slate-700">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}</div>{% endfor %}</div>
+    <div class="flex justify-end gap-3"><a href="{% url 'risk:divisions' %}" class="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold">Batal</a><button class="rounded-xl bg-blue-700 px-6 py-3 text-sm font-bold text-white">Simpan PIC</button></div>
+</form>
+{% endblock %}

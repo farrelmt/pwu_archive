@@ -1,11 +1,12 @@
 {% extends base_template %}
+{% load tz %}
 {% block title %}Log Aktivitas - {{ system_name }}{% endblock %}
 {% block content %}
 <section class="space-y-5">
     <div>
         <p class="text-xs font-bold uppercase tracking-[.18em] text-slate-500">Khusus Superuser</p>
         <h1 class="mt-1 text-2xl font-extrabold text-slate-900">Log Aktivitas</h1>
-        <p class="mt-1 text-sm text-slate-600">Riwayat perubahan data pengguna di {{ system_name }}.</p>
+        <p class="mt-1 text-sm text-slate-600">Riwayat tindakan pengguna, perubahan data, dan unduhan dokumen di {{ system_name }}.</p>
     </div>
 
     <form method="get" class="activity-log-form grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4">
@@ -64,13 +65,13 @@
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-[1050px] w-full text-left text-sm">
-                <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Waktu</th><th class="px-4 py-3">User</th><th class="px-4 py-3">Aktivitas</th><th class="px-4 py-3">Target</th><th class="px-4 py-3">IP</th><th class="px-4 py-3">Hasil</th><th class="px-4 py-3">Detail</th></tr></thead>
+                <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Waktu (WIB)</th><th class="px-4 py-3">User</th><th class="px-4 py-3">Aktivitas</th><th class="px-4 py-3">Target</th><th class="px-4 py-3">IP</th><th class="px-4 py-3">Hasil</th><th class="px-4 py-3">Detail</th></tr></thead>
                 <tbody class="divide-y divide-slate-100">
                     {% for log in page_obj %}
                     <tr class="align-top hover:bg-slate-50">
-                        <td class="whitespace-nowrap px-4 py-3">{{ log.created_at|date:"d/m/Y H:i:s" }}</td>
+                        <td class="whitespace-nowrap px-4 py-3">{% timezone "Asia/Jakarta" %}{{ log.created_at|date:"d/m/Y H:i:s" }}{% endtimezone %}</td>
                         <td class="px-4 py-3 font-bold">{{ log.actor_display_label }}</td>
-                        <td class="px-4 py-3"><span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold">{{ log.action }}</span></td>
+                        <td class="px-4 py-3"><span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold">{{ log.action }}</span><p class="mt-2 text-sm text-slate-600">{{ log.description|default:"-" }}</p></td>
                         <td class="px-4 py-3">{{ log.target_label|default:"-" }}</td>
                         <td class="whitespace-nowrap px-4 py-3">{{ log.ip_address|default:"-" }}</td>
                         <td class="px-4 py-3">{% if log.success %}<span class="font-bold text-emerald-700">Berhasil</span>{% else %}<span class="font-bold text-red-700">Gagal</span>{% endif %}</td>

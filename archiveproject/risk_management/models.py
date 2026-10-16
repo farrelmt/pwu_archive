@@ -114,6 +114,8 @@ class RiskRegister(models.Model):
         blank=True,
     )
     is_priority = models.BooleanField("Nominasi prioritas risiko", default=False)
+    identification_notes = models.TextField("Keterangan identifikasi", blank=True)
+    evaluation_notes = models.TextField("Keterangan analisis dan evaluasi", blank=True)
     mitigation_plan = models.TextField("Rencana mitigasi", blank=True)
     risk_owner = models.CharField("Pemilik risiko", max_length=160)
     risk_officer = models.CharField("Risk officer", max_length=160, blank=True)
@@ -264,6 +266,16 @@ class RiskMonitoring(models.Model):
     @property
     def final_level(self):
         return RiskRegister.level_for(self.final_score)
+
+    @property
+    def initial_level(self):
+        return RiskRegister.level_for(self.initial_score)
+
+    @property
+    def expected_level(self):
+        if self.expected_score is None:
+            return None
+        return RiskRegister.level_for(self.expected_score)
 
     @property
     def expected_score(self):

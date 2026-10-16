@@ -1,15 +1,22 @@
+from uuid import uuid4
+from zoneinfo import ZoneInfo
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Count, ExpressionWrapper, F, IntegerField, Prefetch, Q
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from accounts.activity_views import system_activity_log
 from accounts.audit import record_activity
 
-from .access import MANAGER_ROLES, can_edit_risk, risk_required, risk_write_required, risks_for_user
+from .access import MANAGER_ROLES, can_edit_risk, can_manage_division_pic, risk_required, risk_write_required, risks_for_user
 from .forms import (
+    AnnualRiskReportForm,
+    DivisionPICForm,
     RiskActionPlanForm,
     RiskMonitoringForm,
     RiskRegisterForm,
@@ -17,23 +24,33 @@ from .forms import (
 )
 from .models import (
     RiskActionPlan,
+    RiskAccess,
     RiskActivity,
     RiskDivision,
     RiskMonitoring,
     RiskRegister,
 )
 from .services import import_risk_workbook
+from .exports import annual_risk_workbook
 
 
-def _log(request, action, description, target, *, target_label=None):
+def _log(request, action, description, target=None, *, target_label=None, metadata=None, success=True):
+    details = {
+        "path": request.path,
+        "method": request.method,
+        "actor_name": request.user.get_full_name() or request.user.get_username(),
+    }
+    details.update(metadata or {})
     record_activity(
         category="RISK",
         action=action,
         description=description,
         request=request,
-        target_type=target.__class__.__name__,
-        target_id=target.pk,
-        target_label=target_label or str(target),
+        target_type=target.__class__.__name__ if target is not None else "RiskManagement",
+        target_id=target.pk if target is not None else "",
+        target_label=(target_label or (str(target) if target is not None else "Manajemen Risiko"))[:255],
+        metadata=details,
+        success=success,
     )
 
 
@@ -157,7 +174,7 @@ def dashboard(request):
         ).select_related("risk__division").prefetch_related("action_plans")
     )
     division_rows, monitoring_totals = _monitoring_summary(current_monitorings)
-    return render(request, "risk_management/dashboard.html", {
+    response = render(request, "risk_management/dashboard.html", {
         "total_risks": summary["total"],
         "open_risks": summary["open"],
         "overdue_risks": summary["overdue"],
@@ -170,11 +187,33 @@ def dashboard(request):
         "monitoring_totals": monitoring_totals,
         "division_rows": division_rows,
     })
+    _log(request, "RISK_DASHBOARD_VIEWED", "Membuka ringkasan Manajemen Risiko.")
+    return response
 
 
 @risk_required
 def risk_list(request):
     risks = risks_for_user(request.user)
+    sort_fields = {
+        "code": "risk_code", "title": "title", "division": "division__name",
+        "category": "category", "inherent": "sort_inherent",
+        "residual": "sort_residual", "status": "status",
+    }
+    sort_key = request.GET.get("sort", "")
+    direction = "desc" if request.GET.get("order") == "desc" else "asc"
+    if sort_key in sort_fields:
+        risks = risks.annotate(
+            sort_inherent=F("inherent_likelihood") * F("inherent_impact"),
+            sort_residual=F("residual_likelihood") * F("residual_impact"),
+        ).order_by(("-" if direction == "desc" else "") + sort_fields[sort_key], "pk")
+    else:
+        sort_key = ""
+    available_years = [item.year for item in risks.dates("created_at", "year", order="DESC")]
+    year = request.GET.get("year", "").strip()
+    if not (year.isascii() and year.isdigit() and len(year) == 4 and 1 <= int(year) <= 9999):
+        year = ""
+    if year:
+        risks = risks.filter(created_at__year=int(year))
     search = request.GET.get("q", "").strip()
     division = request.GET.get("division", "").strip()
     status = request.GET.get("status", "").strip()
@@ -193,11 +232,26 @@ def risk_list(request):
         risks = risks.filter(pk__in=ids)
     page_obj = Paginator(risks, 20).get_page(request.GET.get("page"))
     visible_divisions = RiskDivision.objects.filter(risks__in=risks_for_user(request.user)).distinct()
-    return render(request, "risk_management/risk_list.html", {
+    pagination_params = request.GET.copy()
+    pagination_params.pop("page", None)
+    response = render(request, "risk_management/risk_list.html", {
         "page_obj": page_obj, "divisions": visible_divisions,
+        "available_years": available_years,
+        "sorting_enabled": True, "sort_key": sort_key, "sort_order": direction,
+        "pagination_query": pagination_params.urlencode(),
         "statuses": RiskRegister.STATUS_CHOICES, "categories": RiskRegister.CATEGORY_CHOICES,
-        "filters": {"q": search, "division": division, "status": status, "category": category, "level": level},
+        "filters": {"q": search, "division": division, "status": status, "category": category, "level": level, "year": year},
     })
+    _log(
+        request, "RISK_REGISTER_VIEWED", "Membuka Register Risiko.",
+        metadata={
+            "year": year, "division": division, "search": search[:255],
+            "status": status, "category": category, "level": level,
+            "sort": sort_key, "order": direction, "page": page_obj.number,
+            "result_count": page_obj.paginator.count,
+        },
+    )
+    return response
 
 
 @risk_write_required
@@ -224,6 +278,11 @@ def workbook_import(request):
         except ValidationError as exc:
             form.add_error("workbook", exc)
         else:
+            _log(
+                request, "RISK_WORKBOOK_IMPORTED", f"Mengimpor workbook risiko untuk {stats['division']}.",
+                target_label=form.cleaned_data["workbook"].name,
+                metadata={"filename": form.cleaned_data["workbook"].name, **stats},
+            )
             messages.success(
                 request,
                 "Workbook berhasil diimpor untuk %(division)s: %(risks_created)s risiko baru, "
@@ -232,7 +291,89 @@ def workbook_import(request):
                 % stats,
             )
             return redirect("risk:risk_list")
+    if request.method == "POST":
+        upload = request.FILES.get("workbook")
+        _log(
+            request, "RISK_WORKBOOK_IMPORT_FAILED", "Impor workbook risiko gagal divalidasi.",
+            target_label=getattr(upload, "name", "Workbook risiko"),
+            metadata={"filename": getattr(upload, "name", ""), "error_fields": list(form.errors)},
+            success=False,
+        )
     return render(request, "risk_management/workbook_import.html", {"form": form})
+
+
+@risk_required
+def annual_report(request):
+    visible_risks = risks_for_user(request.user)
+    divisions = RiskDivision.objects.filter(risks__in=visible_risks).distinct().order_by("name")
+    initial = {"year": timezone.localdate().year}
+    if divisions.count() == 1:
+        initial["division"] = divisions.first().pk
+    if request.GET.get("year", "").isdigit():
+        initial["year"] = request.GET["year"]
+    if request.GET.get("division", "").isdigit():
+        initial["division"] = request.GET["division"]
+    form = AnnualRiskReportForm(
+        request.GET if request.GET.get("download") == "1" else None,
+        divisions=divisions, initial=initial,
+    )
+    if form.is_bound and form.is_valid():
+        year = form.cleaned_data["year"]
+        division = form.cleaned_data["division"]
+        risks = visible_risks.filter(division=division).filter(
+            Q(created_at__year=year) | Q(monitorings__year=year)
+        ).distinct().order_by("risk_code").prefetch_related(
+            "treatments", Prefetch("monitorings", queryset=RiskMonitoring.objects.filter(
+                year=year,
+            ).prefetch_related("action_plans")),
+        )
+        if not risks.exists():
+            form.add_error(None, "Tidak ada data risiko untuk tahun dan divisi yang dipilih.")
+        else:
+            download_mark = {
+                "version": 1,
+                "download_id": str(uuid4()),
+                "user_id": str(request.user.pk),
+                "username": request.user.get_username(),
+                "full_name": request.user.get_full_name() or request.user.get_username(),
+                "downloaded_at": timezone.now().astimezone(ZoneInfo("Asia/Jakarta")).isoformat(),
+                "year": year,
+                "division_id": division.pk,
+            }
+            try:
+                workbook = annual_risk_workbook(risks, division=division, year=year, download_mark=download_mark)
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                from django.utils.text import slugify
+                filename = f"Manajemen Risiko {year} - {slugify(division.name)}.xlsx"
+                response = FileResponse(
+                    workbook, as_attachment=True, filename=filename,
+                    content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+                response["Cache-Control"] = "private, no-store"
+                _log(
+                    request, "ANNUAL_REPORT_DOWNLOADED",
+                    f"Menyiapkan unduhan laporan tahunan {year} untuk {division.name}: {filename}.",
+                    division, target_label=filename,
+                    metadata={
+                        "year": year, "division_id": division.pk, "division": division.name,
+                        "filename": filename, "risk_count": len(risks), "format": "xlsx",
+                        "delivery": "response_prepared",
+                        "download_mark": download_mark,
+                    },
+                )
+                return response
+    if form.is_bound:
+        _log(
+            request, "ANNUAL_REPORT_DOWNLOAD_FAILED", "Permintaan unduhan laporan tahunan tidak dapat dipenuhi.",
+            metadata={
+                "year": request.GET.get("year", "")[:32],
+                "division_id": request.GET.get("division", "")[:32],
+                "error_fields": list(form.errors),
+            }, success=False,
+        )
+    return render(request, "risk_management/annual_report.html", {"form": form})
 
 
 @risk_required
@@ -273,9 +414,12 @@ def risk_detail(request, pk):
         ),
         pk=pk,
     )
-    return render(request, "risk_management/risk_detail.html", {
+    response = render(request, "risk_management/risk_detail.html", {
         "risk": risk, "can_edit_this": can_edit_risk(request.user, risk),
+        "monitoring_tables": [(item, [item]) for item in risk.monitorings.all()],
     })
+    _log(request, "RISK_VIEWED", f"Membuka detail risiko {risk.risk_code}.", risk, target_label=risk.risk_code)
+    return response
 
 
 @risk_write_required
@@ -304,7 +448,10 @@ def risk_edit(request, pk):
         risk.updated_by = request.user
         risk.save()
         RiskActivity.objects.create(risk=risk, actor=request.user, action="updated", description="Data risiko diperbarui.")
-        _log(request, "RISK_UPDATED", "Memperbarui data risiko.", risk, target_label=risk.risk_code)
+        _log(
+            request, "RISK_UPDATED", "Memperbarui data risiko.", risk, target_label=risk.risk_code,
+            metadata={"changed_fields": [form.fields[name].label for name in form.changed_data]},
+        )
         messages.success(request, f"{risk.risk_code} berhasil diperbarui.")
         return redirect("risk:risk_detail", pk=risk.pk)
     return render(request, "risk_management/risk_form.html", {"form": form, "risk": risk, "page_title": "Edit Risiko"})
@@ -312,15 +459,48 @@ def risk_edit(request, pk):
 
 @risk_required
 def divisions(request):
-    access_rows = RiskDivision.objects.prefetch_related("accesses__user")
-    if not request.user.is_superuser and not request.risk_accesses.filter(
-        role__in={"head_manager", "manager_member"}
-    ).exists():
-        division_ids = request.risk_accesses.exclude(
-            division__isnull=True
-        ).values_list("division_id", flat=True)
+    access_rows = RiskDivision.objects.prefetch_related(Prefetch(
+        "accesses", queryset=RiskAccess.objects.filter(is_active=True, user__is_active=True).select_related("user"),
+    ))
+    if not request.user.is_superuser and not any(
+        access.role in MANAGER_ROLES for access in request.risk_accesses
+    ):
+        division_ids = {
+            access.division_id for access in request.risk_accesses
+            if access.division_id is not None
+        }
         access_rows = access_rows.filter(pk__in=division_ids)
-    return render(request, "risk_management/divisions.html", {"divisions": access_rows})
+    return render(request, "risk_management/divisions.html", {
+        "divisions": access_rows, "can_manage_pic": can_manage_division_pic(request.user),
+    })
+
+
+@risk_required
+def division_pic_edit(request, pk):
+    if not can_manage_division_pic(request.user):
+        raise PermissionDenied("Hanya Manajemen Risiko yang dapat mengubah PIC divisi.")
+    division = get_object_or_404(RiskDivision, pk=pk, is_active=True)
+    form = DivisionPICForm(request.POST if request.method == "POST" else None, division=division)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            division = RiskDivision.objects.select_for_update().get(pk=division.pk)
+            before, after = {}, {}
+            for name, role in (("risk_officers", "risk_officer"), ("division_heads", "division_head")):
+                rows = RiskAccess.objects.filter(division=division, role=role)
+                before[role] = sorted(rows.filter(is_active=True).values_list("user_id", flat=True))
+                selected_ids = sorted(user.pk for user in form.cleaned_data[name])
+                after[role] = selected_ids
+                rows.exclude(user_id__in=selected_ids).filter(is_active=True).update(is_active=False)
+                for user_id in selected_ids:
+                    RiskAccess.objects.update_or_create(
+                        division=division, role=role, user_id=user_id, defaults={"is_active": True},
+                    )
+            if before != after:
+                _log(request, "DIVISION_PIC_UPDATED", f"Memperbarui PIC divisi {division.name}.", division,
+                     metadata={"before": before, "after": after})
+        messages.success(request, "PIC divisi berhasil diperbarui.")
+        return redirect("risk:divisions")
+    return render(request, "risk_management/division_pic_form.html", {"form": form, "division": division})
 
 
 @risk_required
@@ -335,6 +515,48 @@ def monitoring_report(request):
             risk__in=visible_risks, year=year, quarter=quarter,
         ).select_related("risk__division").prefetch_related("action_plans")
     )
+    sort_fields = {
+        "title": lambda m: m.risk.title.casefold(),
+        "initial_likelihood": lambda m: m.initial_likelihood,
+        "initial_impact": lambda m: m.initial_impact,
+        "initial_score": lambda m: m.initial_score,
+        "final_likelihood": lambda m: m.final_likelihood,
+        "final_impact": lambda m: m.final_impact,
+        "final_score": lambda m: m.final_score,
+        "expected_likelihood": lambda m: m.expected_likelihood,
+        "expected_impact": lambda m: m.expected_impact,
+        "expected_score": lambda m: m.expected_score,
+        "deviation": lambda m: m.deviation,
+        "notes": lambda m: m.evaluation_notes.casefold(),
+    }
+    action_sort_fields = {
+        "plan": "description", "realization": "realization",
+        "target_date": "target_date", "owner": "responsible_person",
+    }
+    sort_key = request.GET.get("sort", "")
+    direction = "desc" if request.GET.get("order") == "desc" else "asc"
+    if sort_key in action_sort_fields:
+        attribute = action_sort_fields[sort_key]
+        def action_value(action):
+            value = getattr(action, attribute)
+            return value.casefold() if isinstance(value, str) else value
+        for monitoring in monitorings:
+            plans = list(monitoring.action_plans.all())
+            present = [a for a in plans if action_value(a) is not None]
+            missing = [a for a in plans if action_value(a) is None]
+            present.sort(key=action_value, reverse=direction == "desc")
+            monitoring._prefetched_objects_cache["action_plans"] = present + missing
+        sort_fields[sort_key] = lambda m: next(
+            (action_value(a) for a in m.action_plans.all() if action_value(a) is not None), None
+        )
+    if sort_key in sort_fields:
+        value = sort_fields[sort_key]
+        present = [m for m in monitorings if value(m) is not None]
+        missing = [m for m in monitorings if value(m) is None]
+        present.sort(key=lambda m: (value(m), m.pk), reverse=direction == "desc")
+        monitorings = present + missing
+    else:
+        sort_key = ""
     division_rows, totals = _monitoring_summary(monitorings)
     priority_risks = sorted(
         [item for item in monitorings if item.final_score >= 10],
@@ -350,7 +572,7 @@ def monitoring_report(request):
         ) | {year},
         reverse=True,
     )
-    return render(request, "risk_management/monitoring_report.html", {
+    response = render(request, "risk_management/monitoring_report.html", {
         "year": year,
         "quarter": quarter,
         "quarter_label": dict(RiskMonitoring.QUARTER_CHOICES)[quarter],
@@ -362,7 +584,16 @@ def monitoring_report(request):
         "totals": totals,
         "priority_risks": priority_risks,
         "monitoring_count": len(monitorings),
+        "monitorings": monitorings,
+        "sorting_enabled": True, "sort_key": sort_key, "sort_order": direction,
     })
+    _log(
+        request, "MONITORING_REPORT_VIEWED", f"Membuka laporan pemantauan Triwulan {quarter} tahun {year}.",
+        target_label=f"Pemantauan TW{quarter} {year}",
+        metadata={"year": year, "quarter": quarter, "division": division,
+                  "sort": sort_key, "order": direction, "risk_count": len(monitorings)},
+    )
+    return response
 
 
 @risk_write_required

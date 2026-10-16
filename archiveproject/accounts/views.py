@@ -7,8 +7,7 @@ from django.conf import settings
 from django.core import signing
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import get_user_model
-from django.http import Http404
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from urllib.parse import urlencode, urlsplit
@@ -18,6 +17,26 @@ from accounts.access import has_system_access
 
 
 SYSTEM_HANDOFF_SALT = 'pwu-system-handoff'
+
+
+def _is_async_login(request):
+    return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+
+def _login_error(request, message, next_url, *, status=401):
+    if _is_async_login(request):
+        return JsonResponse({'ok': False, 'error': message}, status=status)
+    return render(
+        request,
+        'login.html',
+        _login_context(request, error=message, next_url=next_url),
+    )
+
+
+def _login_success(request, destination):
+    if _is_async_login(request):
+        return JsonResponse({'ok': True, 'redirect_url': destination})
+    return redirect(destination)
 
 
 def _system_hosts_and_url(request, system):
@@ -254,49 +273,39 @@ def login_view(request):
             if is_inventory:
                 from inventory.access import has_inventory_access
                 if not user.is_superuser and not has_inventory_access(user):
-                    return render(
+                    return _login_error(
                         request,
-                        'login.html',
-                        _login_context(
-                            request,
-                            error='Akun ini tidak memiliki akses ke Sistem Inventaris.',
-                            next_url=next_url,
-                        ),
+                        'Akun ini tidak memiliki akses ke Sistem Inventaris.',
+                        next_url,
+                        status=403,
                     )
             if is_risk:
                 from risk_management.access import has_risk_access
                 if not user.is_superuser and not has_risk_access(user):
-                    return render(
+                    return _login_error(
                         request,
-                        'login.html',
-                        _login_context(
-                            request,
-                            error='Akun ini tidak memiliki akses ke Sistem Manajemen Risiko.',
-                            next_url=next_url,
-                        ),
+                        'Akun ini tidak memiliki akses ke Sistem Manajemen Risiko.',
+                        next_url,
+                        status=403,
                     )
             if is_koperasi:
                 if not has_system_access(user, "koperasi"):
-                    return render(
+                    return _login_error(
                         request,
-                        'login.html',
-                        _login_context(
-                            request,
-                            error='Akun ini tidak memiliki akses ke Sistem Koperasi.',
-                            next_url=next_url,
-                        ),
+                        'Akun ini tidak memiliki akses ke Sistem Koperasi.',
+                        next_url,
+                        status=403,
                     )
             auth_login(request, user)
-            return redirect(_successful_login_destination(request, user, next_url))
-        else:
-            return render(
+            return _login_success(
                 request,
-                'login.html',
-                _login_context(
-                    request,
-                    error='Invalid username or password.',
-                    next_url=next_url,
-                ),
+                _successful_login_destination(request, user, next_url),
+            )
+        else:
+            return _login_error(
+                request,
+                'Invalid username or password.',
+                next_url,
             )
 
     return render(

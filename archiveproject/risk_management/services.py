@@ -218,6 +218,8 @@ def import_risk_workbook(uploaded_file, *, user, allowed_division_ids=None):
         risk.is_priority = any(_marked(row[10].value) for row in analysis)
         risk.risk_owner = owner or "-"
         risk.risk_officer = officer
+        risk.identification_notes = _lines(rows, 12)
+        risk.evaluation_notes = _lines(analysis, 12)
         analysis_first = analysis[0] if analysis else None
         risk.residual_likelihood = _score(
             analysis_first[6].value if analysis_first else None,

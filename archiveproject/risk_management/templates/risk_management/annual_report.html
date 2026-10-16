@@ -1,0 +1,14 @@
+{% extends 'risk_management/base.html' %}
+{% block title %}Unduh Laporan Tahunan Excel{% endblock %}
+{% block content %}
+<div class="max-w-2xl">
+    <h1 class="text-3xl font-bold">Laporan Tahunan Excel</h1>
+    <p class="mt-2 text-sm leading-6 text-slate-500">Pilih tahun dan divisi untuk mengunduh workbook sesuai template Manajemen Risiko. Laporan mencakup risiko yang dicatat atau dipantau pada tahun terpilih, beserta pemantauan seluruh triwulan pada tahun tersebut.</p>
+    <form method="get" class="mt-6 space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <input type="hidden" name="download" value="1">
+        {% if form.non_field_errors %}<div class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}<label class="block text-sm font-semibold" for="{{ field.id_for_label }}">{{ field.label }}{{ field }}{% for error in field.errors %}<span class="mt-1 block text-xs text-red-600">{{ error }}</span>{% endfor %}</label>{% endfor %}
+        <button class="rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-600">Unduh Excel</button>
+    </form>
+</div>
+{% endblock %}

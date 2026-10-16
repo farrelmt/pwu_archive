@@ -42,14 +42,12 @@
                 {% endfor %}
             {% endif %}
 
-            {% if error %}
-            <div role="alert" class="mb-5 flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div id="loginError" role="alert" {% if not error %}hidden{% endif %} class="mb-5 flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="mt-0.5 h-5 w-5 shrink-0">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.73 0-2.813-1.874-1.948-3.374L10.052 3.38c.866-1.5 3.03-1.5 3.896 0l7.355 12.746ZM12 16.5h.008v.008H12V16.5Z"/>
                 </svg>
-                <span>{{ error }}</span>
+                <span id="loginErrorMessage">{{ error }}</span>
             </div>
-            {% endif %}
 
             <form id="loginForm" method="POST" action="{% url 'accounts:login' %}" class="space-y-5">
                 {% csrf_token %}
@@ -123,6 +121,8 @@
     const eyeClosed = document.getElementById("eyeClosed");
     const loginForm = document.getElementById("loginForm");
     const loginSubmit = document.getElementById("loginSubmit");
+    const loginError = document.getElementById("loginError");
+    const loginErrorMessage = document.getElementById("loginErrorMessage");
     const loginRecoveryMessage = document.getElementById("loginRecoveryMessage");
     const loginContinue = document.getElementById("loginContinue");
     const loginSubmitLabel = loginSubmit?.textContent.trim() || "Masuk";
@@ -170,15 +170,43 @@
         );
     }
 
-    loginForm?.addEventListener("submit", event => {
+    loginForm?.addEventListener("submit", async event => {
+        event.preventDefault();
         if (loginForm.dataset.submitted === "true") {
-            event.preventDefault();
             return;
         }
         loginForm.dataset.submitted = "true";
         loginSubmit.setAttribute("aria-disabled", "true");
         loginSubmit.textContent = "Memproses...";
+        loginError.hidden = true;
         loginResetTimer = window.setTimeout(retryLoginNavigation, 20000);
+
+        const controller = new AbortController();
+        const requestTimeout = window.setTimeout(() => controller.abort(), 20000);
+        try {
+            const response = await fetch(loginForm.action, {
+                method: "POST",
+                body: new FormData(loginForm),
+                credentials: "same-origin",
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                signal: controller.signal,
+            });
+            const result = await response.json();
+            if (result.ok && result.redirect_url) {
+                window.location.replace(result.redirect_url);
+                return;
+            }
+            loginErrorMessage.textContent = result.error || "Login gagal. Silakan coba lagi.";
+            loginError.hidden = false;
+            resetLoginFormState();
+        } catch (error) {
+            await retryLoginNavigation();
+        } finally {
+            window.clearTimeout(requestTimeout);
+        }
     });
 
     // A restored login page may already have an authenticated session.

@@ -1,0 +1,5 @@
+{% include 'risk_management/monitoring_score_cells.html' with likelihood=monitoring.initial_likelihood impact=monitoring.initial_impact score=monitoring.initial_score level=monitoring.initial_level %}
+{% include 'risk_management/monitoring_score_cells.html' with likelihood=monitoring.final_likelihood impact=monitoring.final_impact score=monitoring.final_score level=monitoring.final_level %}
+{% include 'risk_management/monitoring_score_cells.html' with likelihood=monitoring.expected_likelihood impact=monitoring.expected_impact score=monitoring.expected_score level=monitoring.expected_level %}
+<td rowspan="{{ row_count }}" class="text-center font-bold">{{ monitoring.deviation|default_if_none:'-' }}</td>
+<td rowspan="{{ row_count }}" class="whitespace-pre-line">{{ monitoring.evaluation_notes|default:'-' }}{% if monitoring.business_environment_changes %}<p class="mt-3 font-semibold">Perubahan lingkungan bisnis</p>{{ monitoring.business_environment_changes }}{% endif %}</td>
