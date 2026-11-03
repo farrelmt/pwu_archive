@@ -1,6 +1,12 @@
 from datetime import date
+from unittest.mock import patch
+from io import BytesIO
+from openpyxl import load_workbook
 
+from django.core.cache import cache
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -18,6 +24,7 @@ from risk_management.models import RiskAccess, RiskDivision
         "pwujatim.site",
         "www.pwujatim.site",
         "archive.pwujatim.site",
+        "inventory.pwujatim.site",
         "localhost",
         "archive.localhost",
     ],
@@ -57,10 +64,38 @@ class HostRoutingTests(TestCase):
         self.assertNotContains(response, "/accounts/system/archive/")
         self.assertNotContains(response, "/accounts/system/koperasi/")
         self.assertContains(response, "Pengaturan")
+        self.assertContains(response, 'href="/" class="portal-nav-link portal-nav-active" title="Beranda"')
         self.assertContains(response, self.user.username)
         self.assertContains(response, "Keluar")
         self.assertNotContains(response, "Kelola Member")
         self.assertNotContains(response, "Masuk ke akun Anda")
+
+    def test_archive_dashboard_reuses_notification_count(self):
+        self.user.role = "sekretaris"
+        self.user.save(update_fields=["role"])
+        self.client.force_login(self.user)
+        cache.delete(f"action-notification-count:{self.user.pk}")
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get("/", HTTP_HOST="archive.pwujatim.site")
+
+        self.assertEqual(response.status_code, 200)
+        count_queries = [
+            query for query in queries.captured_queries
+            if 'COUNT(' in query['sql'] and 'disposisi_disposisi' in query['sql']
+        ]
+        self.assertEqual(len(count_queries), 1)
+
+    def test_inventory_pages_skip_archive_notification_cache(self):
+        self.client.force_login(self.user)
+        with patch("homepage.context_processors.cache.get") as cache_get:
+            response = self.client.get(
+                f"/anggota/{self.user.company_member_profile.pk}/",
+                HTTP_HOST="inventory.pwujatim.site",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        cache_get.assert_not_called()
 
     def test_directors_only_see_archive_on_main_portal(self):
         self.user.role = "direktur_utama"
@@ -254,6 +289,40 @@ class MemberManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Member & Akses")
         self.assertContains(response, "ordinary_user")
+        self.assertContains(response, 'title="Kelola Member" aria-current="page"')
+        self.assertContains(response, reverse("homepage:member_export"))
+
+    def test_member_export_contains_all_accounts_and_no_passwords(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse("homepage:member_export") + "?search=farrel",
+            HTTP_HOST="pwujatim.site",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("spreadsheetml", response["Content-Type"])
+        sheet = load_workbook(BytesIO(response.content), read_only=True).active
+        rows = list(sheet.values)
+        self.assertGreaterEqual(len(rows), 3)
+        self.assertIn("ordinary_user", [row[1] for row in rows[1:]])
+        self.assertNotIn("Password", rows[0])
+
+    def test_ordinary_user_cannot_export_members(self):
+        self.client.force_login(self.viewer)
+        response = self.client.get(
+            reverse("homepage:member_export"), HTTP_HOST="pwujatim.site"
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_member_export_treats_user_text_as_plain_text(self):
+        self.viewer.job_description = "=HYPERLINK(\"https://example.com\")"
+        self.viewer.save(update_fields=["job_description"])
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse("homepage:member_export"), HTTP_HOST="pwujatim.site"
+        )
+        sheet = load_workbook(BytesIO(response.content), read_only=True).active
+        row = next(row for row in sheet.values if row[1] == "ordinary_user")
+        self.assertEqual(row[9], "'=HYPERLINK(\"https://example.com\")")
 
     def test_named_member_admin_sees_member_link_in_portal_navbar(self):
         self.client.force_login(self.admin)
@@ -261,6 +330,13 @@ class MemberManagementTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Kelola Member")
+        settings_response = self.client.get(
+            reverse("homepage:personal_settings"), HTTP_HOST="pwujatim.site"
+        )
+        self.assertContains(
+            settings_response,
+            'href="/member/" class="portal-nav-link" title="Kelola Member"',
+        )
 
     def test_ordinary_user_cannot_open_member_page(self):
         self.client.force_login(self.viewer)
@@ -442,7 +518,7 @@ class MemberManagementTests(TestCase):
         self.assertTrue(get_user_model().objects.filter(pk=self.admin.pk).exists())
 
     def test_member_admin_can_remove_archive_access(self):
-        self.viewer.role = "akuntan"
+        self.viewer.role = "kadiv_akuntansi"
         self.viewer.save(update_fields=["role"])
         self.client.force_login(self.admin)
 
@@ -544,8 +620,8 @@ class DivisionUserListTests(TestCase):
         for username, role in (
             ("dirut", "direktur_utama"),
             ("it_pwu", "admin"),
-            ("akuntan1", "akuntan"),
-            ("akuntan2", "akuntan"),
+            ("akuntan1", "employee"),
+            ("akuntan2", "employee"),
         ):
             user, _created = user_model.objects.get_or_create(
                 username=username,
@@ -557,7 +633,7 @@ class DivisionUserListTests(TestCase):
         self.wirajatim_user, _ = user_model.objects.update_or_create(
             username="wirajatim_kso",
             defaults={
-                "role": "wirajatim_kso",
+                "role": "employee",
                 "first_name": "Wirajatim",
                 "last_name": "KSO",
                 "is_active": True,
@@ -595,11 +671,11 @@ class DivisionUserListTests(TestCase):
             f"Total pengguna: {visible_users}",
         )
 
-    def test_wirajatim_kso_login_role_and_password_are_created(self):
+    def test_wirajatim_kso_login_and_password_are_created(self):
         user = get_user_model().objects.get(username="wirajatim_kso")
 
-        self.assertEqual(user.role, "wirajatim_kso")
-        self.assertEqual(user.get_role_display(), "Wirajatim KSO")
+        self.assertEqual(user.role, "employee")
+        self.assertEqual(user.get_role_display(), "Pegawai")
         self.assertTrue(user.check_password("wirajatim_kso"))
 
     def test_non_editor_cannot_list_user_directory(self):

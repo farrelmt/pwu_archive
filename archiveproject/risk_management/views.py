@@ -228,8 +228,25 @@ def risk_list(request):
     if category in dict(RiskRegister.CATEGORY_CHOICES):
         risks = risks.filter(category=category)
     if level:
-        ids = [risk.pk for risk in risks if risk.risk_level.lower() == level.lower()]
-        risks = risks.filter(pk__in=ids)
+        score_ranges = {
+            "sangat rendah": (None, 3),
+            "rendah": (3, 5),
+            "sedang": (5, 10),
+            "tinggi": (10, 17),
+            "sangat tinggi": (17, None),
+        }
+        bounds = score_ranges.get(level.lower())
+        if bounds is None:
+            risks = risks.none()
+        else:
+            risks = risks.alias(
+                level_score=F("residual_likelihood") * F("residual_impact")
+            )
+            lower, upper = bounds
+            if lower is not None:
+                risks = risks.filter(level_score__gte=lower)
+            if upper is not None:
+                risks = risks.filter(level_score__lt=upper)
     page_obj = Paginator(risks, 20).get_page(request.GET.get("page"))
     visible_divisions = RiskDivision.objects.filter(risks__in=risks_for_user(request.user)).distinct()
     pagination_params = request.GET.copy()

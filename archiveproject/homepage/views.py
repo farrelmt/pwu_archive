@@ -7,12 +7,14 @@ from django.db.models.deletion import ProtectedError
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
+from django.http import HttpResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from .models import AppSetting
 from .forms import ReportForm
 from django.conf import settings
 from .services import inbox_disposisi_for_user, related_disposisi_for_user
+from .context_processors import notification_count_for_request
 from accounts.audit import record_activity
 from accounts.tasks import encoded_attachment, queue_email_message
 from accounts.models import ActivityLog
@@ -27,6 +29,8 @@ from urllib.parse import urlsplit
 from archiveproject.host_routing import portal_base_url, request_hostname, request_system
 from django.urls import reverse
 from disposisi.models import Disposisi
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 
 
 def _natural_sort_key(value):
@@ -51,6 +55,7 @@ def root(request):
             'direktur', 'direktur_utama', 'direktur_umum',
         }
         return render(request, 'landing.html', {
+            'active_page': 'home',
             'archive_url': archive_url,
             'koperasi_url': koperasi_url,
             'risk_url': risk_url,
@@ -137,6 +142,8 @@ def member_list(request):
     }
     rows.sort(key=key_functions[sort], reverse=direction == "desc")
     return render(request, "member_list.html", {
+        "active_page": "members",
+        "can_manage_members": True,
         "rows": rows,
         "search": search,
         "sort": sort,
@@ -144,6 +151,65 @@ def member_list(request):
         "member_groups": member_groups,
         "member_count": len(rows),
     })
+
+
+@member_admin_required
+@require_http_methods(["GET"])
+def member_export(request):
+    """Download every account, independent of the list search filter."""
+    def excel_text(value):
+        value = str(value or "")
+        return "'" + value if value.startswith(("=", "+", "-", "@", "\t", "\r")) else value
+
+    users = get_user_model().objects.all().order_by("username").prefetch_related(
+        "koperasi_accesses", "risk_accesses__division", "inventory_access"
+    )
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Akun"
+    sheet.append([
+        "Nama", "Username", "Email", "Telepon", "Divisi",
+        "Role Utama", "Role Koperasi", "Role Manajemen Risiko",
+        "Role Inventaris", "Deskripsi Pekerjaan", "Status",
+    ])
+    for cell in sheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1E3A8A")
+    for user in users:
+        koperasi_roles = ", ".join(
+            access.get_role_display() for access in user.koperasi_accesses.all()
+            if access.company_id is None and access.is_active
+        )
+        risk_roles = ", ".join(
+            access.get_role_display() for access in user.risk_accesses.all()
+            if access.is_active
+        )
+        try:
+            inventory_access = user.inventory_access
+        except ObjectDoesNotExist:
+            inventory_access = None
+        sheet.append([excel_text(value) for value in [
+            user.get_full_name(), user.username, user.email, user.phone,
+            member_division(user.username), user.get_role_display(),
+            koperasi_roles, risk_roles,
+            inventory_access.get_role_display()
+            if inventory_access and inventory_access.is_active else "",
+            user.job_description, "Aktif" if user.is_active else "Nonaktif",
+        ]])
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for column, width in {
+        "A": 28, "B": 25, "C": 32, "D": 20, "E": 28, "F": 28,
+        "G": 30, "H": 30, "I": 26, "J": 45, "K": 12,
+    }.items():
+        sheet.column_dimensions[column].width = width
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="seluruh-akun-pwu.xlsx"'
+    response["Cache-Control"] = "private, no-store"
+    workbook.save(response)
+    return response
 
 
 @member_admin_required
@@ -282,7 +348,34 @@ def personal_settings(request):
         "last_name": user.last_name,
         "email": user.email,
         "phone": user.phone,
+        "job_description": user.job_description,
     }
+    role_rows = []
+    if user.role:
+        role_rows.append({"system": "Role utama", "roles": [user.get_role_display()]})
+    koperasi_roles = list(
+        user.koperasi_accesses.filter(is_active=True, company__isnull=True)
+    )
+    if koperasi_roles:
+        role_rows.append({
+            "system": "Sistem Koperasi",
+            "roles": [access.get_role_display() for access in koperasi_roles],
+        })
+    risk_roles = list(user.risk_accesses.filter(is_active=True))
+    if risk_roles:
+        role_rows.append({
+            "system": "Manajemen Risiko",
+            "roles": [access.get_role_display() for access in risk_roles],
+        })
+    try:
+        inventory_access = user.inventory_access
+    except ObjectDoesNotExist:
+        inventory_access = None
+    if inventory_access and inventory_access.is_active:
+        role_rows.append({
+            "system": "Sistem Inventaris",
+            "roles": [inventory_access.get_role_display()],
+        })
     form = PersonalSettingsForm(request.POST or None, instance=user)
     if request.method == "POST" and form.is_valid():
         password_changed = bool(form.cleaned_data.get("new_password"))
@@ -309,7 +402,14 @@ def personal_settings(request):
         messages.success(request, "Informasi akun berhasil diperbarui.")
         settings_url = reverse("homepage:personal_settings")
         return redirect(f"{settings_url}?from={origin}" if origin else settings_url)
-    return render(request, "personal_settings.html", {"form": form, "return_url": return_url})
+    return render(request, "personal_settings.html", {
+        "active_page": "settings",
+        "can_manage_members": can_manage_members(user),
+        "form": form,
+        "return_url": return_url,
+        "division": member_division(user.username),
+        "role_rows": role_rows,
+    })
 
 
 @login_required(login_url='accounts:login')
@@ -327,7 +427,7 @@ def dashboard(request):
     ])
     if request.user.can_edit_disposisi:
         links.append({"page": "divisi", "url": "divisi", "title": "Divisi", "icon": "divisi"})
-    pending_online_count = inbox_disposisi_for_user(request.user).count()
+    pending_online_count = notification_count_for_request(request, refresh=True)
     return render(request, 'dashboard.html', {
         'links': links,
         'pending_online_count': pending_online_count,

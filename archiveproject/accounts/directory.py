@@ -11,7 +11,7 @@ MEMBER_DIVISION_ORDER = (
     "Humas",
     "HRD",
     "Wirajatim KSO",
-    "Administrator Sistem",
+    "Divisi Umum & Legal",
     "Lainnya",
 )
 
@@ -35,7 +35,7 @@ def member_division(username):
     if username in {"direktur", "direktur_utama"}:
         return "Direksi"
     if username in {"it_pwu", "farrel_mt"}:
-        return "Administrator Sistem"
+        return "Divisi Umum & Legal"
     for prefixes, division_name in prefix_groups:
         if username.startswith(prefixes):
             return division_name

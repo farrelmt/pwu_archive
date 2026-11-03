@@ -1,0 +1,43 @@
+{% extends 'inventory/base.html' %}
+{% block title %}Internet{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+        <p class="text-sm font-semibold uppercase tracking-wider text-violet-700">Inventaris Jaringan</p>
+        <h1 class="mt-1 text-3xl font-bold">Internet</h1>
+        <p class="mt-2 text-sm text-slate-500">Modem dan WiFi yang sudah tercatat, serta perangkat baru dengan kategori Modem/Wifi.</p>
+    </div>
+    {% if request.can_edit_inventory %}<a href="{% url 'inventory:item_create' %}?category=modem_wifi" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white hover:bg-violet-800">+ Tambah Modem/Wifi</a>{% endif %}
+</div>
+
+<section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-200 px-5 py-4 text-sm text-slate-600">{{ page_obj.paginator.count }} perangkat tercatat</div>
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[1100px] text-left text-sm">
+            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr><th class="px-5 py-3">Perangkat</th><th class="px-5 py-3">Nomor SIM / Operator</th><th class="px-5 py-3">Penanggung Jawab</th><th class="px-5 py-3">Paket Internet</th><th class="px-5 py-3">Batas Berlaku</th><th class="px-5 py-3">Lokasi</th><th class="px-5 py-3 text-right">Aksi</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for item in page_obj %}
+                <tr class="hover:bg-slate-50">
+                    <td class="px-5 py-4"><p class="font-bold">{{ item.item_name }}</p><p class="mt-1 text-xs text-slate-500">{{ item.asset_code }}{% if item.brand %} · {{ item.brand }}{% endif %}</p></td>
+                    <td class="px-5 py-4">{% if item.current_package %}{{ item.current_package.sim_number|default:'-' }}<p class="text-xs text-slate-500">{{ item.current_package.operator|default:'-' }}</p>{% else %}-{% endif %}</td>
+                    <td class="px-5 py-4">{{ item.current_package.person_in_charge|default:'-' }}</td>
+                    <td class="px-5 py-4">{{ item.current_package.package_name|default:'-' }}</td>
+                    <td class="px-5 py-4">{% if item.current_package %}<span class="font-semibold {% if item.current_package.is_expired %}text-red-700{% endif %}">{{ item.current_package.expires_on|date:'d M Y' }}</span>{% if item.current_package.is_expired %}<p class="text-xs text-red-700">Lewat batas</p>{% endif %}{% else %}-{% endif %}</td>
+                    <td class="px-5 py-4">{{ item.location|default:'-' }}</td>
+                    <td class="px-5 py-4 text-right"><a href="{% url 'inventory:internet_detail' item.pk %}" class="font-bold text-violet-700 hover:text-violet-900">Detail &amp; Riwayat</a></td>
+                </tr>
+                {% empty %}<tr><td colspan="7" class="px-5 py-12 text-center text-slate-500">Belum ada perangkat modem atau WiFi yang tercatat.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="mt-4 flex items-center justify-between gap-3 text-sm" aria-label="Navigasi perangkat Internet">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="rounded-xl border bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">&larr; Sebelumnya</a>{% else %}<span></span>{% endif %}
+    <span class="text-slate-600">Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="rounded-xl border bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">Berikutnya &rarr;</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

@@ -76,7 +76,7 @@ class DisposisiSecurityTests(TestCase):
         )
         self.wirajatim_user, _ = SystemUser.objects.update_or_create(
             username="wirajatim_kso",
-            defaults={"role": "wirajatim_kso", "is_active": True},
+            defaults={"role": "employee", "is_active": True},
         )
         self.main_director = SystemUser.objects.create_user(
             username="main-director",
@@ -451,7 +451,7 @@ class DisposisiSecurityTests(TestCase):
         self.assertNotContains(response, ">director<")
         self.assertNotContains(response, ">main-director<")
 
-    def test_forwarded_to_document_list_uses_wirajatim_kso_at_bottom(self):
+    def test_forwarded_to_document_list_omits_wirajatim_kso(self):
         self.client.force_login(self.editor)
         preview_response = self.client.get(
             reverse("disposisi:previewdisposisi", args=[self.disposisi.pk])
@@ -461,24 +461,14 @@ class DisposisiSecurityTests(TestCase):
             preview_response,
             '<span class="checkbox-text">Direktur</span>',
         )
-        self.assertContains(preview_response, "Wirajatim KSO")
-        preview_html = preview_response.content.decode()
-        self.assertLess(
-            preview_html.index("Kepala SPI"),
-            preview_html.index("Wirajatim KSO"),
-        )
+        self.assertNotContains(preview_response, "Wirajatim KSO")
 
         self.submit_online()
         self.client.force_login(self.director)
         online_response = self.client.get(
             reverse("disposisi:isionline", args=[self.disposisi.pk])
         )
-        self.assertContains(online_response, "Wirajatim KSO")
-        online_html = online_response.content.decode()
-        self.assertLess(
-            online_html.index("Kepala SPI"),
-            online_html.index("Wirajatim KSO"),
-        )
+        self.assertNotContains(online_response, "Wirajatim KSO")
 
     def submit_online(self, roles=None):
         self.client.force_login(self.editor)
@@ -521,31 +511,15 @@ class DisposisiSecurityTests(TestCase):
         self.assertContains(offline_response, "Upload Disposisi Offline")
         self.assertContains(offline_response, "Bagikan Kepada")
         self.assertContains(offline_response, "Kepala Divisi Keuangan")
-        self.assertContains(offline_response, 'value="wirajatim_kso"')
-        self.assertContains(offline_response, "Wirajatim KSO")
+        self.assertNotContains(offline_response, 'value="wirajatim_kso"')
+        self.assertNotContains(offline_response, "Wirajatim KSO")
         self.assertNotContains(offline_response, 'value="direktur"')
 
-    def test_offline_can_be_shared_to_wirajatim_kso(self):
+    def test_offline_cannot_be_shared_to_wirajatim_kso(self):
         response = self.upload_offline(["wirajatim_kso"])
 
-        self.assertRedirects(
-            response,
-            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk]),
-        )
-        self.disposisi.refresh_from_db()
-        self.assertEqual(self.disposisi.status_pengajuan, "SELESAI")
-        recipient = self.disposisi.shared_recipients.get()
-        self.assertEqual(recipient.role, "wirajatim_kso")
-        self.assertEqual(recipient.get_role_display(), "Wirajatim KSO")
-
-        preview_response = self.client.get(
-            reverse("disposisi:previewdisposisi", args=[self.disposisi.pk])
-        )
-        self.assertContains(
-            preview_response,
-            '<div class="checkbox">✓</div><span class="checkbox-text">Wirajatim KSO</span>',
-            html=True,
-        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(self.disposisi.shared_recipients.exists())
 
     def test_offline_upload_with_recipients_completes_progress(self):
         response = self.upload_offline(
@@ -1451,7 +1425,7 @@ class DisposisiSecurityTests(TestCase):
         self.assertNotContains(approved_detail, 'id="shareDeadline"')
         self.assertNotContains(approved_detail, 'id="openDeadlinePicker"')
         self.assertNotContains(approved_detail, 'value="direktur"')
-        self.assertContains(approved_detail, 'value="wirajatim_kso"')
+        self.assertNotContains(approved_detail, 'value="wirajatim_kso"')
 
         response = self.client.post(
             reverse("disposisi:shareonline", args=[self.disposisi.pk]),
@@ -1672,49 +1646,14 @@ class DisposisiSecurityTests(TestCase):
         self.assertNotContains(response, 'role="textbox"')
         self.assertNotContains(response, ">Kirim<")
 
-    def test_wirajatim_kso_can_receive_and_complete_online_disposisi(self):
-        self.share_online(["wirajatim_kso"])
-        self.client.force_login(self.wirajatim_user)
-        detail_url = reverse(
-            "disposisi:detaildisposisi",
-            args=[self.disposisi.pk],
-        )
-        receive_url = reverse(
-            "disposisi:receiveonline",
-            args=[self.disposisi.pk],
-        )
-        complete_url = reverse(
-            "disposisi:completeonline",
-            args=[self.disposisi.pk],
-        )
-
-        detail_response = self.client.get(detail_url)
-        self.assertContains(detail_response, "Wirajatim KSO")
-        self.assertContains(detail_response, receive_url)
-        self.assertContains(detail_response, "Terima")
+    def test_wirajatim_kso_cannot_be_selected_for_online_disposisi(self):
+        response = self.share_online(["wirajatim_kso"])
 
         self.assertRedirects(
-            self.client.post(receive_url),
-            detail_url,
+            response,
+            reverse("disposisi:detaildisposisi", args=[self.disposisi.pk]),
         )
-        self.assertRedirects(
-            self.client.post(
-                complete_url,
-                {
-                    "activity_description": "Tindak lanjut Wirajatim selesai.",
-                    "deadline": (timezone.localdate() + timedelta(days=7)).isoformat(),
-                    "follow_up_result": "Dokumen Wirajatim telah diproses.",
-                },
-            ),
-            detail_url,
-        )
-        self.disposisi.refresh_from_db()
-        self.assertEqual(self.disposisi.status_pengajuan, "VERIFIKASI")
-        recipient = self.disposisi.shared_recipients.get(
-            role="wirajatim_kso",
-        )
-        self.assertIsNotNone(recipient.received_at)
-        self.assertIsNotNone(recipient.agreed_at)
+        self.assertFalse(self.disposisi.shared_recipients.exists())
 
     def test_director_recipients_are_informational_and_do_not_block_completion(self):
         self.share_online([

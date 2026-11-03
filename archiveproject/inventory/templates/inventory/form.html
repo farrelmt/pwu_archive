@@ -3,7 +3,7 @@
 {% block content %}
 <div class="mb-6">
     <h1 class="text-3xl font-bold">{{ page_title }}</h1>
-    <p class="mt-2 text-sm text-slate-500">{% if inventory_item_form %}Hanya nama barang yang wajib diisi. Isian lainnya boleh kosong.{% else %}Isi data utama. Detail tambahan dapat diisi bila diperlukan.{% endif %}</p>
+    <p class="mt-2 text-sm text-slate-500">Isi nama barang dan pilih kepemilikan. Jika memilih Third Party, isi nama pemiliknya.</p>
 </div>
 <form method="post" enctype="multipart/form-data" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
     {% csrf_token %}
@@ -11,18 +11,29 @@
     {% if inventory_item_form %}
         <div class="grid gap-5 md:grid-cols-2">
             {% for field in basic_fields %}
-                <div><label class="text-sm font-semibold text-slate-700" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}</div>
+                {% if field.name == 'location' %}
+                    {% include 'inventory/includes/location_field.html' %}
+                {% else %}
+                    {% if field.name != 'software_password_clear' or item.software_password_encrypted %}<div data-inventory-field {% if field.name == 'condition' %}data-physical-only{% if form.section == 'software' %} hidden{% endif %}{% elif 'software_' in field.name %}data-software-only{% if form.section != 'software' %} hidden{% endif %}{% endif %}><label class="text-sm font-semibold text-slate-700" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}</div>{% endif %}
+                {% endif %}
+                {% if field.name == 'condition' %}{% include 'inventory/includes/item_dates.html' %}{% endif %}
             {% endfor %}
         </div>
-        <details class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4" {% if form.errors %}open{% endif %}>
+        <details class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4" {% if form.errors or form.section == 'software' %}open{% endif %}>
             <summary class="cursor-pointer select-none font-bold text-slate-700">Detail tambahan (opsional)</summary>
-            <p class="mt-1 text-sm text-slate-500">Merek, foto, spesifikasi, harga, lokasi, garansi, dan catatan.</p>
+            <p class="mt-1 text-sm text-slate-500" data-physical-only{% if form.section == 'software' %} hidden{% endif %}>Merek, spesifikasi, harga, garansi, dan foto untuk barang fisik.</p>
+            <p class="mt-1 text-sm text-slate-500" data-software-only{% if form.section != 'software' %} hidden{% endif %}>Developer, versi, lisensi, biaya, dan cara pembayaran software.</p>
             <div class="mt-5 grid gap-5 md:grid-cols-2">
                 {% for field in detail_fields %}
-                    <div data-inventory-field class="{% if field.name == 'specifications' or field.name == 'notes' %}md:col-span-2{% endif %}"><label class="text-sm font-semibold text-slate-700" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}</div>
+                    {% if field.name != 'notes' %}<div data-inventory-field {% if field.name == 'photo' %}data-physical-only{% if form.section == 'software' %} hidden{% endif %}{% elif field.name == 'software_billing_type' or field.name == 'software_billing_cycle' or field.name == 'software_payment_method' or field.name == 'software_renewal_date' %}data-software-only{% if form.section != 'software' %} hidden{% endif %}{% endif %}{% if field.name == 'software_billing_cycle' or field.name == 'software_renewal_date' %} data-subscription-only{% endif %} class="{% if field.name == 'specifications' %}md:col-span-2{% endif %}"><label class="text-sm font-semibold text-slate-700" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}</div>{% endif %}
                 {% endfor %}
             </div>
         </details>
+        <div data-inventory-field class="mt-6">
+            <label class="text-sm font-semibold text-slate-700" for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+            {{ form.notes }}
+            {% for error in form.notes.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
     {% else %}
         <div class="grid gap-5 md:grid-cols-2">
             {% for field in form %}
@@ -30,7 +41,8 @@
             {% endfor %}
         </div>
     {% endif %}
-    <div class="mt-7 flex justify-end gap-3">
+    <div class="mt-7 flex flex-wrap items-center justify-end gap-3">
+        {% if item %}<a href="{% url 'inventory:item_delete' item.pk %}" class="mr-auto rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700 hover:bg-red-100">Hapus Barang</a>{% endif %}
         {% if cancel_pk %}<a href="{% url cancel_url cancel_pk %}" class="rounded-xl border bg-white px-5 py-3 text-sm font-bold text-slate-700">Batal</a>{% else %}<a href="{% url cancel_url %}" class="rounded-xl border bg-white px-5 py-3 text-sm font-bold text-slate-700">Batal</a>{% endif %}
         <button class="rounded-xl bg-violet-700 px-6 py-3 text-sm font-bold text-white hover:bg-violet-800">Simpan</button>
     </div>

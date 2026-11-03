@@ -7,8 +7,11 @@
     <title>Member & Akses - PWU Jatim</title>
     <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
     {% tailwind_css %}
+    {% include "includes/portal_sidebar_styles.html" %}
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+    {% include "includes/portal_sidebar.html" %}
+    <div id="portalMain" class="portal-main">
     <header class="border-b border-slate-200 bg-white">
         <div class="mx-auto flex max-w-[96rem] items-center justify-between gap-4 px-5 py-4">
             <div>
@@ -16,7 +19,7 @@
                 <h1 class="text-2xl font-extrabold text-blue-950">Member & Akses</h1>
             </div>
             <div class="flex gap-2">
-                <a href="{% url 'homepage:dashboard' %}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Kembali</a>
+                <a href="{% url 'homepage:member_export' %}" class="rounded-xl border border-green-700 bg-white px-4 py-2 text-sm font-bold text-green-800 hover:bg-green-50">Export Excel</a>
                 <a href="{% url 'homepage:member_create' %}" class="rounded-xl bg-blue-800 px-4 py-2 text-sm font-bold text-white hover:bg-blue-900">+ Member Baru</a>
             </div>
         </div>
@@ -74,5 +77,7 @@
             {% endfor %}
         </div>
     </main>
+    </div>
+    {% include "includes/portal_sidebar_script.html" %}
 </body>
 </html>

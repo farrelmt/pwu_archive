@@ -1,0 +1,32 @@
+{% extends 'inventory/base.html' %}
+{% block title %}Permintaan{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-4">
+    <div><h1 class="text-3xl font-bold">Permintaan</h1><p class="mt-1 text-sm text-slate-500">Daftar permintaan pengadaan dan perbaikan barang.</p></div>
+    <a class="rounded-xl bg-violet-700 px-4 py-2 font-bold text-white hover:bg-violet-800" href="{% url 'inventory:request_new' %}">Buat Permintaan</a>
+</div>
+<div class="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <table class="w-full min-w-[1050px] text-left text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr>
+            <th scope="col" class="px-4 py-3">No</th>
+            <th scope="col" class="px-4 py-3">Nama</th>
+            <th scope="col" class="px-4 py-3">Divisi</th>
+            <th scope="col" class="px-4 py-3">Jenis Permintaan</th>
+            <th scope="col" class="px-4 py-3">Keperluan</th>
+            <th scope="col" class="px-4 py-3">Deskripsi</th>
+            <th scope="col" class="px-4 py-3">Tanggal</th>
+            <th scope="col" class="px-4 py-3">Tindakan</th>
+        </tr></thead>
+        <tbody class="divide-y divide-slate-100">{% for entry in entries %}<tr class="align-top hover:bg-slate-50">
+            <td class="px-4 py-4">{{ forloop.counter }}</td>
+            <td class="px-4 py-4 font-semibold">{{ entry.applicant_name }}</td>
+            <td class="px-4 py-4">{{ entry.division|default:'—' }}</td>
+            <td class="px-4 py-4">{{ entry.get_request_type_display }}</td>
+            <td class="max-w-xs px-4 py-4">{{ entry.purpose|truncatechars:90 }}</td>
+            <td class="max-w-xs px-4 py-4">{{ entry.items.0.description|default:'—'|truncatechars:90 }}{% if entry.items|length > 1 %} <span class="text-slate-500">(+{{ entry.items|length|add:'-1' }} lainnya)</span>{% endif %}</td>
+            <td class="whitespace-nowrap px-4 py-4">{{ entry.submitted_on|date:'d M Y' }}</td>
+            <td class="whitespace-nowrap px-4 py-4"><a class="font-semibold text-violet-700 hover:underline" href="{% url 'inventory:request_detail' entry.public_id %}">Lihat</a><span class="mx-2 text-slate-300">|</span><a class="font-semibold text-violet-700 hover:underline" href="{% url 'inventory:request_download' entry.public_id %}" download="permintaan-{{ entry.pk }}.pdf">Unduh PDF</a></td>
+        </tr>{% empty %}<tr><td colspan="8" class="px-4 py-10 text-center text-slate-500">Belum ada permintaan.</td></tr>{% endfor %}</tbody>
+    </table>
+</div>
+{% endblock %}

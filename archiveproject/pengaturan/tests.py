@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from accounts.models import ActivityLog
+from inventory.models import InventoryAccess
 
 
 @override_settings(
@@ -28,6 +30,59 @@ class ProfilePasswordSecurityTests(TestCase):
             "phone": "08123456789",
             **extra,
         }
+
+    def test_settings_shows_division_and_roles_without_edit_controls(self):
+        self.user.username = "manajemen_risiko_profile"
+        self.user.save(update_fields=["username"])
+        InventoryAccess.objects.update_or_create(
+            user=self.user, defaults={"role": "participant", "is_active": True}
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertContains(response, "Divisi Manajemen Risiko")
+        self.assertContains(response, "Kepala Divisi Manajemen Risiko")
+        self.assertContains(response, "Sistem Inventaris")
+        self.assertNotContains(response, 'name="role"')
+        self.assertNotContains(response, 'name="division"')
+
+    def test_settings_sidebar_links_to_portal_homepage(self):
+        response = self.client.get(self.url)
+
+        self.assertContains(response, 'aria-label="Navigasi akun"')
+        self.assertContains(response, 'id="portalMobileToggle"')
+        self.assertContains(response, 'id="portalCollapse"')
+        self.assertContains(response, 'href="/" class="portal-nav-link" title="Beranda"')
+        self.assertContains(response, 'href="/settings/" class="portal-nav-link portal-nav-active" title="Pengaturan"')
+        self.assertNotContains(response, ">Kembali</a>")
+
+    def test_user_can_save_job_description(self):
+        response = self.client.post(
+            self.url,
+            self.profile_payload(job_description="Menyusun laporan risiko dan memantau tindak lanjut."),
+        )
+
+        self.assertRedirects(response, self.url)
+        self.user.refresh_from_db()
+        self.assertEqual(
+            self.user.job_description,
+            "Menyusun laporan risiko dan memantau tindak lanjut.",
+        )
+        self.assertContains(self.client.get(self.url), self.user.job_description)
+        self.assertIn(
+            "job_description",
+            ActivityLog.objects.filter(action="PROFILE_UPDATED").latest("created_at").metadata["changed_fields"],
+        )
+
+    def test_job_description_has_length_limit(self):
+        response = self.client.post(
+            self.url,
+            self.profile_payload(job_description="x" * 1001),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.job_description, "")
 
     def test_password_change_requires_current_password(self):
         response = self.client.post(
@@ -157,11 +212,11 @@ class SettingsReturnDestinationTests(TestCase):
                 self.assertEqual(response.status_code, 302)
                 self.assertEqual(response.url, "https://pwujatim.site/settings/?from=archive")
 
-    def test_back_and_cancel_return_to_archive(self):
+    def test_cancel_returns_to_archive(self):
         response = self.client.get("/settings/?from=archive", HTTP_HOST="pwujatim.site")
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'href="/accounts/system/archive/"', count=2)
+        self.assertContains(response, 'href="/accounts/system/archive/"', count=1)
         launch_response = self.client.get(
             "/accounts/system/archive/", HTTP_HOST="pwujatim.site"
         )
@@ -178,7 +233,7 @@ class SettingsReturnDestinationTests(TestCase):
             HTTP_HOST="pwujatim.site",
             HTTP_REFERER="https://archive.pwujatim.site/",
         )
-        self.assertContains(response, 'href="/accounts/system/archive/"', count=2)
+        self.assertContains(response, 'href="/accounts/system/archive/"', count=1)
 
         response = self.client.post(
             "/settings/",

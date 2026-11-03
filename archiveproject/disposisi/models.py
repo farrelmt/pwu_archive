@@ -51,7 +51,6 @@ class Disposisi(models.Model):
         ('kadiv_legal_umum', 'Kepala Divisi Legal dan Umum'),
         ('kadiv_aset', 'Kepala Divisi Aset'),
         ('kadiv_spi', 'Kepala SPI'),
-        ('wirajatim_kso', 'Wirajatim KSO'),
     ]
     OFFLINE_SHARE_ROLE_CHOICES = [
         ('direktur_utama', 'Direktur Utama'),
@@ -62,7 +61,6 @@ class Disposisi(models.Model):
         ('kadiv_legal_umum', 'Kepala Divisi Legal dan Umum'),
         ('kadiv_aset', 'Kepala Divisi Aset'),
         ('kadiv_spi', 'Kepala SPI'),
-        ('wirajatim_kso', 'Wirajatim KSO'),
     ]
     INFORMATIONAL_RECIPIENT_ROLES = frozenset({
         'direktur_utama',

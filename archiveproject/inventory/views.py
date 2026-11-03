@@ -1,22 +1,26 @@
 from decimal import Decimal
-from uuid import uuid4
 
+from cryptography.fernet import InvalidToken
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Count, DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Q, Sum, Value
 from django.db.models.functions import Coalesce, Lower
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_http_methods
 
 from archiveproject.host_routing import portal_base_url
 from accounts.activity_views import system_activity_log
 from accounts.audit import record_activity
 
 from .access import inventory_required, inventory_write_required
-from .forms import InventoryItemForm, InventoryReportForm, PersonalInventoryItemForm, NewInventoryReportForm, category_section
-from .models import CompanyMember, InventoryActivity, InventoryItem, InventoryReport
+from .forms import InternetPackageForm, InternetSimCardForm, InventoryItemForm, InventoryReportForm, PersonalInventoryItemForm, NewInventoryReportForm, HARDWARE_CATEGORIES, category_section
+from .exports import build_inventory_workbook
+from .codes import asset_code_for_ownership
+from .credentials import decrypt_software_password
+from .models import CompanyMember, InternetPackageHistory, InventoryActivity, InventoryItem, InventoryReport
 from .services import sync_company_member
 
 
@@ -48,6 +52,38 @@ def dashboard(request):
         member = sync_company_member(request.user)
         return redirect("inventory:member_detail", pk=member.pk)
     items = InventoryItem.objects.all()
+    search = request.GET.get("q", "").strip()
+    category = request.GET.get("category", "").strip()
+    status = request.GET.get("status", "").strip()
+    condition = request.GET.get("condition", "").strip()
+    ownership = request.GET.get("ownership", "").strip()
+    sort = request.GET.get("sort", "newest")
+    sort_options = {
+        "newest": ("-created_at", "-pk"),
+        "oldest": ("created_at", "pk"),
+        "name_asc": ("item_name", "asset_code", "pk"),
+        "name_desc": ("-item_name", "-asset_code", "-pk"),
+        "code_asc": ("asset_code", "pk"),
+        "code_desc": ("-asset_code", "-pk"),
+        "quantity_desc": ("-quantity", "item_name", "pk"),
+        "quantity_asc": ("quantity", "item_name", "pk"),
+    }
+    if sort not in sort_options:
+        sort = "newest"
+    if search:
+        items = items.filter(
+            Q(asset_code__icontains=search) | Q(item_name__icontains=search)
+            | Q(serial_number__icontains=search) | Q(assigned_to__full_name__icontains=search)
+            | Q(third_party_name__icontains=search)
+        )
+    if category in dict(InventoryItem.CATEGORY_CHOICES):
+        items = items.filter(category=category)
+    if status in dict(InventoryItem.STATUS_CHOICES):
+        items = items.filter(status=status)
+    if condition in dict(InventoryItem.CONDITION_CHOICES):
+        items = items.filter(condition=condition).exclude(category="software")
+    if ownership in dict(InventoryItem.OWNERSHIP_CHOICES):
+        items = items.filter(ownership=ownership)
     money_field = DecimalField(max_digits=20, decimal_places=2)
     summary = items.aggregate(
         item_count=Coalesce(Sum("quantity"), 0),
@@ -63,14 +99,42 @@ def dashboard(request):
             Value(Decimal("0"), output_field=money_field),
         ),
     )
+    page_obj = Paginator(
+        items.select_related("assigned_to").order_by(*sort_options[sort]), 20
+    ).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)
+    query_string = params.urlencode()
+    page_query = f"{query_string}&" if query_string else ""
     return render(request, "inventory/dashboard.html", {
         "member_count": CompanyMember.objects.filter(user__isnull=False, status="active").count(),
         "item_count": summary["item_count"],
         "assigned_count": summary["assigned_count"],
         "maintenance_count": summary["maintenance_count"],
         "total_value": summary["total_value"],
-        "recent_items": items.select_related("assigned_to").order_by("-created_at")[:8],
+        "page_obj": page_obj,
+        "page_query": page_query,
+        "categories": InventoryItem.CATEGORY_CHOICES,
+        "statuses": InventoryItem.STATUS_CHOICES,
+        "conditions": InventoryItem.CONDITION_CHOICES,
+        "ownerships": InventoryItem.OWNERSHIP_CHOICES,
+        "filters": {"q": search, "category": category, "status": status, "condition": condition, "ownership": ownership},
+        "sort": sort,
     })
+
+
+@inventory_write_required
+@require_http_methods(["GET"])
+def export_inventory_excel(request):
+    workbook = build_inventory_workbook()
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"laporan-inventaris-pwu-{timezone.localdate():%Y-%m-%d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Cache-Control"] = "private, no-store"
+    workbook.save(response)
+    return response
 
 
 @inventory_write_required
@@ -174,12 +238,10 @@ def member_detail(request, pk):
     if not request.can_edit_inventory and member.user_id != request.user.pk:
         raise PermissionDenied("Anda hanya dapat melihat inventaris milik sendiri.")
     assigned_items = member.inventory_items.all().order_by("category", "item_name", "asset_code")
-    hardware_items = assigned_items.filter(
-        category__in={"computer", "laptop", "peripheral", "component", "network", "hardware"}
-    )
+    hardware_items = assigned_items.filter(category__in=HARDWARE_CATEGORIES)
     software_items = assigned_items.filter(category="software")
     other_items = assigned_items.exclude(
-        category__in={"computer", "laptop", "peripheral", "component", "network", "hardware", "software"}
+        category__in=HARDWARE_CATEGORIES | {"software"}
     )
     return render(request, "inventory/member_detail.html", {
         "member": member,
@@ -198,15 +260,16 @@ def my_inventory(request):
 @inventory_required
 def personal_item_create(request):
     member = sync_company_member(request.user)
-    initial = {}
+    initial = {"ownership": "personal"}
     requested_category = request.GET.get("category")
     if requested_category in dict(InventoryItem.CATEGORY_CHOICES):
         initial["category"] = requested_category
     form = PersonalInventoryItemForm(request.POST if request.method == "POST" else None, request.FILES or None, initial=initial, section=category_section(requested_category))
     if request.method == "POST" and form.is_valid():
         item = form.save(commit=False)
-        item.asset_code = f"PRIBADI-{uuid4().hex[:10].upper()}"
-        item.purchase_price = 0
+        item.asset_code = asset_code_for_ownership(item.ownership)
+        if item.category != "software":
+            item.purchase_price = 0
         item.quantity = 1
         item.status = "assigned"
         item.assigned_to = member
@@ -226,7 +289,85 @@ def personal_item_create(request):
         )
         messages.success(request, "Inventaris Anda berhasil ditambahkan.")
         return redirect("inventory:member_detail", pk=member.pk)
-    return render(request, "inventory/personal_item_form.html", {"form": form, "member": member})
+    return render(request, "inventory/personal_item_form.html", {
+        "form": form, "member": member, "page_title": "Tambah Inventaris Saya",
+    })
+
+
+def _can_edit_personal_item(user, item):
+    return (
+        item.created_by_id == user.pk
+        and item.assigned_to_id is not None
+        and item.assigned_to.user_id == user.pk
+    )
+
+
+@inventory_required
+def personal_item_edit(request, pk):
+    item = get_object_or_404(InventoryItem.objects.select_related("assigned_to"), pk=pk)
+    if not _can_edit_personal_item(request.user, item):
+        raise PermissionDenied("Anda hanya dapat mengedit inventaris yang Anda tambahkan sendiri.")
+    form = PersonalInventoryItemForm(
+        request.POST if request.method == "POST" else None,
+        request.FILES or None,
+        instance=item,
+        section=category_section(item.category),
+    )
+    if request.method == "POST" and form.is_valid():
+        item = form.save(commit=False)
+        item.asset_code = asset_code_for_ownership(item.ownership, item.asset_code)
+        item.updated_by = request.user
+        item.save()
+        InventoryActivity.objects.create(
+            item=item, actor=request.user, action="updated",
+            description="Inventaris pribadi diperbarui oleh pengguna.",
+        )
+        _log(
+            request,
+            "PERSONAL_ITEM_UPDATED",
+            "Memperbarui inventaris yang ditambahkan sendiri.",
+            item,
+            target_label=f"{item.asset_code} - {item.item_name}",
+        )
+        messages.success(request, f"{item.asset_code} berhasil diperbarui.")
+        return redirect("inventory:item_detail", pk=item.pk)
+    return render(request, "inventory/personal_item_form.html", {
+        "form": form, "member": item.assigned_to, "item": item,
+        "page_title": "Edit Inventaris Saya",
+    })
+
+
+@inventory_required
+@require_http_methods(["GET", "POST"])
+def personal_item_delete(request, pk):
+    item = get_object_or_404(InventoryItem.objects.select_related("assigned_to"), pk=pk)
+    if not _can_edit_personal_item(request.user, item):
+        raise PermissionDenied("Anda hanya dapat menghapus inventaris yang Anda tambahkan sendiri.")
+    return _delete_item(request, item, "inventory:member_detail", item.assigned_to_id)
+
+
+def _delete_item(request, item, return_url, return_pk=None):
+    if request.method == "POST":
+        if item.reports.exists():
+            messages.error(request, "Barang memiliki riwayat laporan. Barang tidak dapat dihapus.")
+            return redirect("inventory:item_detail", pk=item.pk)
+        if item.internet_packages.exists() or item.sim_cards.exists():
+            messages.error(request, "Perangkat memiliki kartu SIM atau riwayat paket internet. Perangkat tidak dapat dihapus.")
+            return redirect("inventory:item_detail", pk=item.pk)
+        item_pk = item.pk
+        item_label = f"{item.asset_code} - {item.item_name}"
+        item.delete()
+        record_activity(
+            request=request, category="INVENTORY", action="ITEM_DELETED",
+            description="Menghapus barang inventaris.", target_type="InventoryItem",
+            target_id=item_pk, target_label=item_label,
+        )
+        messages.success(request, f"{item_label} berhasil dihapus.")
+        return redirect(return_url, pk=return_pk) if return_pk else redirect(return_url)
+    return render(request, "inventory/item_confirm_delete.html", {
+        "item": item,
+        "cancel_url": "inventory:personal_item_edit" if return_pk else "inventory:item_edit",
+    })
 
 
 @inventory_write_required
@@ -236,19 +377,94 @@ def item_list(request):
     category = request.GET.get("category", "").strip()
     status = request.GET.get("status", "").strip()
     condition = request.GET.get("condition", "").strip()
+    ownership = request.GET.get("ownership", "").strip()
     if search:
-        items = items.filter(Q(asset_code__icontains=search) | Q(item_name__icontains=search) | Q(serial_number__icontains=search) | Q(assigned_to__full_name__icontains=search))
+        items = items.filter(Q(asset_code__icontains=search) | Q(item_name__icontains=search) | Q(serial_number__icontains=search) | Q(assigned_to__full_name__icontains=search) | Q(third_party_name__icontains=search))
     if category in dict(InventoryItem.CATEGORY_CHOICES):
         items = items.filter(category=category)
     if status in dict(InventoryItem.STATUS_CHOICES):
         items = items.filter(status=status)
     if condition in dict(InventoryItem.CONDITION_CHOICES):
-        items = items.filter(condition=condition)
+        items = items.filter(condition=condition).exclude(category="software")
+    if ownership in dict(InventoryItem.OWNERSHIP_CHOICES):
+        items = items.filter(ownership=ownership)
     return render(request, "inventory/item_list.html", {
         "page_obj": Paginator(items, 20).get_page(request.GET.get("page")),
         "categories": InventoryItem.CATEGORY_CHOICES, "statuses": InventoryItem.STATUS_CHOICES,
         "conditions": InventoryItem.CONDITION_CHOICES,
-        "filters": {"q": search, "category": category, "status": status, "condition": condition},
+        "ownerships": InventoryItem.OWNERSHIP_CHOICES,
+        "filters": {"q": search, "category": category, "status": status, "condition": condition, "ownership": ownership},
+    })
+
+
+def _internet_items():
+    return InventoryItem.objects.filter(
+        Q(category="modem_wifi")
+        | Q(item_name__icontains="modem")
+        | Q(item_name__icontains="wifi")
+        | Q(item_name__icontains="wi-fi")
+    )
+
+
+@inventory_required
+def internet_list(request):
+    if not request.can_view_internet:
+        raise PermissionDenied("Anda tidak memiliki akses ke Internet.")
+    items = _internet_items().select_related("assigned_to").prefetch_related(
+        Prefetch("internet_packages", queryset=InternetPackageHistory.objects.all(), to_attr="package_history")
+    )
+    page_obj = Paginator(items, 20).get_page(request.GET.get("page"))
+    today = timezone.localdate()
+    for item in page_obj:
+        item.current_package = next(
+            (entry for entry in item.package_history if entry.effective_on <= today), None
+        )
+    return render(request, "inventory/internet_list.html", {
+        "page_obj": page_obj,
+    })
+
+
+@inventory_required
+@require_http_methods(["GET", "POST"])
+def internet_detail(request, pk):
+    if not request.can_view_internet:
+        raise PermissionDenied("Anda tidak memiliki akses ke Internet.")
+    item = get_object_or_404(_internet_items().select_related("assigned_to"), pk=pk)
+    history = list(item.internet_packages.select_related("created_by", "sim_card"))
+    sim_cards = list(item.sim_cards.all())
+    today = timezone.localdate()
+    current = next((entry for entry in history if entry.effective_on <= today), None)
+    form_type = request.POST.get("form_type") if request.method == "POST" else None
+    if form_type not in (None, "sim", "package"):
+        return HttpResponseBadRequest("Jenis formulir tidak dikenal.")
+    sim_form = InternetSimCardForm(request.POST if form_type == "sim" else None)
+    package_form = InternetPackageForm(
+        request.POST if form_type == "package" else None,
+        item=item,
+        initial={"sim_card": current.sim_card_id} if current else None,
+    )
+    if form_type == "sim" and sim_form.is_valid():
+        sim_card = sim_form.save(commit=False)
+        sim_card.item = item
+        sim_card.created_by = request.user
+        sim_card.save()
+        _log(request, "INTERNET_SIM_ADDED", "Menambahkan kartu SIM untuk perangkat internet.", item)
+        messages.success(request, "Kartu SIM berhasil ditambahkan.")
+        return redirect("inventory:internet_detail", pk=item.pk)
+    if form_type == "package" and package_form.is_valid():
+        entry = package_form.save(commit=False)
+        entry.item = item
+        entry.created_by = request.user
+        entry.sim_number = entry.sim_card.sim_number
+        entry.operator = entry.sim_card.operator
+        entry.person_in_charge = entry.sim_card.person_in_charge
+        entry.save()
+        _log(request, "INTERNET_PACKAGE_ADDED", "Mencatat paket internet untuk kartu SIM.", item)
+        messages.success(request, "Riwayat paket internet berhasil ditambahkan.")
+        return redirect("inventory:internet_detail", pk=item.pk)
+    return render(request, "inventory/internet_detail.html", {
+        "item": item, "current": current, "history": history,
+        "sim_cards": sim_cards, "sim_form": sim_form, "package_form": package_form,
     })
 
 
@@ -259,8 +475,32 @@ def item_detail(request, pk):
         assigned_user_id = item.assigned_to.user_id if item.assigned_to else None
         if assigned_user_id != request.user.pk:
             raise PermissionDenied("Anda hanya dapat melihat inventaris milik sendiri.")
-    item_reports = item.reports.all() if request.user.is_superuser else item.reports.filter(reporter=request.user)
-    return render(request, "inventory/item_detail.html", {"item": item, "item_reports": item_reports})
+    item_reports = item.reports.all() if request.can_manage_inventory else item.reports.filter(reporter=request.user)
+    return render(request, "inventory/item_detail.html", {
+        "item": item, "item_reports": item_reports,
+        "can_edit_personal_item": _can_edit_personal_item(request.user, item),
+        "item_type_label": {
+            "inventaris": "Inventaris", "hardware": "Hardware", "software": "Software",
+        }.get(category_section(item.category), "Inventaris"),
+    })
+
+
+@inventory_required
+@require_http_methods(["POST"])
+def software_password_reveal(request, pk):
+    item = get_object_or_404(InventoryItem.objects.select_related("assigned_to"), pk=pk)
+    if not request.can_edit_inventory and not _participant_owns_item(request, item):
+        raise PermissionDenied("Anda hanya dapat melihat akun software milik sendiri.")
+    if item.category != "software" or not item.software_password_encrypted:
+        raise Http404("Password software belum tersimpan.")
+    try:
+        password = decrypt_software_password(item.software_password_encrypted)
+    except InvalidToken:
+        return JsonResponse({"error": "Password tidak dapat dibuka."}, status=422)
+    _log(request, "SOFTWARE_PASSWORD_VIEWED", "Melihat password akun software.", item)
+    response = JsonResponse({"password": password})
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @inventory_required
@@ -312,15 +552,19 @@ def item_create(request):
         "cancel_url": "inventory:item_list",
         "inventory_item_form": True,
         "basic_fields": [
-            form["asset_code"], form["item_name"], form["category"],
-            form["received_date"], form["condition"], form["status"],
-            form["assigned_to"],
+            form["asset_code"], form["item_name"], form["item_type"], form["category"],
+            form["condition"], form["status"],
+            form["assigned_to"], form["location"], form["ownership"], form["third_party_name"],
+            form["software_username"], form["software_email"],
+            form["software_password"], form["software_password_clear"],
         ],
         "detail_fields": [
             form["brand"], form["model"],
-            *([form["serial_number"]] if "serial_number" in form.fields else []), form["photo"],
+            form["serial_number"], form["photo"],
             form["specifications"], form["purchase_price"], form["quantity"],
-            form["location"], form["warranty_expiry"], form["notes"],
+            form["software_billing_type"], form["software_billing_cycle"],
+            form["software_payment_method"], form["software_renewal_date"],
+            form["warranty_expiry"], form["notes"],
         ],
     })
 
@@ -350,22 +594,34 @@ def item_edit(request, pk):
         return redirect("inventory:item_detail", pk=item.pk)
     return render(request, "inventory/form.html", {
         "form": form,
+        "item": item,
         "page_title": "Edit Barang Inventaris",
         "cancel_url": "inventory:item_detail",
         "cancel_pk": item.pk,
         "inventory_item_form": True,
         "basic_fields": [
-            form["asset_code"], form["item_name"], form["category"],
-            form["received_date"], form["condition"], form["status"],
-            form["assigned_to"],
+            form["asset_code"], form["item_name"], form["item_type"], form["category"],
+            form["condition"], form["status"],
+            form["assigned_to"], form["location"], form["ownership"], form["third_party_name"],
+            form["software_username"], form["software_email"],
+            form["software_password"], form["software_password_clear"],
         ],
         "detail_fields": [
             form["brand"], form["model"],
-            *([form["serial_number"]] if "serial_number" in form.fields else []), form["photo"],
+            form["serial_number"], form["photo"],
             form["specifications"], form["purchase_price"], form["quantity"],
-            form["location"], form["warranty_expiry"], form["notes"],
+            form["software_billing_type"], form["software_billing_cycle"],
+            form["software_payment_method"], form["software_renewal_date"],
+            form["warranty_expiry"], form["notes"],
         ],
     })
+
+
+@inventory_write_required
+@require_http_methods(["GET", "POST"])
+def item_delete(request, pk):
+    item = get_object_or_404(InventoryItem, pk=pk)
+    return _delete_item(request, item, "inventory:item_list")
 
 
 def _participant_owns_item(request, item):
@@ -375,7 +631,7 @@ def _participant_owns_item(request, item):
 @inventory_required
 def report_list(request):
     reports = InventoryReport.objects.select_related("item", "reporter", "item__assigned_to")
-    if not request.user.is_superuser:
+    if not request.can_manage_inventory:
         reports = reports.filter(reporter=request.user)
     status = request.GET.get("status", "").strip()
     if status in dict(InventoryReport.STATUS_CHOICES):
@@ -429,15 +685,15 @@ def report_detail(request, pk):
     report = get_object_or_404(
         InventoryReport.objects.select_related("item", "reporter", "item__assigned_to"), pk=pk
     )
-    if not request.user.is_superuser and report.reporter_id != request.user.pk:
+    if not request.can_manage_inventory and report.reporter_id != request.user.pk:
         raise PermissionDenied("Anda hanya dapat melihat laporan yang Anda buat sendiri.")
     return render(request, "inventory/report_detail.html", {"report": report})
 
 
 @inventory_required
 def report_advance(request, pk):
-    if not request.user.is_superuser:
-        raise PermissionDenied("Hanya superuser yang dapat mengubah status laporan.")
+    if not request.can_manage_inventory:
+        raise PermissionDenied("Hanya manajer inventaris atau superuser yang dapat mengubah status laporan.")
     if request.method != "POST":
         raise PermissionDenied("Status laporan hanya dapat diubah melalui tombol tindakan.")
     report = get_object_or_404(InventoryReport.objects.select_related("item"), pk=pk)

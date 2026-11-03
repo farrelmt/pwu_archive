@@ -1,0 +1,50 @@
+{% extends 'inventory/base.html' %}
+{% block title %}Buat Permintaan{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-6xl">
+    <a href="{% url 'inventory:request_list' %}" class="text-sm font-semibold text-slate-500 hover:text-violet-700">&larr; Daftar Permintaan</a>
+    <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-950">Buat Permintaan</h1>
+    <p class="mt-2 text-sm text-slate-500">Isi informasi pengajuan dan rincian barang atau jasa yang dibutuhkan.</p>
+
+    <form method="post" class="mt-6 space-y-6">{% csrf_token %}
+        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <h2 class="text-lg font-bold text-slate-900">Informasi Pengajuan</h2>
+            <p class="mt-1 text-sm text-slate-500">Data Anda terisi otomatis dan dapat diubah sebelum disimpan.</p>
+            <div class="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+                {% for field in form.visible_fields %}{% if field.name == 'request_type' or field.name == 'submitted_on' or field.name == 'applicant_name' or field.name == 'division' %}
+                <div><label for="{{ field.id_for_label }}" class="text-sm font-bold text-slate-700">{{ field.label }} <span class="text-red-600">*</span></label><div class="mt-1">{{ field }}</div>{% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}</div>
+                {% endif %}{% endfor %}
+            </div>
+            <div class="mt-5"><label for="{{ form.purpose.id_for_label }}" class="text-sm font-bold text-slate-700">{{ form.purpose.label }} <span class="text-red-600">*</span></label><div class="mt-1">{{ form.purpose }}</div>{% for error in form.purpose.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}</div>
+        </section>
+
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+                <div><h2 class="text-lg font-bold text-slate-900">Rincian Permintaan</h2><p class="mt-1 text-sm text-slate-500">Isi baris pertama. Gunakan baris berikutnya jika ada barang atau jasa tambahan.</p></div>
+                <span class="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">Maksimal 5 baris</span>
+            </div>
+            <p class="border-b border-slate-100 bg-slate-50 px-5 py-2 text-xs text-slate-500 sm:hidden">Geser tabel ke samping untuk melihat semua kolom.</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm" style="min-width: 870px; table-layout: fixed;">
+                    <colgroup><col style="width: 44px;"><col><col style="width: 60px;"><col style="width: 60px;"><col style="width: 60px;"><col style="width: 226px;"></colgroup>
+                    <thead class="bg-violet-50 text-xs font-bold uppercase tracking-wide text-violet-900"><tr>
+                        <th scope="col" class="border-b border-violet-100 px-3 py-3 text-center">No</th>
+                        <th scope="col" class="border-b border-violet-100 px-3 py-3">Deskripsi <span class="text-red-600">*</span></th>
+                        <th scope="col" class="border-b border-violet-100 px-1 py-3 text-center" style="font-size: 10px; line-height: 1.25; letter-spacing: 0; overflow-wrap: anywhere;"><span class="block">Stok</span><span class="block">Tersedia</span></th>
+                        <th scope="col" aria-label="Jumlah Permintaan" class="border-b border-violet-100 px-1 py-3 text-center" style="font-size: 9px; line-height: 1.25; letter-spacing: 0; white-space: nowrap;">Permintaan<span class="text-red-600">*</span></th>
+                        <th scope="col" class="border-b border-violet-100 px-1 py-3 text-center" style="font-size: 10px; line-height: 1.25; letter-spacing: 0; overflow-wrap: anywhere;">Satuan <span class="text-red-600">*</span></th>
+                        <th scope="col" class="border-b border-violet-100 px-3 py-3">Spesifikasi/Keterangan</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-slate-100">{% for row in rows %}
+                    <tr class="align-top {% cycle 'bg-white' 'bg-slate-50' %}">
+                        <th scope="row" class="px-3 py-4 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 font-bold text-violet-800">{{ forloop.counter }}</span></th>
+                        {% for field in row %}<td class="{% if field.name|slice:6 == 'stock_' or field.name|slice:9 == 'quantity_' or field.name|slice:5 == 'unit_' %}px-1{% else %}px-3{% endif %} py-4"><label for="{{ field.id_for_label }}" class="sr-only">Baris {{ forloop.parentloop.counter }} {{ field.label }}</label>{{ field }}{% for error in field.errors %}<p class="mt-1 text-xs font-medium text-red-600">{{ error }}</p>{% endfor %}</td>{% endfor %}
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            <div class="border-t border-slate-100 bg-slate-50 px-5 py-3 text-xs text-slate-500 sm:px-6"><span class="font-bold text-red-600">*</span> Wajib diisi pada setiap baris yang digunakan.</div>
+        </section>
+        <div class="flex justify-end gap-3"><a href="{% url 'inventory:request_list' %}" class="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Batal</a><button type="submit" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white hover:bg-violet-800">Simpan Permintaan</button></div>
+    </form>
+</div>
+{% endblock %}

@@ -1,11 +1,63 @@
 from unittest.mock import patch
+from importlib import import_module
+from types import SimpleNamespace
 
+from django.apps import apps
 from django.conf import settings
-from django.test import TestCase, override_settings
+from django.db import connection
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from .models import ActivityLog, SystemUser
+from .access import has_archive_access
+from inventory.models import CompanyMember
+
+
+class ArchiveRoleTests(SimpleTestCase):
+    def test_removed_roles_are_not_archive_roles(self):
+        for role in ("akuntan", "risk", "inventory", "wirajatim_kso"):
+            with self.subTest(role=role):
+                self.assertNotIn(role, dict(SystemUser.ROLE_CHOICES))
+                user = SystemUser(username="former-role", role=role, is_active=True)
+                self.assertFalse(has_archive_access(user))
+
+
+class ArchiveRoleMigrationTests(TestCase):
+    def test_existing_akuntan_becomes_pegawai_without_changing_password(self):
+        user = SystemUser.objects.create_user(
+            username="former-accountant", password="existing-password", role="akuntan"
+        )
+        member = CompanyMember.objects.get(user=user)
+        member.position = "Akuntan"
+        member.save(update_fields=["position"])
+        self.assertEqual(member.position, "Akuntan")
+        migration = import_module("accounts.migrations.0024_remove_akuntan_role")
+
+        migration.convert_akuntan_users(apps, SimpleNamespace(connection=connection))
+
+        user.refresh_from_db()
+        self.assertEqual(user.role, "employee")
+        self.assertTrue(user.check_password("existing-password"))
+        member.refresh_from_db()
+        self.assertEqual(member.position, "Pegawai")
+
+    def test_cross_system_roles_become_pegawai(self):
+        users = [
+            SystemUser.objects.create_user(
+                username=f"former-{role}", password="existing-password", role=role
+            )
+            for role in ("risk", "inventory", "wirajatim_kso")
+        ]
+        migration = import_module("accounts.migrations.0025_remove_cross_system_account_roles")
+
+        migration.convert_users_to_employee(apps, SimpleNamespace(connection=connection))
+
+        for user in users:
+            user.refresh_from_db()
+            self.assertEqual(user.role, "employee")
+            self.assertTrue(user.check_password("existing-password"))
+            self.assertEqual(CompanyMember.objects.get(user=user).position, "Pegawai")
 
 
 class SharedProfileSignalTests(TestCase):
@@ -486,7 +538,7 @@ class LoginThemeTests(TestCase):
         user = SystemUser.objects.create_user(
             username="koperasi-login-test",
             password="password-for-tests",
-            role="akuntan",
+            role="employee",
         )
 
         response = self.client.post(
@@ -540,7 +592,7 @@ class LoginThemeTests(TestCase):
         user = SystemUser.objects.create_user(
             username="koperasi-authorized-login-test",
             password="password-for-tests",
-            role="akuntan",
+            role="employee",
         )
         KoperasiAccess.objects.create(user=user, role="auditor")
 

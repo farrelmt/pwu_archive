@@ -1,5 +1,93 @@
-{% extends 'inventory/base.html' %}{% block title %}Ringkasan Inventaris{% endblock %}{% block content %}
-<div class="flex flex-wrap items-end justify-between gap-4"><div><p class="text-sm font-semibold uppercase tracking-wider text-violet-700">Asset Management</p><h1 class="mt-1 text-3xl font-bold">Ringkasan Inventaris</h1><p class="mt-2 text-sm text-slate-500">Pantau anggota perusahaan, aset, penugasan, dan kondisi barang.</p></div>{% if request.can_edit_inventory %}<a href="{% url 'inventory:item_create' %}" class="rounded-xl bg-violet-700 px-4 py-3 text-sm font-bold text-white">+ Barang</a>{% endif %}</div>
-<div class="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-5"><div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Anggota Aktif</p><p class="mt-2 text-3xl font-bold">{{ member_count }}</p></div><div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Jumlah Barang</p><p class="mt-2 text-3xl font-bold text-violet-800">{{ item_count }}</p></div><div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Digunakan</p><p class="mt-2 text-3xl font-bold text-blue-700">{{ assigned_count }}</p></div><div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Perbaikan</p><p class="mt-2 text-3xl font-bold text-amber-700">{{ maintenance_count }}</p></div><div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Nilai Inventaris</p><p class="mt-2 text-xl font-bold text-emerald-700">Rp {{ total_value|floatformat:0 }}</p></div></div>
-<section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="flex items-center justify-between border-b px-5 py-4"><h2 class="font-bold">Barang Terbaru</h2><a href="{% url 'inventory:item_list' %}" class="text-sm font-semibold text-violet-700">Lihat semua</a></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Kode / Barang</th><th class="px-5 py-3">Kategori</th><th class="px-5 py-3">Jumlah</th><th class="px-5 py-3">Pengguna</th><th class="px-5 py-3">Status</th></tr></thead><tbody class="divide-y">{% for item in recent_items %}<tr><td class="px-5 py-4"><a class="font-bold hover:text-violet-700" href="{% url 'inventory:item_detail' item.pk %}">{{ item.asset_code }}</a><p class="text-slate-500">{{ item.item_name }}</p></td><td class="px-5 py-4">{{ item.get_category_display }}</td><td class="px-5 py-4">{{ item.quantity }}</td><td class="px-5 py-4">{{ item.assigned_to.full_name|default:'-' }}</td><td class="px-5 py-4">{{ item.get_status_display }}</td></tr>{% empty %}<tr><td colspan="5" class="px-5 py-12 text-center text-slate-500">Belum ada barang inventaris.</td></tr>{% endfor %}</tbody></table></div></section>
+{% extends 'inventory/base.html' %}
+{% block title %}Ringkasan Inventaris{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><p class="text-sm font-semibold uppercase tracking-wider text-violet-700">Asset Management</p><h1 class="mt-1 text-3xl font-bold">Ringkasan Inventaris</h1><p class="mt-2 text-sm text-slate-500">Pantau anggota perusahaan, aset, penugasan, dan kondisi barang.</p></div>
+    {% if request.can_edit_inventory %}<div class="flex flex-wrap gap-2">
+        <a href="{% url 'inventory:export_inventory_excel' %}" class="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-4 py-3 text-sm font-bold text-violet-800 shadow-sm hover:bg-violet-50" title="Unduh seluruh inventaris, tanpa filter">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+            Unduh Laporan Excel
+        </a>
+        <a href="{% url 'inventory:item_create' %}" class="rounded-xl bg-violet-700 px-4 py-3 text-sm font-bold text-white">+ Barang</a>
+    </div>{% endif %}
+</div>
+
+<form method="get" class="mt-6 rounded-2xl border bg-white p-4 shadow-sm" aria-label="Filter dan urutkan inventaris">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <label class="block text-xs font-semibold text-slate-600">Cari barang
+            <input name="q" value="{{ filters.q }}" placeholder="Kode, nama, serial, pengguna" class="mt-1 w-full rounded-xl border px-3 py-2.5 text-sm font-normal text-slate-900">
+        </label>
+        <label class="block text-xs font-semibold text-slate-600">Kategori
+            <select name="category" class="mt-1 w-full rounded-xl border px-3 py-2.5 text-sm font-normal text-slate-900">
+                <option value="">Semua kategori</option>
+                {% for value, label in categories %}<option value="{{ value }}" {% if filters.category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="block text-xs font-semibold text-slate-600">Status
+            <select name="status" class="mt-1 w-full rounded-xl border px-3 py-2.5 text-sm font-normal text-slate-900">
+                <option value="">Semua status</option>
+                {% for value, label in statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="block text-xs font-semibold text-slate-600">Kondisi
+            <select name="condition" class="mt-1 w-full rounded-xl border px-3 py-2.5 text-sm font-normal text-slate-900">
+                <option value="">Semua kondisi</option>
+                {% for value, label in conditions %}<option value="{{ value }}" {% if filters.condition == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="block text-xs font-semibold text-slate-600">Kepemilikan
+            <select name="ownership" class="mt-1 w-full rounded-xl border px-3 py-2.5 text-sm font-normal text-slate-900">
+                <option value="">Semua kepemilikan</option>
+                {% for value, label in ownerships %}<option value="{{ value }}" {% if filters.ownership == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="block text-xs font-semibold text-slate-600">Urutkan
+            <select name="sort" class="mt-1 w-full rounded-xl border px-3 py-2.5 text-sm font-normal text-slate-900">
+                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Terbaru</option>
+                <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Terlama</option>
+                <option value="name_asc" {% if sort == 'name_asc' %}selected{% endif %}>Nama A–Z</option>
+                <option value="name_desc" {% if sort == 'name_desc' %}selected{% endif %}>Nama Z–A</option>
+                <option value="code_asc" {% if sort == 'code_asc' %}selected{% endif %}>Kode A–Z</option>
+                <option value="code_desc" {% if sort == 'code_desc' %}selected{% endif %}>Kode Z–A</option>
+                <option value="quantity_desc" {% if sort == 'quantity_desc' %}selected{% endif %}>Jumlah terbanyak</option>
+                <option value="quantity_asc" {% if sort == 'quantity_asc' %}selected{% endif %}>Jumlah tersedikit</option>
+            </select>
+        </label>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+        <button class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white">Terapkan</button>
+        <a href="{% url 'inventory:dashboard' %}" class="rounded-xl border px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Reset</a>
+        <p class="text-sm text-slate-500">Ringkasan barang mengikuti filter yang dipilih.</p>
+    </div>
+</form>
+
+<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Anggota Aktif</p><p class="mt-2 text-3xl font-bold">{{ member_count }}</p></div>
+    <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Jumlah Barang</p><p class="mt-2 text-3xl font-bold text-violet-800">{{ item_count }}</p></div>
+    <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Digunakan</p><p class="mt-2 text-3xl font-bold text-blue-700">{{ assigned_count }}</p></div>
+    <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Perbaikan</p><p class="mt-2 text-3xl font-bold text-amber-700">{{ maintenance_count }}</p></div>
+    <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Nilai Inventaris</p><p class="mt-2 text-xl font-bold text-emerald-700">Rp {{ total_value|floatformat:0 }}</p></div>
+</div>
+
+<section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-4">
+        <div><h2 class="font-bold">Daftar Barang</h2><p class="text-sm text-slate-500">{{ page_obj.paginator.count }} barang ditemukan{% if page_obj.paginator.count %} · menampilkan {{ page_obj.start_index }}–{{ page_obj.end_index }}{% endif %}</p></div>
+        <a href="{% url 'inventory:item_list' %}" class="text-sm font-semibold text-violet-700">Barang &amp; Hardware</a>
+    </div>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Kode / Barang</th><th class="px-5 py-3">Kategori</th><th class="px-5 py-3">Jumlah</th><th class="px-5 py-3">Pengguna</th><th class="px-5 py-3">Kepemilikan</th><th class="px-5 py-3">Kondisi</th><th class="px-5 py-3">Status</th></tr></thead>
+        <tbody class="divide-y">
+            {% for item in page_obj %}
+            <tr><td class="px-5 py-4"><a class="font-bold hover:text-violet-700" href="{% url 'inventory:item_detail' item.pk %}">{{ item.asset_code }}</a><p class="text-slate-500">{{ item.item_name }}</p></td><td class="px-5 py-4">{{ item.get_category_display }}</td><td class="px-5 py-4">{{ item.quantity }}</td><td class="px-5 py-4">{{ item.assigned_to.full_name|default:'-' }}</td><td class="px-5 py-4">{{ item.get_ownership_display }}{% if item.ownership == 'third_party' %}<p class="text-xs text-slate-500">{{ item.third_party_name }}</p>{% endif %}</td><td class="px-5 py-4">{% if item.category == 'software' %}-{% else %}{{ item.get_condition_display }}{% endif %}</td><td class="px-5 py-4">{{ item.get_status_display }}</td></tr>
+            {% empty %}<tr><td colspan="7" class="px-5 py-12 text-center text-slate-500">Tidak ada barang yang cocok dengan filter.</td></tr>{% endfor %}
+        </tbody>
+    </table></div>
+</section>
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="mt-4 flex items-center justify-between gap-3 text-sm" aria-label="Navigasi halaman barang">
+    {% if page_obj.has_previous %}<a href="?{{ page_query }}page={{ page_obj.previous_page_number }}" class="rounded-xl border bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">&larr; Sebelumnya</a>{% else %}<span></span>{% endif %}
+    <span class="text-slate-600">Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?{{ page_query }}page={{ page_obj.next_page_number }}" class="rounded-xl border bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">Berikutnya &rarr;</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
 {% endblock %}

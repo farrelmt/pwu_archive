@@ -8,6 +8,7 @@ app_name = 'homepage'
 urlpatterns = [
     path('', views.root, name='dashboard'),
     path('member/', views.member_list, name='member_list'),
+    path('member/export/', views.member_export, name='member_export'),
     path('member/tambah/', views.member_create, name='member_create'),
     path('member/<int:pk>/edit/', views.member_edit, name='member_edit'),
     path('member/<int:pk>/hapus/', views.member_delete, name='member_delete'),

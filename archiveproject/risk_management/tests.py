@@ -365,6 +365,40 @@ class RiskPermissionTests(TestCase):
         }, HTTP_HOST="risk.localhost")
         self.assertEqual(ascending.context["page_obj"][0].residual_score, 5)
 
+    def test_register_level_filter_matches_score_boundaries(self):
+        scores = {
+            (1, 2): "Sangat Rendah", (1, 3): "Rendah",
+            (2, 2): "Rendah", (1, 5): "Sedang",
+            (3, 3): "Sedang", (2, 5): "Tinggi",
+            (4, 4): "Tinggi", (4, 5): "Sangat Tinggi",
+        }
+        for index, ((likelihood, impact), _level) in enumerate(scores.items()):
+            RiskRegister.objects.create(
+                division=self.division_a, title=f"Boundary {index}", category="operational",
+                description="Uraian", cause="Sebab", impact="Dampak", risk_owner="Pemilik",
+                inherent_likelihood=1, inherent_impact=1,
+                residual_likelihood=likelihood, residual_impact=impact,
+                created_by=self.officer, updated_by=self.officer,
+            )
+        self.client.force_login(self.officer)
+        for level in ("Sangat Rendah", "Rendah", "Sedang", "Tinggi", "Sangat Tinggi"):
+            with self.subTest(level=level):
+                response = self.client.get(
+                    reverse("risk:risk_list"), {"level": level.lower()}, HTTP_HOST="risk.localhost",
+                )
+                found = {risk.title for risk in response.context["page_obj"]}
+                expected = {
+                    f"Boundary {index}" for index, expected_level in enumerate(scores.values())
+                    if expected_level == level
+                }
+                if level == "Sedang":
+                    expected.add(self.risk.title)
+                self.assertEqual(found, expected)
+        unknown = self.client.get(
+            reverse("risk:risk_list"), {"level": "unknown"}, HTTP_HOST="risk.localhost",
+        )
+        self.assertEqual(unknown.context["page_obj"].paginator.count, 0)
+
     def test_monitoring_sorting_keeps_actions_grouped_and_missing_targets_last(self):
         other = RiskRegister.objects.create(
             division=self.division_a, title="Autre risque", category="operational",

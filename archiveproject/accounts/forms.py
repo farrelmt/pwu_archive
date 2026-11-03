@@ -34,12 +34,16 @@ class PersonalSettingsForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ("username", "first_name", "last_name", "email", "phone")
+        fields = ("username", "first_name", "last_name", "email", "phone", "job_description")
         labels = {
             "first_name": "Nama depan",
             "last_name": "Nama belakang",
             "email": "Email",
             "phone": "Nomor telepon",
+            "job_description": "Deskripsi pekerjaan",
+        }
+        widgets = {
+            "job_description": forms.Textarea(attrs={"rows": 4, "maxlength": 1000}),
         }
 
     def __init__(self, *args, **kwargs):

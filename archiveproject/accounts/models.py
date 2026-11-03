@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser
 
 class SystemUser(AbstractUser):
     phone = models.CharField(max_length=20, blank=True, null=True)
+    job_description = models.TextField("Deskripsi pekerjaan", blank=True, max_length=1000)
 
     ROLE_CHOICES = [
         ('admin', 'Admin'),
@@ -18,11 +19,7 @@ class SystemUser(AbstractUser):
         ('kadiv_legal_umum', 'Kepala Divisi Legal dan Umum'),
         ('kadiv_aset', 'Kepala Divisi Aset'),
         ('kadiv_spi', 'Kepala SPI'),
-        ('akuntan', 'Akuntan'),
-        ('risk', 'Pengguna Manajemen Risiko'),
-        ('inventory', 'Pengguna Inventaris'),
         ('employee', 'Pegawai'),
-        ('wirajatim_kso', 'Wirajatim KSO'),
     ]
 
     role = models.CharField(max_length=30, choices=ROLE_CHOICES)

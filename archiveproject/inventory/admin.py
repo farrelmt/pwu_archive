@@ -12,9 +12,9 @@ class CompanyMemberAdmin(admin.ModelAdmin):
 
 @admin.register(InventoryItem)
 class InventoryItemAdmin(admin.ModelAdmin):
-    list_display = ("asset_code", "item_name", "category", "quantity", "condition", "status", "assigned_to")
-    list_filter = ("category", "condition", "status")
-    search_fields = ("asset_code", "item_name", "serial_number", "brand", "model")
+    list_display = ("asset_code", "item_name", "category", "quantity", "condition", "status", "ownership", "assigned_to")
+    list_filter = ("category", "condition", "status", "ownership")
+    search_fields = ("asset_code", "item_name", "serial_number", "brand", "model", "third_party_name")
 
 
 admin.site.register(InventoryAccess)

@@ -1,0 +1,22 @@
+<div class="grid gap-5 md:col-span-2 md:grid-cols-2" data-inventory-dates>
+    <div data-inventory-field>
+        <label class="text-sm font-semibold text-slate-700" for="{{ form.purchase_date.id_for_label }}">{{ form.purchase_date.label }}</label>
+        {{ form.purchase_date }}
+        {% for error in form.purchase_date.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        <label class="mt-3 flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700" for="{{ form.purchase_date_unknown.id_for_label }}">
+            {{ form.purchase_date_unknown }}
+            <span>Tanggal pembelian tidak diketahui</span>
+        </label>
+        {% for error in form.purchase_date_unknown.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+    </div>
+    <div data-inventory-field>
+        <label class="text-sm font-semibold text-slate-700" for="{{ form.received_date.id_for_label }}">{{ form.received_date.label }}</label>
+        {{ form.received_date }}
+        {% for error in form.received_date.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        <label class="mt-3 flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700" for="{{ form.received_date_same_as_purchase.id_for_label }}">
+            {{ form.received_date_same_as_purchase }}
+            <span>Sama dengan tanggal pembelian</span>
+        </label>
+        {% for error in form.received_date_same_as_purchase.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+    </div>
+</div>

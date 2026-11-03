@@ -7,30 +7,61 @@
     <title>Pengaturan Akun - PWU Jatim</title>
     <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
     {% tailwind_css %}
+    <style nonce="{{ request.csp_nonce }}">
+        .settings-main{min-width:0;min-height:100vh;display:flex;align-items:center;justify-content:center}
+        .settings-content{width:100%}
+        @media(max-width:767px){.settings-main{padding-top:5rem}}
+        .settings-form{display:grid;grid-template-columns:minmax(0,1fr)}.settings-form>section{min-width:0}.settings-actions{grid-column:1/-1}
+        @media(min-width:1100px){.settings-form{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)}.settings-form>section:first-of-type{border-right:1px solid #e2e8f0}.settings-form>section:nth-of-type(3){grid-column:1/-1}.settings-password-fields{grid-template-columns:repeat(3,minmax(0,1fr))}}
+        @media(min-width:1280px){.settings-form{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,.9fr)}.settings-form>section:nth-of-type(2){border-right:1px solid #e2e8f0}.settings-form>section:nth-of-type(3){grid-column:auto}.settings-personal-fields,.settings-password-fields{grid-template-columns:minmax(0,1fr)}}
+    </style>
+    {% include "includes/portal_sidebar_styles.html" %}
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
-    <main class="mx-auto max-w-4xl px-5 py-10">
-        <div class="mb-6 flex items-center justify-between gap-4">
-            <div><p class="text-xs font-bold uppercase tracking-[.2em] text-blue-700">Portal PWU Jatim</p><h1 class="text-3xl font-extrabold text-blue-950">Pengaturan Akun</h1><p class="mt-1 text-sm text-slate-500">Perbarui informasi pribadi dan password untuk seluruh sistem.</p></div>
-            <a href="{{ return_url }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Kembali</a>
+    {% include "includes/portal_sidebar.html" %}
+    <main id="portalMain" class="portal-main settings-main px-5 py-6">
+        <div class="settings-content mx-auto max-w-6xl">
+        <div class="mb-4 text-center">
+            <div><p class="text-xs font-bold uppercase tracking-[.2em] text-blue-700">Portal PWU Jatim</p><h1 class="text-3xl font-extrabold text-blue-950">Pengaturan Akun</h1><p class="mt-1 text-sm text-slate-500">Lihat divisi dan role Anda, lalu perbarui informasi pribadi, pekerjaan, dan password.</p></div>
         </div>
         {% for message in messages %}<div class="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{{ message }}</div>{% endfor %}
-        <form method="post" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <form method="post" class="settings-form overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             {% csrf_token %}
-            <section class="border-b border-slate-200 p-6">
+            <section class="border-b border-slate-200 p-5">
                 <div class="flex items-center justify-between gap-4"><div><h2 class="text-lg font-extrabold">Informasi Pribadi</h2><p class="mt-1 text-sm text-slate-500">Username hanya dapat diubah oleh superuser. Role dikelola oleh administrator.</p></div><span class="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">{{ request.user.username }}</span></div>
-                <div class="mt-5 grid gap-5 md:grid-cols-2">
+                <div class="settings-personal-fields mt-4 grid gap-4 md:grid-cols-2">
                     {% for field in form %}{% if field.name == 'username' or field.name == 'first_name' or field.name == 'last_name' or field.name == 'email' or field.name == 'phone' %}<label class="block"><span class="text-sm font-bold text-slate-700">{{ field.label }}</span>{{ field }}{% for error in field.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</label>{% endif %}{% endfor %}
                 </div>
             </section>
-            <section class="p-6">
+            <section class="border-b border-slate-200 p-5">
+                <h2 class="text-lg font-extrabold">Informasi Pekerjaan</h2>
+                <p class="mt-1 text-sm text-slate-500">Divisi dan role ditetapkan oleh administrator. Anda dapat menulis deskripsi pekerjaan sendiri.</p>
+                <div class="mt-4 grid gap-4 md:grid-cols-2">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Divisi</p>
+                        <p class="mt-1 font-semibold text-slate-900">{{ division }}</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Role</p>
+                        {% for row in role_rows %}
+                            <div class="mt-2"><span class="text-xs font-semibold text-slate-500">{{ row.system }}:</span> {% for role in row.roles %}<span class="mr-1 inline-block rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-800">{{ role }}</span>{% endfor %}</div>
+                        {% empty %}
+                            <p class="mt-1 font-semibold text-slate-700">Tidak ada role</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <label class="mt-4 block"><span class="text-sm font-bold text-slate-700">{{ form.job_description.label }}</span>{{ form.job_description }}<span class="mt-1 block text-xs text-slate-500">Tuliskan tugas dan tanggung jawab Anda (maksimal 1.000 karakter).</span>{% for error in form.job_description.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</label>
+            </section>
+            <section class="p-5">
                 <h2 class="text-lg font-extrabold">Ganti Password</h2><p class="mt-1 text-sm text-slate-500">Biarkan kolom Password baru kosong jika tidak ingin mengganti password.</p>
-                <div class="mt-5 grid gap-5 md:grid-cols-3">
+                <div class="settings-password-fields mt-4 grid gap-4 md:grid-cols-3">
                     {% for field in form %}{% if field.name == 'current_password' or field.name == 'new_password' or field.name == 'confirm_password' %}<label class="block"><span class="text-sm font-bold text-slate-700">{{ field.label }}</span>{{ field }}{% for error in field.errors %}<span class="mt-1 block text-xs font-semibold text-red-600">{{ error }}</span>{% endfor %}</label>{% endif %}{% endfor %}
                 </div>
             </section>
-            <div class="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4"><a href="{{ return_url }}" class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700">Batal</a><button type="submit" class="rounded-xl bg-blue-800 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-900">Simpan Perubahan</button></div>
+            <div class="settings-actions flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4"><a href="{{ return_url }}" class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700">Batal</a><button type="submit" class="rounded-xl bg-blue-800 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-900">Simpan Perubahan</button></div>
         </form>
+        </div>
     </main>
+    {% include "includes/portal_sidebar_script.html" %}
 </body>
 </html>

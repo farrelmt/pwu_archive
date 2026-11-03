@@ -30,6 +30,19 @@ def can_edit_inventory(user):
     return bool(access and access.role in WRITE_ROLES)
 
 
+def can_manage_inventory(user):
+    if user.is_superuser:
+        return True
+    access = access_for_user(user)
+    return bool(access and access.role == "manager")
+
+
+def can_view_internet(user):
+    return bool(user.is_authenticated and user.is_active and (
+        can_manage_inventory(user) or user.username == "it_pwu"
+    ))
+
+
 def inventory_required(view_func):
     @login_required(login_url="accounts:login")
     @wraps(view_func)
@@ -38,6 +51,8 @@ def inventory_required(view_func):
             raise PermissionDenied("Anda tidak memiliki akses ke Sistem Inventaris.")
         request.inventory_access = access_for_user(request.user)
         request.can_edit_inventory = can_edit_inventory(request.user)
+        request.can_manage_inventory = can_manage_inventory(request.user)
+        request.can_view_internet = can_view_internet(request.user)
         return view_func(request, *args, **kwargs)
     return wrapped
 

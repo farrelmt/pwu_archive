@@ -19,9 +19,7 @@ ARCHIVE_ACCESS_ROLES = {
     "kadiv_legal_umum",
     "kadiv_aset",
     "kadiv_spi",
-    "akuntan",
-    "wirajatim_kso",
-}
+} 
 
 
 def has_archive_access(user):
