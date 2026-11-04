@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from urllib.parse import urlencode, urlsplit
 
-from archiveproject.host_routing import portal_base_url, request_hostname
+from archiveproject.host_routing import is_local_hostname, portal_base_url, request_hostname
 from accounts.access import has_system_access
 
 
@@ -50,7 +50,7 @@ def _system_hosts_and_url(request, system):
         raise Http404
     hosts, production_url = systems[system]
     hostname = request_hostname(request)
-    if hostname == 'localhost' or hostname.endswith('.localhost'):
+    if is_local_hostname(hostname):
         requested_host = request.get_host()
         port_suffix = f":{requested_host.rsplit(':', 1)[1]}" if ':' in requested_host else ''
         return hosts, f'http://{system}.localhost{port_suffix}'

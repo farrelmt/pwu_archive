@@ -64,6 +64,8 @@ def accessible_companies(user):
 
 
 def roles_for_user(user):
+    if user.is_authenticated and user.is_active and user.is_superuser:
+        return {"admin"}
     cached = user.__dict__.get("_koperasi_roles_cache")
     if cached is not None:
         return cached

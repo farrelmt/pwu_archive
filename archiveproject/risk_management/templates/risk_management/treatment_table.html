@@ -1,0 +1,22 @@
+{% include 'risk_management/treatment_table_style.html' %}
+<div class="overflow-x-auto" role="region" aria-label="Tabel Perlakuan Risiko" tabindex="0">
+<table class="treatment-table text-left text-sm">
+    <colgroup><col class="treatment-number"><col class="treatment-name"><col class="treatment-text"><col class="treatment-text"><col class="treatment-score"><col class="treatment-score"><col class="treatment-score"><col class="treatment-level"><col class="treatment-date"><col class="treatment-owner"><col class="treatment-text"></colgroup>
+    <thead class="bg-blue-900 text-white"><tr><th rowspan="2">No.</th><th rowspan="2">Nama Risiko</th><th rowspan="2">Opsi Perlakuan Risiko</th><th rowspan="2">Rencana Aksi Perlakuan Risiko</th><th colspan="4" class="text-center">Risiko yang Diharapkan</th><th rowspan="2">Jadwal Pelaksanaan</th><th rowspan="2">Penanggung Jawab</th><th rowspan="2">Keterangan</th></tr><tr><th>Kemungkinan</th><th>Dampak</th><th>Skor Risiko</th><th>Level Risiko</th></tr></thead>
+    <tbody>
+    {% for item in treatment_risks %}
+        {% with number=forloop.counter plans=item.treatments.all %}{% with row_count=plans|length|default:1 %}
+        {% for treatment in plans %}
+        <tr>
+            {% if forloop.first %}<td rowspan="{{ row_count }}">{{ number }}</td><td rowspan="{{ row_count }}"><a href="{% url 'risk:risk_detail' item.pk %}" class="font-bold text-blue-700">{{ item.title }}</a>{% if item.can_edit_treatment or can_edit_this %}<a href="{% url 'risk:treatment_create' %}?risk={{ item.pk }}" class="mt-3 block text-xs font-bold text-blue-700">+ Tambah Perlakuan</a>{% endif %}</td>{% endif %}
+            <td class="whitespace-pre-line">{{ treatment.option|default:'-' }}</td><td class="whitespace-pre-line">{{ treatment.action_plan }}</td>
+            <td>{{ treatment.expected_likelihood|default_if_none:'-' }}</td><td>{{ treatment.expected_impact|default_if_none:'-' }}</td><td class="font-bold">{{ treatment.expected_score|default_if_none:'-' }}</td><td>{{ treatment.expected_level }}</td>
+            <td>{{ treatment.target_date|date:'d/m/Y'|default:'-' }}</td><td>{{ treatment.responsible_person|default:'-' }}</td><td><p class="whitespace-pre-line">{{ treatment.notes|default:'-' }}</p>{% if item.can_edit_treatment or can_edit_this %}<a href="{% url 'risk:treatment_edit' treatment.pk %}" class="mt-3 block text-xs font-bold text-blue-700">Edit Perlakuan</a>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td>{{ number }}</td><td><a href="{% url 'risk:risk_detail' item.pk %}" class="font-bold text-blue-700">{{ item.title }}</a></td><td colspan="9">Belum ada perlakuan risiko.{% if item.can_edit_treatment or can_edit_this %}<a href="{% url 'risk:treatment_create' %}?risk={{ item.pk }}" class="ml-2 font-bold text-blue-700">+ Tambah Perlakuan</a>{% endif %}</td></tr>
+        {% endfor %}{% endwith %}{% endwith %}
+    {% empty %}<tr><td colspan="11" class="text-center text-slate-500">Belum ada data risiko.</td></tr>{% endfor %}
+    </tbody>
+</table>
+</div>

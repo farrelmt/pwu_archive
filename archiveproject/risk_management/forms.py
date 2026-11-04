@@ -1,8 +1,67 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.forms import BaseInlineFormSet, inlineformset_factory
 
-from .access import MANAGER_ROLES, accesses_for_user
-from .models import RiskAccess, RiskActionPlan, RiskDivision, RiskMonitoring, RiskRegister
+from .access import MANAGER_ROLES, accesses_for_user, risks_for_user
+from .models import RiskAccess, RiskActionPlan, RiskDivision, RiskMonitoring, RiskRegister, RiskTreatment
+
+
+class RiskTreatmentForm(forms.ModelForm):
+    class Meta:
+        model = RiskTreatment
+        fields = ["risk", "option", "action_plan", "expected_likelihood", "expected_impact",
+                  "target_date", "responsible_person", "notes"]
+        labels = {"risk": "Nama Risiko"}
+        widgets = {
+            "option": forms.Textarea(attrs={"rows": 4}),
+            "action_plan": forms.Textarea(attrs={"rows": 4}),
+            "notes": forms.Textarea(attrs={"rows": 4}),
+            "target_date": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+            "expected_likelihood": forms.NumberInput(attrs={"min": 1, "max": 5}),
+            "expected_impact": forms.NumberInput(attrs={"min": 1, "max": 5}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "risk" in self.fields:
+            risks = risks_for_user(user)
+            accesses = accesses_for_user(user)
+            if not user.is_superuser and not accesses.filter(role__in=MANAGER_ROLES).exists():
+                risks = risks.filter(division_id__in=accesses.filter(role="risk_officer").values_list("division_id", flat=True))
+            self.fields["risk"].queryset = risks.order_by("risk_code")
+            self.fields["risk"].disabled = bool(self.instance.pk)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+
+    def clean(self):
+        cleaned = super().clean()
+        likelihood, impact = cleaned.get("expected_likelihood"), cleaned.get("expected_impact")
+        if (likelihood is None) != (impact is None):
+            self.add_error("expected_likelihood" if likelihood is None else "expected_impact",
+                           "Isi kemungkinan dan dampak bersama-sama untuk menghitung risiko yang diharapkan.")
+        return cleaned
+
+
+class RiskTreatmentInlineForm(RiskTreatmentForm):
+    class Meta(RiskTreatmentForm.Meta):
+        fields = ["option", "action_plan", "expected_likelihood", "expected_impact",
+                  "target_date", "responsible_person", "notes"]
+
+
+class BaseRiskTreatmentFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        for form in self.forms:
+            treatment = form.cleaned_data.get("id") if hasattr(form, "cleaned_data") else None
+            if treatment is not None and treatment.risk_id != self.instance.pk:
+                raise forms.ValidationError("Perlakuan risiko tidak sesuai dengan risiko yang sedang diedit.")
+
+
+RiskTreatmentFormSet = inlineformset_factory(
+    RiskRegister, RiskTreatment, form=RiskTreatmentInlineForm,
+    formset=BaseRiskTreatmentFormSet, extra=1, can_delete=False,
+    max_num=100, validate_max=True, absolute_max=200,
+)
 
 
 class DivisionPICForm(forms.Form):

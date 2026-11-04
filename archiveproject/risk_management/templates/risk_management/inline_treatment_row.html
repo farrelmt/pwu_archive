@@ -1,0 +1,12 @@
+<tr data-treatment-row>
+    <td data-treatment-number>{{ row_number }}</td>
+    <td><output data-treatment-risk-name for="id_title">{{ form.title.value|default:'-' }}</output>{{ treatment_form.id }}{{ treatment_form.risk }}{% for error in treatment_form.id.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}{% for error in treatment_form.risk.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}{{ treatment_form.non_field_errors }}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=treatment_form.option %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=treatment_form.action_plan %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=treatment_form.expected_likelihood %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=treatment_form.expected_impact %}</td>
+    <td><output data-treatment-score>-</output></td><td><output data-treatment-level>-</output></td>
+    <td>{% include 'risk_management/document_form_field.html' with field=treatment_form.target_date %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=treatment_form.responsible_person %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=treatment_form.notes %}</td>
+</tr>

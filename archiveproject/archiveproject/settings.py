@@ -23,7 +23,7 @@ LANDING_HOSTS = frozenset(
         'LANDING_HOSTS',
         default=['pwujatim.site', 'www.pwujatim.site'],
     )
-)
+) | frozenset({'127.0.0.1'})
 ARCHIVE_HOSTS = frozenset(
     host.lower()
     for host in env.list(

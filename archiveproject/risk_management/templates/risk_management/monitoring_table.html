@@ -1,19 +1,19 @@
 {% load risk_sorting %}
-<div class="overflow-x-auto" role="region" aria-label="Tabel pemantauan triwulan" tabindex="0">
+<div class="overflow-x-auto monitoring-table-scroll" role="region" aria-label="Tabel pemantauan triwulan" tabindex="0">
     <table class="monitoring-document-table report-table w-full border-collapse text-left text-sm">
         <colgroup><col class="monitor-number"><col class="monitor-risk"><col class="monitor-text"><col class="monitor-text"><col class="monitor-date"><col class="monitor-owner"><col class="monitor-score"><col class="monitor-score"><col class="monitor-score"><col class="monitor-level"><col class="monitor-score"><col class="monitor-score"><col class="monitor-score"><col class="monitor-level"><col class="monitor-score"><col class="monitor-score"><col class="monitor-score"><col class="monitor-level"><col class="monitor-score"><col class="monitor-text"></colgroup>
         <caption class="sr-only">Formulir Pemantauan Triwulan: realisasi dan penilaian risiko sebelum perlakuan, saat pelaporan, dan yang diharapkan.</caption>
         <thead class="bg-blue-50 text-xs text-blue-900">
             <tr>
-                <th rowspan="2" scope="col">No.</th>
-                <th rowspan="2" scope="col">{% sort_header 'title' 'Nama Risiko' %}</th>
+                <th rowspan="2" scope="col" class="monitor-fixed-number">No.</th>
+                <th rowspan="2" scope="col" class="monitor-fixed-risk">{% sort_header 'title' 'Nama Risiko' %}</th>
                 <th rowspan="2" scope="col">{% sort_header 'plan' 'Rencana Aksi Perlakuan Risiko' %}</th>
                 <th rowspan="2" scope="col">{% sort_header 'realization' 'Realisasi' %}</th>
                 <th rowspan="2" scope="col">{% sort_header 'target_date' 'Jadwal Pelaksanaan' %}</th>
                 <th rowspan="2" scope="col">{% sort_header 'owner' 'Penanggung Jawab' %}</th>
-                <th colspan="4" scope="colgroup" class="text-center">Level Risiko Sebelum Perlakuan</th>
-                <th colspan="4" scope="colgroup" class="text-center">Level Risiko Saat Pelaporan</th>
-                <th colspan="4" scope="colgroup" class="text-center">Level Risiko yang Diharapkan</th>
+                <th colspan="4" scope="colgroup" class="text-center monitor-group-initial">Level Risiko Sebelum Perlakuan</th>
+                <th colspan="4" scope="colgroup" class="text-center monitor-group-final">Level Risiko Saat Pelaporan</th>
+                <th colspan="4" scope="colgroup" class="text-center monitor-group-expected">Level Risiko yang Diharapkan</th>
                 <th rowspan="2" scope="col">{% sort_header 'deviation' 'Deviasi' %}</th>
                 <th rowspan="2" scope="col">{% sort_header 'notes' 'Keterangan' %}</th>
             </tr>
@@ -30,8 +30,8 @@
                         {% for action in plans %}
                             <tr>
                                 {% if forloop.first %}
-                                    <td rowspan="{{ row_count }}" class="text-center">{{ risk_number }}</td>
-                                    <td rowspan="{{ row_count }}"><a href="{% url 'risk:risk_detail' monitoring.risk.pk %}" class="font-semibold text-blue-800">{{ monitoring.risk.title }}</a></td>
+                                    <td rowspan="{{ row_count }}" class="text-center monitor-fixed-number">{{ risk_number }}</td>
+                                    <td rowspan="{{ row_count }}" class="monitor-fixed-risk"><a href="{% url 'risk:risk_detail' monitoring.risk.pk %}" class="font-semibold text-blue-800">{{ monitoring.risk.title }}</a></td>
                                 {% endif %}
                                 <td class="whitespace-pre-line">{{ action.description }}{% if can_edit_this %}<a href="{% url 'risk:action_edit' action.pk %}" class="mt-2 block text-xs font-bold text-blue-700">Edit Rencana Aksi</a>{% endif %}</td>
                                 <td class="whitespace-pre-line">{{ action.realization|default:'-' }}{% if action.realization_date %}<p class="mt-2 text-xs text-slate-500">{{ action.realization_date|date:'d M Y' }}</p>{% endif %}</td>
@@ -41,8 +41,8 @@
                             </tr>
                         {% empty %}
                             <tr>
-                                <td class="text-center">{{ risk_number }}</td>
-                                <td><a href="{% url 'risk:risk_detail' monitoring.risk.pk %}" class="font-semibold text-blue-800">{{ monitoring.risk.title }}</a></td>
+                                <td class="text-center monitor-fixed-number">{{ risk_number }}</td>
+                                <td class="monitor-fixed-risk"><a href="{% url 'risk:risk_detail' monitoring.risk.pk %}" class="font-semibold text-blue-800">{{ monitoring.risk.title }}</a></td>
                                 <td>Belum ada rencana aksi.</td><td>-</td><td>-</td><td>-</td>
                                 {% include 'risk_management/monitoring_shared_cells.html' %}
                             </tr>

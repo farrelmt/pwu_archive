@@ -51,7 +51,7 @@ def root(request):
         risk_url = reverse('accounts:system_launch', args=['risk'])
         inventory_url = reverse('accounts:system_launch', args=['inventory'])
 
-        director_archive_only = request.user.role in {
+        director_archive_only = not request.user.is_superuser and request.user.role in {
             'direktur', 'direktur_utama', 'direktur_umum',
         }
         return render(request, 'landing.html', {

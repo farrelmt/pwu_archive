@@ -1,10 +1,48 @@
 {% extends 'risk_management/base.html' %}
-{% block title %}Pedoman Penilaian Risiko{% endblock %}
+{% block title %}Kriteria Risiko{% endblock %}
 {% block content %}
-<div><p class="text-sm font-bold uppercase tracking-wider text-blue-700">Acuan Template 2026</p><h1 class="mt-1 text-3xl font-bold">Pedoman Penilaian Risiko</h1><p class="mt-2 text-sm text-slate-500">Skor risiko = kemungkinan × dampak.</p></div>
-<div class="mt-6 grid gap-6 xl:grid-cols-2">
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b px-5 py-4"><h2 class="font-bold">Kriteria Kemungkinan</h2></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Level</th><th class="px-4 py-3">Kriteria</th><th class="px-4 py-3">Batas</th><th class="px-4 py-3">Penjelasan</th></tr></thead><tbody class="divide-y">{% for level,label,boundary,description in likelihoods %}<tr><td class="px-4 py-3 font-bold">{{ level }}</td><td class="px-4 py-3">{{ label }}</td><td class="px-4 py-3 whitespace-nowrap">{{ boundary }}</td><td class="px-4 py-3">{{ description }}</td></tr>{% endfor %}</tbody></table></div></section>
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b px-5 py-4"><h2 class="font-bold">Kriteria Dampak</h2></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Level</th><th class="px-4 py-3">Kriteria</th></tr></thead><tbody class="divide-y">{% for level,label in impact_levels %}<tr><td class="px-4 py-3 font-bold">{{ level }}</td><td class="px-4 py-3">{{ label }}</td></tr>{% endfor %}</tbody></table></div></section>
+<div class="risk-criteria">
+<div><p class="text-sm font-bold uppercase tracking-wider text-blue-700">Acuan Template 2026</p><h1 class="mt-1 text-3xl font-bold">Kriteria Risiko</h1><p class="mt-2 text-sm text-slate-500">Skor risiko = kemungkinan × dampak.</p></div>
+<div class="criteria-top">
+<section class="criteria-panel">
+    <div class="criteria-panel-heading"><h2>Peta Risiko</h2></div>
+    <div class="overflow-x-auto p-5"><table class="risk-matrix mx-auto text-center text-sm" aria-label="Peta risiko berdasarkan dampak dan kemungkinan">
+        <colgroup><col class="matrix-axis"><col class="matrix-tick">{% for likelihood in "12345" %}<col class="matrix-square">{% endfor %}</colgroup>
+        <tbody>{% for row in matrix %}<tr>
+            {% if forloop.first %}<th rowspan="5" class="matrix-impact" scope="rowgroup">Dampak</th>{% endif %}
+            <th scope="row" class="matrix-tick">{{ row.impact }}</th>
+            {% for cell in row.cells %}<td class="matrix-cell matrix-{{ cell.color }}" aria-label="Dampak {{ row.impact }}, kemungkinan {{ cell.likelihood }}"><span class="sr-only">Skor {{ cell.score }}</span></td>{% endfor %}
+        </tr>{% endfor %}</tbody>
+        <tfoot><tr><td colspan="2"></td>{% for likelihood in "12345" %}<th scope="col">{{ likelihood }}</th>{% endfor %}</tr><tr><td colspan="2"></td><th colspan="5" class="matrix-likelihood">Kemungkinan</th></tr></tfoot>
+    </table></div>
+</section>
+<section class="criteria-panel">
+    <div class="criteria-panel-heading"><h2>Level Risiko</h2></div>
+    <div class="criteria-legend-body"><table class="risk-color-legend" aria-label="Level risiko dan warna">
+        <thead><tr><th scope="col">Level Risiko</th><th scope="col">Warna</th></tr></thead>
+        <tbody>{% for level,color,tone in risk_levels %}<tr><th scope="row">{{ level }}</th><td class="legend-{{ tone }}">{{ color }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+</section>
 </div>
-<section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b px-5 py-4"><h2 class="font-bold">Matriks 5 × 5</h2></div><div class="overflow-x-auto p-5"><table class="mx-auto text-center text-sm"><thead><tr><th class="p-2">Dampak ↓ / Kemungkinan →</th>{% for likelihood in "12345" %}<th class="p-2">{{ likelihood }}</th>{% endfor %}</tr></thead><tbody>{% for row in matrix %}<tr><th class="p-2">{{ row.impact }}</th>{% for cell in row.cells %}<td class="p-2"><span class="risk-badge {% if cell.level == 'Sangat Tinggi' %}risk-extreme{% elif cell.level == 'Tinggi' %}risk-high{% elif cell.level == 'Sedang' %}risk-medium{% elif cell.level == 'Rendah' %}risk-low{% else %}risk-very-low{% endif %}">{{ cell.score }}<span class="sr-only"> {{ cell.level }}</span></span></td>{% endfor %}</tr>{% endfor %}</tbody></table></div><div class="flex flex-wrap gap-3 border-t bg-slate-50 px-5 py-4 text-xs"><span class="risk-badge risk-very-low">1–2 Sangat Rendah</span><span class="risk-badge risk-low">3–4 Rendah</span><span class="risk-badge risk-medium">5–9 Sedang</span><span class="risk-badge risk-high">10–16 Tinggi</span><span class="risk-badge risk-extreme">17–25 Sangat Tinggi</span></div></section>
+<section class="criteria-panel criteria-likelihood">
+    <div class="criteria-panel-heading"><h2>Kriteria Kemungkinan</h2></div>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm likelihood-criteria"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-4 py-3" scope="col">Level</th><th class="px-4 py-3" scope="col">Kriteria</th><th class="px-4 py-3" scope="col">Batas</th><th class="px-4 py-3" scope="col">Penjelasan</th></tr></thead><tbody class="divide-y">{% for level,label,boundary,description in likelihoods %}<tr><td class="px-4 py-3 font-bold">{{ level }}</td><td class="px-4 py-3">{{ label }}</td><td class="px-4 py-3 whitespace-nowrap">{{ boundary }}</td><td class="px-4 py-3">{{ description }}</td></tr>{% endfor %}</tbody></table></div>
+</section>
+<section class="criteria-panel criteria-impact">
+    <div class="criteria-panel-heading"><h2>Kriteria Dampak</h2></div>
+    <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Tabel kriteria dampak">
+        <table class="impact-criteria">
+            <colgroup><col class="impact-level-column">{% for heading in impact_headers %}<col>{% endfor %}</colgroup>
+            <thead><tr><th rowspan="2" scope="col">Tingkat</th><th colspan="8" scope="colgroup">Dampak</th></tr><tr>{% for heading in impact_headers %}<th scope="col">{{ heading }}</th>{% endfor %}</tr></thead>
+            <tbody>{% for row in impact_criteria %}<tr class="impact-level-{{ row.level }}"><th scope="row">{{ row.level }}</th>{% for criterion in row.criteria %}<td>{{ criterion|default_if_none:"" }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+        </table>
+    </div>
+</section>
+<style nonce="{{ request.csp_nonce }}">
+    .risk-criteria .criteria-impact{margin-top:24px}.risk-criteria .impact-criteria{width:100%;min-width:1120px;table-layout:fixed;border-collapse:collapse;font-size:12px;line-height:1.6}.risk-criteria .impact-level-column{width:65px}.risk-criteria .impact-criteria th,.risk-criteria .impact-criteria td{border:1px solid #64748b;padding:12px 10px;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}.risk-criteria .impact-criteria thead th{background:#bfbfbf;color:#111;text-align:center;text-transform:uppercase;font-size:11px;line-height:1.5;font-weight:700}.risk-criteria .impact-criteria tbody th{text-align:center;font-weight:700}.risk-criteria .impact-level-5{background:#ff0000;color:#fff}.risk-criteria .impact-level-4{background:#cc6600;color:#fff}.risk-criteria .impact-level-3{background:#ffff00;color:#111}.risk-criteria .impact-level-2{background:#70ad47;color:#111}.risk-criteria .impact-level-1{background:#638acd;color:#111}
+    .risk-criteria .criteria-top{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.85fr);gap:24px;margin-top:24px;align-items:stretch}.risk-criteria .criteria-panel{min-width:0;overflow:hidden;border:1px solid #e1e8f2;border-radius:15px;background:#fff;box-shadow:0 3px 10px #15264003}.risk-criteria .criteria-panel-heading{padding:18px 22px;border-bottom:1px solid #e1e8f2}.risk-criteria .criteria-panel-heading h2{font-size:15px;font-weight:700;color:#29405f}.risk-criteria .criteria-likelihood{margin-top:24px}.risk-criteria .criteria-legend-body{padding:24px}.risk-criteria .risk-color-legend{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px;text-align:center}.risk-criteria .risk-color-legend th,.risk-criteria .risk-color-legend td{border:1px solid #cbd5e1;padding:14px 12px;vertical-align:middle}.risk-criteria .risk-color-legend thead th{background:#f5f8fc;font-weight:700;color:#526581}.risk-criteria .risk-color-legend tbody th{font-weight:600;color:#405473}.risk-criteria .risk-color-legend tbody td{color:#111;font-weight:600}.risk-color-legend .legend-red{background:#ff0000}.risk-color-legend .legend-orange{background:#cc6600}.risk-color-legend .legend-yellow{background:#ffff00}.risk-color-legend .legend-green{background:#70ad47}.risk-color-legend .legend-blue{background:#638acd}.risk-criteria .likelihood-criteria{min-width:650px}.risk-criteria .likelihood-criteria td{font-size:12px;line-height:1.65;color:#526581}.risk-criteria .likelihood-criteria th{font-size:10px}
+    @media(max-width:760px){.risk-criteria .criteria-top{grid-template-columns:1fr;gap:18px}.risk-criteria .criteria-legend-body{padding:18px}}
+    .risk-matrix{width:470px;table-layout:fixed;border-collapse:collapse}.risk-matrix .matrix-axis{width:35px}.risk-matrix .matrix-tick{width:35px}.risk-matrix .matrix-square{width:80px}.risk-matrix .matrix-cell{height:50px;border:1px solid #000}.risk-matrix .matrix-impact{writing-mode:vertical-rl;transform:rotate(180deg);font-size:1.125rem}.risk-matrix .matrix-likelihood{padding-top:.5rem;font-size:1.125rem}.risk-matrix tfoot th{padding:.4rem}.risk-matrix .matrix-orange{background:#cc6600}.risk-matrix .matrix-red{background:#ff0000}.risk-matrix .matrix-yellow{background:#ffff00}.risk-matrix .matrix-green{background:#70ad47}.risk-matrix .matrix-blue{background:#638acd}
+</style>
+</div>
 {% endblock %}

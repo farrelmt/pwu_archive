@@ -14,9 +14,12 @@ from accounts.activity_views import system_activity_log
 from accounts.audit import record_activity
 
 from .access import MANAGER_ROLES, can_edit_risk, can_manage_division_pic, risk_required, risk_write_required, risks_for_user
+from .criteria import IMPACT_HEADERS, impact_criteria
 from .forms import (
     AnnualRiskReportForm,
     DivisionPICForm,
+    RiskTreatmentForm,
+    RiskTreatmentFormSet,
     RiskActionPlanForm,
     RiskMonitoringForm,
     RiskRegisterForm,
@@ -29,6 +32,7 @@ from .models import (
     RiskDivision,
     RiskMonitoring,
     RiskRegister,
+    RiskTreatment,
 )
 from .services import import_risk_workbook
 from .exports import annual_risk_workbook
@@ -247,12 +251,32 @@ def risk_list(request):
                 risks = risks.filter(level_score__gte=lower)
             if upper is not None:
                 risks = risks.filter(level_score__lt=upper)
+    register_summary = risks.annotate(register_score=F("residual_likelihood") * F("residual_impact")).aggregate(
+        total=Count("pk"), priority=Count("pk", filter=Q(is_priority=True)),
+        high=Count("pk", filter=Q(register_score__gte=10)), closed=Count("pk", filter=Q(status="closed")),
+    )
     page_obj = Paginator(risks, 20).get_page(request.GET.get("page"))
     visible_divisions = RiskDivision.objects.filter(risks__in=risks_for_user(request.user)).distinct()
+    active_filters = []
+    if search:
+        active_filters.append({"key": "q", "label": "Pencarian", "value": search})
+    if year:
+        active_filters.append({"key": "year", "label": "Tahun", "value": year})
+    if division:
+        division_label = next((item.name for item in visible_divisions if str(item.pk) == division), division)
+        active_filters.append({"key": "division", "label": "Divisi", "value": division_label})
+    for key, value, label, choices in (
+        ("status", status, "Status", dict(RiskRegister.STATUS_CHOICES)),
+        ("category", category, "Kategori", dict(RiskRegister.CATEGORY_CHOICES)),
+        ("level", level, "Level", {}),
+    ):
+        if value:
+            active_filters.append({"key": key, "label": label, "value": choices.get(value, value.title())})
     pagination_params = request.GET.copy()
     pagination_params.pop("page", None)
     response = render(request, "risk_management/risk_list.html", {
         "page_obj": page_obj, "divisions": visible_divisions,
+        "register_summary": register_summary, "active_filters": active_filters,
         "available_years": available_years,
         "sorting_enabled": True, "sort_key": sort_key, "sort_order": direction,
         "pagination_query": pagination_params.urlencode(),
@@ -402,21 +426,32 @@ def scoring_guide(request):
         (2, "Kemungkinan Kecil", "10% ≤ x < 30%", "Dapat muncul pada suatu waktu."),
         (1, "Hampir Mustahil", "0,01% ≤ x < 10%", "Terjadi hanya dalam keadaan ekstrem."),
     ]
-    impact_levels = [
-        (5, "Sangat Signifikan"), (4, "Signifikan"), (3, "Moderat"),
-        (2, "Minor"), (1, "Tidak Signifikan"),
+    risk_levels = [
+        ("Sangat Tinggi", "Merah", "red"), ("Tinggi", "Coklat", "orange"),
+        ("Sedang", "Kuning", "yellow"), ("Rendah", "Hijau", "green"),
+        ("Sangat Rendah", "Biru", "blue"),
     ]
+    matrix_colors = {
+        5: ("orange", "orange", "orange", "red", "red"),
+        4: ("yellow", "yellow", "orange", "orange", "red"),
+        3: ("green", "yellow", "yellow", "orange", "orange"),
+        2: ("blue", "green", "yellow", "yellow", "orange"),
+        1: ("blue", "blue", "green", "green", "yellow"),
+    }
     matrix = [
         {"impact": impact, "cells": [
-            {"score": impact * likelihood, "level": RiskRegister.level_for(impact * likelihood)}
+            {"score": impact * likelihood, "level": RiskRegister.level_for(impact * likelihood),
+             "likelihood": likelihood, "color": matrix_colors[impact][likelihood - 1]}
             for likelihood in range(1, 6)
         ]}
         for impact in range(5, 0, -1)
     ]
     return render(request, "risk_management/scoring_guide.html", {
         "likelihoods": likelihoods,
-        "impact_levels": impact_levels,
+        "risk_levels": risk_levels,
         "matrix": matrix,
+        "impact_headers": IMPACT_HEADERS,
+        "impact_criteria": impact_criteria(),
     })
 
 
@@ -434,24 +469,84 @@ def risk_detail(request, pk):
     response = render(request, "risk_management/risk_detail.html", {
         "risk": risk, "can_edit_this": can_edit_risk(request.user, risk),
         "monitoring_tables": [(item, [item]) for item in risk.monitorings.all()],
+        "treatment_risks": [risk],
     })
     _log(request, "RISK_VIEWED", f"Membuka detail risiko {risk.risk_code}.", risk, target_label=risk.risk_code)
     return response
 
 
+@risk_required
+def treatment_list(request):
+    risks = risks_for_user(request.user).order_by("risk_code").prefetch_related("treatments")
+    page_obj = Paginator(risks, 20).get_page(request.GET.get("page"))
+    for risk in page_obj:
+        risk.can_edit_treatment = can_edit_risk(request.user, risk)
+    return render(request, "risk_management/treatment_list.html", {
+        "page_obj": page_obj, "treatment_risks": page_obj,
+    })
+
+
+@risk_write_required
+def treatment_create(request):
+    form = RiskTreatmentForm(request.POST if request.method == "POST" else None,
+                             user=request.user, initial={"risk": request.GET.get("risk")})
+    if request.method == "POST" and form.is_valid():
+        treatment = form.save(commit=False)
+        treatment.created_by = treatment.updated_by = request.user
+        with transaction.atomic():
+            treatment.save()
+            RiskActivity.objects.create(risk=treatment.risk, actor=request.user, action="treatment_created",
+                                        description="Perlakuan risiko ditambahkan.")
+            _log(request, "RISK_TREATMENT_CREATED", "Menambahkan perlakuan risiko.", treatment,
+                 target_label=treatment.risk.risk_code)
+        messages.success(request, "Perlakuan risiko berhasil ditambahkan.")
+        return redirect("risk:risk_detail", pk=treatment.risk_id)
+    return render(request, "risk_management/treatment_form.html", {"form": form, "page_title": "Tambah Perlakuan Risiko"})
+
+
+@risk_write_required
+def treatment_edit(request, pk):
+    treatment = get_object_or_404(RiskTreatment.objects.select_related("risk"), pk=pk,
+                                  risk__in=risks_for_user(request.user))
+    if not can_edit_risk(request.user, treatment.risk):
+        raise PermissionDenied("Anda tidak dapat mengubah perlakuan risiko divisi lain.")
+    form = RiskTreatmentForm(request.POST if request.method == "POST" else None,
+                             user=request.user, instance=treatment)
+    if request.method == "POST" and form.is_valid():
+        treatment = form.save(commit=False)
+        treatment.updated_by = request.user
+        with transaction.atomic():
+            treatment.save()
+            RiskActivity.objects.create(risk=treatment.risk, actor=request.user, action="treatment_updated",
+                                        description="Perlakuan risiko diperbarui.")
+            _log(request, "RISK_TREATMENT_UPDATED", "Memperbarui perlakuan risiko.", treatment,
+                 target_label=treatment.risk.risk_code,
+                 metadata={"changed_fields": [form.fields[name].label for name in form.changed_data]})
+        messages.success(request, "Perlakuan risiko berhasil diperbarui.")
+        return redirect("risk:risk_detail", pk=treatment.risk_id)
+    return render(request, "risk_management/treatment_form.html", {
+        "form": form, "treatment": treatment, "page_title": "Edit Perlakuan Risiko",
+    })
+
+
 @risk_write_required
 def risk_create(request):
     form = RiskRegisterForm(request.POST or None, user=request.user)
-    if request.method == "POST" and form.is_valid():
-        risk = form.save(commit=False)
-        risk.created_by = request.user
-        risk.updated_by = request.user
-        risk.save()
-        RiskActivity.objects.create(risk=risk, actor=request.user, action="created", description="Risiko dibuat.")
-        _log(request, "RISK_CREATED", "Menambahkan risiko baru.", risk, target_label=risk.risk_code)
+    treatments = _risk_treatment_formset(request, form.instance)
+    if request.method == "POST" and all([form.is_valid(), not treatments.is_bound or treatments.is_valid()]):
+        with transaction.atomic():
+            risk = form.save(commit=False)
+            risk.created_by = request.user
+            risk.updated_by = request.user
+            risk.save()
+            _save_risk_treatments(request, risk, treatments)
+            RiskActivity.objects.create(risk=risk, actor=request.user, action="created", description="Risiko dibuat.")
+            _log(request, "RISK_CREATED", "Menambahkan risiko baru.", risk, target_label=risk.risk_code)
         messages.success(request, f"{risk.risk_code} berhasil ditambahkan.")
         return redirect("risk:risk_detail", pk=risk.pk)
-    return render(request, "risk_management/risk_form.html", {"form": form, "page_title": "Tambah Risiko"})
+    return render(request, "risk_management/risk_form.html", {
+        "form": form, "treatment_formset": treatments, "page_title": "Tambah Risiko",
+    })
 
 
 @risk_write_required
@@ -460,18 +555,47 @@ def risk_edit(request, pk):
     if not can_edit_risk(request.user, risk):
         raise PermissionDenied("Anda tidak dapat mengubah risiko divisi lain.")
     form = RiskRegisterForm(request.POST or None, instance=risk, user=request.user)
-    if request.method == "POST" and form.is_valid():
-        risk = form.save(commit=False)
-        risk.updated_by = request.user
-        risk.save()
-        RiskActivity.objects.create(risk=risk, actor=request.user, action="updated", description="Data risiko diperbarui.")
-        _log(
-            request, "RISK_UPDATED", "Memperbarui data risiko.", risk, target_label=risk.risk_code,
-            metadata={"changed_fields": [form.fields[name].label for name in form.changed_data]},
-        )
+    treatments = _risk_treatment_formset(request, risk)
+    if request.method == "POST" and all([form.is_valid(), not treatments.is_bound or treatments.is_valid()]):
+        with transaction.atomic():
+            risk = form.save(commit=False)
+            risk.updated_by = request.user
+            risk.save()
+            _save_risk_treatments(request, risk, treatments)
+            RiskActivity.objects.create(risk=risk, actor=request.user, action="updated", description="Data risiko diperbarui.")
+            _log(
+                request, "RISK_UPDATED", "Memperbarui data risiko.", risk, target_label=risk.risk_code,
+                metadata={"changed_fields": [form.fields[name].label for name in form.changed_data]},
+            )
         messages.success(request, f"{risk.risk_code} berhasil diperbarui.")
         return redirect("risk:risk_detail", pk=risk.pk)
-    return render(request, "risk_management/risk_form.html", {"form": form, "risk": risk, "page_title": "Edit Risiko"})
+    return render(request, "risk_management/risk_form.html", {
+        "form": form, "risk": risk, "treatment_formset": treatments, "page_title": "Edit Risiko",
+    })
+
+
+def _risk_treatment_formset(request, risk):
+    data = request.POST if request.method == "POST" and any(
+        key.startswith("treatments-") for key in request.POST
+    ) else None
+    return RiskTreatmentFormSet(data, instance=risk, prefix="treatments")
+
+
+def _save_risk_treatments(request, risk, formset):
+    if not formset.is_bound:
+        return
+    formset.instance = risk
+    for treatment in formset.save(commit=False):
+        created = not treatment.pk
+        if created:
+            treatment.created_by = request.user
+        treatment.updated_by = request.user
+        treatment.save()
+        action = "CREATED" if created else "UPDATED"
+        _log(request, f"RISK_TREATMENT_{action}", "Menyimpan perlakuan pada formulir risiko.", treatment,
+             target_label=risk.risk_code)
+        RiskActivity.objects.create(risk=risk, actor=request.user,
+                                    action=f"treatment_{action.lower()}", description="Perlakuan risiko disimpan.")
 
 
 @risk_required

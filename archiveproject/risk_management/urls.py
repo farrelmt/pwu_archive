@@ -19,6 +19,10 @@ urlpatterns = [
     path("aksi/<int:pk>/edit/", views.action_edit, name="action_edit"),
     path("pemantauan/", views.monitoring_report, name="monitoring_report"),
     path("pedoman-penilaian/", views.scoring_guide, name="scoring_guide"),
+    path("kriteria-risiko/", views.scoring_guide, name="criteria"),
+    path("perlakuan-risiko/", views.treatment_list, name="treatment_list"),
+    path("perlakuan-risiko/tambah/", views.treatment_create, name="treatment_create"),
+    path("perlakuan-risiko/<int:pk>/edit/", views.treatment_edit, name="treatment_edit"),
     path("divisi/", views.divisions, name="divisions"),
     path("divisi/<int:pk>/pic/", views.division_pic_edit, name="division_pic_edit"),
 ]

@@ -45,6 +45,92 @@ class RiskPermissionTests(TestCase):
         response = self.client.get(reverse("risk:risk_edit", args=[self.risk.pk]), HTTP_HOST="risk.localhost")
         self.assertEqual(response.status_code, 200)
 
+    def test_criteria_shows_map_and_color_legend_before_likelihoods(self):
+        from .criteria import IMPACT_HEADERS, impact_criteria
+        from .exports import TEMPLATE
+        self.client.force_login(self.head)
+        response = self.client.get(reverse("risk:criteria"), HTTP_HOST="risk.localhost")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Kriteria Risiko")
+        self.assertContains(response, "Kriteria Dampak")
+        content = response.content.decode()
+        self.assertLess(content.index("<h2>Peta Risiko</h2>"), content.index("<h2>Level Risiko</h2>"))
+        self.assertLess(content.index("<h2>Level Risiko</h2>"), content.index("<h2>Kriteria Kemungkinan</h2>"))
+        self.assertLess(content.index("<h2>Kriteria Kemungkinan</h2>"), content.index("<h2>Kriteria Dampak</h2>"))
+        for heading in IMPACT_HEADERS:
+            self.assertContains(response, heading)
+        self.assertEqual(response.context["impact_criteria"], impact_criteria())
+        self.assertContains(response, "Meninggal dunia, cacat total")
+        self.assertEqual(response.context["risk_levels"], [
+            ("Sangat Tinggi", "Merah", "red"), ("Tinggi", "Coklat", "orange"),
+            ("Sedang", "Kuning", "yellow"), ("Rendah", "Hijau", "green"),
+            ("Sangat Rendah", "Biru", "blue"),
+        ])
+        self.assertContains(response, 'aria-label="Level risiko dan warna"')
+        workbook = load_workbook(TEMPLATE, read_only=True, data_only=True)
+        try:
+            original = list(workbook["NEW Kriteria Dampak"].iter_rows(min_row=8, max_row=12, min_col=1, max_col=9, values_only=True))
+            self.assertEqual([(row["level"], *row["criteria"]) for row in impact_criteria()], original)
+        finally:
+            workbook.close()
+        self.assertEqual(self.client.get(reverse("risk:scoring_guide"), HTTP_HOST="risk.localhost").status_code, 200)
+
+    def test_treatment_create_edit_audit_and_export(self):
+        self.client.force_login(self.officer)
+        payload = {"risk": self.risk.pk, "option": "Mengurangi risiko", "action_plan": "Sosialisasi risiko",
+                   "expected_likelihood": 2, "expected_impact": 2, "target_date": "2026-12-31",
+                   "responsible_person": "Risk Owner", "notes": "Catatan perlakuan"}
+        response = self.client.post(reverse("risk:treatment_create"), payload, HTTP_HOST="risk.localhost")
+        self.assertEqual(response.status_code, 302)
+        treatment = RiskTreatment.objects.get(risk=self.risk)
+        self.assertEqual(treatment.expected_score, 4)
+        self.assertEqual(treatment.expected_level, "Rendah")
+        self.assertEqual(treatment.created_by, self.officer)
+        self.assertTrue(ActivityLog.objects.filter(action="RISK_TREATMENT_CREATED", target_id=str(treatment.pk)).exists())
+        payload.update(action_plan="Sosialisasi diperbarui", expected_impact=3)
+        response = self.client.post(reverse("risk:treatment_edit", args=[treatment.pk]), payload, HTTP_HOST="risk.localhost")
+        self.assertEqual(response.status_code, 302)
+        treatment.refresh_from_db()
+        self.assertEqual(treatment.expected_score, 6)
+        self.assertEqual(treatment.action_plan, payload["action_plan"])
+        self.assertTrue(ActivityLog.objects.filter(action="RISK_TREATMENT_UPDATED").exists())
+        response = self._annual_download()
+        exported = load_workbook(BytesIO(b"".join(response.streaming_content)), data_only=True)
+        self.assertEqual(exported["Perlakuan Risiko"]["D10"].value, payload["action_plan"])
+        self.assertEqual(exported["Perlakuan Risiko"]["G10"].value, 6)
+        self.assertEqual(exported["Perlakuan Risiko"]["K10"].value, payload["notes"])
+        exported.close()
+        response.close()
+
+    def test_treatment_permissions_and_validation(self):
+        other = RiskRegister.objects.create(division=self.division_b, title="Risiko privat", category="operational",
+                                            inherent_likelihood=1, inherent_impact=1, residual_likelihood=1,
+                                            residual_impact=1, created_by=self.officer, updated_by=self.officer)
+        treatment = RiskTreatment.objects.create(risk=other, action_plan="Aksi privat", created_by=self.officer, updated_by=self.officer)
+        self.client.force_login(self.officer)
+        response = self.client.get(reverse("risk:treatment_list"), HTTP_HOST="risk.localhost")
+        self.assertContains(response, self.risk.title)
+        self.assertNotContains(response, other.title)
+        self.assertEqual(self.client.get(reverse("risk:treatment_edit", args=[treatment.pk]), HTTP_HOST="risk.localhost").status_code, 404)
+        for data in ({"risk": other.pk, "action_plan": "Forged"},
+                     {"risk": self.risk.pk, "action_plan": "Invalid", "expected_likelihood": 6, "expected_impact": 2},
+                     {"risk": self.risk.pk, "action_plan": "Incomplete", "expected_likelihood": 2}):
+            response = self.client.post(reverse("risk:treatment_create"), data, HTTP_HOST="risk.localhost")
+            self.assertTrue(response.context["form"].errors)
+        self.assertEqual(RiskTreatment.objects.count(), 1)
+        self.client.force_login(self.head)
+        self.assertNotContains(self.client.get(reverse("risk:treatment_list"), HTTP_HOST="risk.localhost"), "+ Tambah Perlakuan")
+        self.assertEqual(self.client.post(reverse("risk:treatment_create"), {"risk": self.risk.pk}, HTTP_HOST="risk.localhost").status_code, 403)
+
+    def test_manager_can_edit_treatments_across_divisions(self):
+        manager = get_user_model().objects.create_user(username="treatment-manager", role="risk")
+        RiskAccess.objects.create(user=manager, role="manager_member")
+        self.client.force_login(manager)
+        response = self.client.post(reverse("risk:treatment_create"), {"risk": self.risk.pk, "action_plan": "Rencana manajemen"}, HTTP_HOST="risk.localhost")
+        self.assertEqual(response.status_code, 302)
+        treatment = RiskTreatment.objects.get(risk=self.risk)
+        self.assertEqual(self.client.get(reverse("risk:treatment_edit", args=[treatment.pk]), HTTP_HOST="risk.localhost").status_code, 200)
+
     def test_managers_can_replace_division_pic_and_audit_access_changes(self):
         User = get_user_model()
         replacement = User.objects.create_user(username="new-pic", password="test-pass-123", role="risk")
@@ -139,6 +225,146 @@ class RiskPermissionTests(TestCase):
         for name in ("category", "description", "status", "mitigation_plan", "target_date"):
             self.assertNotContains(response, f'name="{name}"')
         self.assertContains(response, 'name="control_effectiveness"', count=3)
+
+    def test_register_summary_respects_division_access_and_current_filters(self):
+        for division, title in ((self.division_a, "Prioritas terlihat"), (self.division_b, "Prioritas privat")):
+            RiskRegister.objects.create(
+                division=division, title=title, category="operational", is_priority=True,
+                inherent_likelihood=5, inherent_impact=5, residual_likelihood=4, residual_impact=4,
+                status="closed", created_by=self.officer, updated_by=self.officer,
+            )
+        self.client.force_login(self.officer)
+        response = self.client.get(reverse("risk:risk_list"), HTTP_HOST="risk.localhost")
+        self.assertEqual(response.context["register_summary"], {"total": 2, "priority": 1, "high": 1, "closed": 1})
+        self.assertNotContains(response, "Prioritas privat")
+        response = self.client.get(reverse("risk:risk_list"), {"q": "Prioritas terlihat", "status": "closed"}, HTTP_HOST="risk.localhost")
+        self.assertEqual(response.context["register_summary"], {"total": 1, "priority": 1, "high": 1, "closed": 1})
+        response = self.client.get(reverse("risk:risk_list"), {"q": "Tidak ditemukan"}, HTTP_HOST="risk.localhost")
+        self.assertEqual(response.context["register_summary"], {"total": 0, "priority": 0, "high": 0, "closed": 0})
+
+    def test_register_search_is_visible_and_removing_one_filter_keeps_the_rest(self):
+        from html.parser import HTMLParser
+        from urllib.parse import parse_qs, urlsplit
+
+        class RegisterControls(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.in_details = False
+                self.visible_search = False
+                self.links = []
+
+            def handle_starttag(self, tag, attrs):
+                attrs = dict(attrs)
+                if tag == "details":
+                    self.in_details = True
+                if tag == "input" and attrs.get("type") == "search" and not self.in_details:
+                    self.visible_search = True
+                if tag == "a" and "rw-filter-chip" in attrs.get("class", "").split():
+                    self.links.append(attrs)
+
+            def handle_endtag(self, tag):
+                if tag == "details":
+                    self.in_details = False
+
+        self.client.force_login(self.officer)
+        params = {"q": "operasional", "year": self.risk.created_at.year, "status": "mitigating", "sort": "title", "order": "desc", "page": 2}
+        response = self.client.get(reverse("risk:risk_list"), params, HTTP_HOST="risk.localhost")
+        controls = RegisterControls()
+        controls.feed(response.content.decode())
+        self.assertTrue(controls.visible_search)
+        year_link = next(link for link in controls.links if link["title"].startswith("Hapus filter Tahun:"))
+        remaining = parse_qs(urlsplit(year_link["href"]).query)
+        self.assertNotIn("year", remaining)
+        self.assertNotIn("page", remaining)
+        self.assertEqual(remaining["q"], ["operasional"])
+        self.assertEqual(remaining["status"], ["mitigating"])
+        self.assertEqual(remaining["sort"], ["title"])
+        self.assertEqual(remaining["order"], ["desc"])
+        self.assertEqual(len(response.context["active_filters"]), 3)
+
+    def _risk_with_treatments_payload(self, rows, *, initial=0):
+        data = {
+            "division": self.division_a.pk, "title": "Risiko dengan perlakuan",
+            "indication": "Indikasi", "cause": "Sebab", "impact": "Dampak",
+            "inherent_likelihood": 4, "inherent_impact": 4, "existing_controls": "Kontrol",
+            "control_effectiveness": "adequate", "residual_likelihood": 2, "residual_impact": 3,
+            "risk_owner": "Pemilik", "risk_officer": "Officer",
+            "treatments-TOTAL_FORMS": len(rows), "treatments-INITIAL_FORMS": initial,
+            "treatments-MIN_NUM_FORMS": 0, "treatments-MAX_NUM_FORMS": 100,
+        }
+        for index, row in enumerate(rows):
+            data.update({f"treatments-{index}-{field}": value for field, value in row.items()})
+        return data
+
+    def test_create_risk_saves_multiple_inline_treatments_and_blank_row(self):
+        self.client.force_login(self.officer)
+        page = self.client.get(reverse("risk:risk_create"), HTTP_HOST="risk.localhost")
+        content = page.content.decode()
+        self.assertLess(content.index('<h2 class="text-lg font-bold">Analisis &amp; Evaluasi Risiko'),
+                        content.index('<h2 class="text-lg font-bold">Perlakuan Risiko'))
+        self.assertContains(page, 'name="treatments-TOTAL_FORMS"')
+        rows = [
+            {"option": "Sosialisasi", "action_plan": "Sosialisasi Produk Manajemen Risiko",
+             "expected_likelihood": 2, "expected_impact": 2, "target_date": "2026-12-31",
+             "responsible_person": "Risk Owner", "notes": "Catatan"},
+            {"option": "Kompetensi", "action_plan": "Mengikuti seminar", "responsible_person": "Divisi MR"},
+            {},
+        ]
+        response = self.client.post(reverse("risk:risk_create"), self._risk_with_treatments_payload(rows), HTTP_HOST="risk.localhost")
+        self.assertEqual(response.status_code, 302)
+        risk = RiskRegister.objects.get(title="Risiko dengan perlakuan")
+        self.assertEqual(risk.treatments.count(), 2)
+        treatment = risk.treatments.get(option="Sosialisasi")
+        self.assertEqual(treatment.expected_score, 4)
+        self.assertEqual(treatment.created_by, self.officer)
+        self.assertEqual(treatment.notes, "Catatan")
+        self.assertEqual(ActivityLog.objects.filter(action="RISK_TREATMENT_CREATED").count(), 2)
+
+    def test_edit_risk_updates_existing_and_adds_inline_treatment(self):
+        treatment = RiskTreatment.objects.create(risk=self.risk, action_plan="Rencana awal",
+                                                created_by=self.head, updated_by=self.head)
+        self.client.force_login(self.officer)
+        response = self.client.post(reverse("risk:risk_edit", args=[self.risk.pk]), self._risk_with_treatments_payload([
+            {"id": treatment.pk, "action_plan": "Rencana diperbarui", "expected_likelihood": 1, "expected_impact": 2},
+            {"action_plan": "Rencana tambahan"},
+        ], initial=1), HTTP_HOST="risk.localhost")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.risk.treatments.count(), 2)
+        treatment.refresh_from_db()
+        self.assertEqual(treatment.action_plan, "Rencana diperbarui")
+        self.assertEqual(treatment.expected_score, 2)
+        self.assertEqual(treatment.created_by, self.head)
+        self.assertEqual(treatment.updated_by, self.officer)
+        self.assertTrue(ActivityLog.objects.filter(action="RISK_TREATMENT_UPDATED", target_id=str(treatment.pk)).exists())
+
+    def test_invalid_inline_treatment_prevents_risk_changes(self):
+        self.client.force_login(self.officer)
+        invalid = self._risk_with_treatments_payload([{"action_plan": "Rencana", "expected_likelihood": 2}])
+        response = self.client.post(reverse("risk:risk_create"), invalid, HTTP_HOST="risk.localhost")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["treatment_formset"].errors)
+        self.assertFalse(RiskRegister.objects.filter(title="Risiko dengan perlakuan").exists())
+        old_title = self.risk.title
+        response = self.client.post(reverse("risk:risk_edit", args=[self.risk.pk]), invalid, HTTP_HOST="risk.localhost")
+        self.assertEqual(response.status_code, 200)
+        self.risk.refresh_from_db()
+        self.assertEqual(self.risk.title, old_title)
+        self.assertFalse(self.risk.treatments.exists())
+
+    def test_inline_formset_rejects_treatment_from_another_risk(self):
+        other = RiskRegister.objects.create(division=self.division_b, title="Risiko privat", category="operational",
+                                            inherent_likelihood=1, inherent_impact=1, residual_likelihood=1,
+                                            residual_impact=1, created_by=self.officer, updated_by=self.officer)
+        treatment = RiskTreatment.objects.create(risk=other, action_plan="Jangan diubah",
+                                                created_by=self.officer, updated_by=self.officer)
+        self.client.force_login(self.officer)
+        payload = self._risk_with_treatments_payload([{"id": treatment.pk, "action_plan": "Forged"}], initial=1)
+        response = self.client.post(reverse("risk:risk_edit", args=[self.risk.pk]), payload, HTTP_HOST="risk.localhost")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["treatment_formset"].non_form_errors())
+        treatment.refresh_from_db()
+        self.assertEqual(treatment.risk, other)
+        self.assertEqual(treatment.action_plan, "Jangan diubah")
 
     def test_division_head_is_read_only(self):
         self.client.force_login(self.head)
@@ -457,6 +683,20 @@ class RiskPermissionTests(TestCase):
         for score, level in expected.items():
             with self.subTest(score=score):
                 self.assertEqual(RiskRegister.level_for(score), level)
+
+    def test_matrix_colors_follow_reference_and_hide_range_legend(self):
+        self.client.force_login(self.officer)
+        response = self.client.get(reverse("risk:criteria"), HTTP_HOST="risk.localhost")
+        self.assertEqual([[cell["color"] for cell in row["cells"]] for row in response.context["matrix"]], [
+            ["orange", "orange", "orange", "red", "red"],
+            ["yellow", "yellow", "orange", "orange", "red"],
+            ["green", "yellow", "yellow", "orange", "orange"],
+            ["blue", "green", "yellow", "yellow", "orange"],
+            ["blue", "blue", "green", "green", "yellow"],
+        ])
+        self.assertContains(response, 'class="matrix-cell matrix-', count=25)
+        for legend in ("1–2 Sangat Rendah", "3–4 Rendah", "5–9 Sedang", "10–16 Tinggi", "17–25 Sangat Tinggi"):
+            self.assertNotContains(response, legend)
 
     def _workbook_upload(self):
         workbook = Workbook()

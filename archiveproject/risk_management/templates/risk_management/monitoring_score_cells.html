@@ -1,4 +1,4 @@
-<td rowspan="{{ row_count }}" class="text-center">{{ likelihood|default_if_none:'-' }}</td>
-<td rowspan="{{ row_count }}" class="text-center">{{ impact|default_if_none:'-' }}</td>
-<td rowspan="{{ row_count }}" class="text-center font-bold">{{ score|default_if_none:'-' }}</td>
-<td rowspan="{{ row_count }}"><span class="risk-badge {% if level == 'Sangat Tinggi' %}risk-extreme{% elif level == 'Tinggi' %}risk-high{% elif level == 'Sedang' %}risk-medium{% elif level == 'Rendah' %}risk-low{% elif level == 'Sangat Rendah' %}risk-very-low{% endif %}">{{ level|default:'-' }}</span></td>
+<td rowspan="{{ row_count }}" class="text-center monitor-tone-{{ tone }}">{{ likelihood|default_if_none:'-' }}</td>
+<td rowspan="{{ row_count }}" class="text-center monitor-tone-{{ tone }}">{{ impact|default_if_none:'-' }}</td>
+<td rowspan="{{ row_count }}" class="text-center font-bold monitor-score-value monitor-tone-{{ tone }}">{{ score|default_if_none:'-' }}</td>
+<td rowspan="{{ row_count }}" class="monitor-tone-{{ tone }}"><span class="risk-badge {% if level == 'Sangat Tinggi' %}risk-extreme{% elif level == 'Tinggi' %}risk-high{% elif level == 'Sedang' %}risk-medium{% elif level == 'Rendah' %}risk-low{% elif level == 'Sangat Rendah' %}risk-very-low{% endif %}">{{ level|default:'-' }}</span></td>

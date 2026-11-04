@@ -85,7 +85,7 @@
 
 <section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <div class="border-b border-slate-200 px-5 py-4"><h2 class="text-lg font-bold">Perlakuan Risiko</h2><p class="mt-1 text-sm text-slate-500">Opsi dan rencana aksi sebelum pemantauan triwulan.</p></div>
-    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Opsi</th><th class="px-4 py-3">Rencana Aksi</th><th class="px-4 py-3">Target Risiko</th><th class="px-4 py-3">Jadwal</th><th class="px-4 py-3">Penanggung Jawab</th></tr></thead><tbody class="divide-y">{% for treatment in risk.treatments.all %}<tr><td class="px-4 py-3 whitespace-pre-line">{{ treatment.option|default:'-' }}</td><td class="px-4 py-3 whitespace-pre-line">{{ treatment.action_plan }}</td><td class="px-4 py-3">{% if treatment.expected_score %}{{ treatment.expected_level }} · {{ treatment.expected_score }}{% else %}-{% endif %}</td><td class="px-4 py-3">{{ treatment.target_date|date:'d M Y'|default:'-' }}</td><td class="px-4 py-3">{{ treatment.responsible_person|default:'-' }}</td></tr>{% empty %}<tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">Belum ada perlakuan risiko terstruktur.</td></tr>{% endfor %}</tbody></table></div>
+    {% include 'risk_management/treatment_table.html' %}
 </section>
 
 <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

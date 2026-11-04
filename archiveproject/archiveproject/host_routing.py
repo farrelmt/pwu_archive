@@ -9,6 +9,10 @@ def request_hostname(request):
     return request.get_host().split(':', 1)[0].lower()
 
 
+def is_local_hostname(hostname):
+    return hostname in {"localhost", "127.0.0.1"} or hostname.endswith(".localhost")
+
+
 def request_system(request):
     hostname = request_hostname(request)
     for name, hosts in (
@@ -24,7 +28,7 @@ def request_system(request):
 
 def portal_base_url(request):
     hostname = request_hostname(request)
-    if hostname == "localhost" or hostname.endswith(".localhost"):
+    if is_local_hostname(hostname):
         requested_host = request.get_host()
         port_suffix = (
             f":{requested_host.rsplit(':', 1)[1]}"
@@ -43,7 +47,7 @@ class SharedDomainSessionMiddleware(SessionMiddleware):
         session_cookie = response.cookies.get(settings.SESSION_COOKIE_NAME)
         if session_cookie is not None:
             hostname = request_hostname(request)
-            if hostname == "localhost" or hostname.endswith(".localhost"):
+            if is_local_hostname(hostname):
                 # Browsers reject/ignore parent-domain cookies for localhost.
                 # Keep each local session host-only; the signed system handoff
                 # establishes the corresponding subdomain session.

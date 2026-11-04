@@ -1,0 +1,174 @@
+.risk-workspace{--rw-blue:#1947b8;--rw-ink:#152640;--rw-muted:#64748b;--rw-line:#e1e8f2;color:var(--rw-ink)}
+.risk-workspace .rw-breadcrumb{display:flex;align-items:center;gap:10px;margin-bottom:18px;font-size:12px;color:var(--rw-muted)}
+.risk-workspace .rw-breadcrumb a:hover{color:var(--rw-blue)}
+.risk-workspace .rw-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:26px}
+.risk-workspace .rw-eyebrow{margin-bottom:7px;font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--rw-blue)}
+.risk-workspace .rw-heading h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.035em;line-height:1.2}
+.risk-workspace .rw-subtitle{margin-top:9px;font-size:13px;line-height:1.65;color:var(--rw-muted)}
+.risk-workspace .rw-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.risk-workspace .rw-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:42px;padding:10px 17px;border:1px solid var(--rw-line);border-radius:10px;background:#fff;color:#40516c;font-size:12px;font-weight:700;white-space:nowrap;transition:background .15s,border-color .15s}
+.risk-workspace .rw-button svg{width:16px;height:16px;flex-shrink:0}
+.risk-workspace .rw-button:hover{background:#f4f7fc;border-color:#b7c8e5}
+.risk-workspace .rw-button-primary{border-color:var(--rw-blue);background:var(--rw-blue);color:#fff;box-shadow:0 3px 7px #1947b81a}
+.risk-workspace .rw-button-primary:hover{border-color:#123a9e;background:#123a9e}
+.risk-workspace a:focus-visible,.risk-workspace button:focus-visible,.risk-workspace summary:focus-visible{outline:3px solid #a5c4ff;outline-offset:3px}
+.risk-workspace .rw-filter{border:1px solid var(--rw-line);border-radius:14px;background:#fff;overflow:hidden}
+.risk-workspace .rw-filter summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;list-style:none;cursor:pointer}
+.risk-workspace .rw-filter summary::-webkit-details-marker{display:none}
+.risk-workspace .rw-filter-title{display:flex;align-items:center;gap:11px;font-size:12px;font-weight:750}
+.risk-workspace .rw-filter-icon{display:flex;align-items:center;justify-content:center;width:30px;height:30px;background:#edf3ff;border-radius:8px;color:var(--rw-blue)}
+.risk-workspace .rw-filter-icon svg,.risk-workspace .rw-chevron{width:16px;height:16px}
+.risk-workspace .rw-chevron{color:#8290a6;transition:transform .15s}
+.risk-workspace .rw-filter[open] .rw-chevron{transform:rotate(180deg)}
+.risk-workspace .rw-active-filter{padding:4px 8px;border-radius:6px;background:#edf3ff;color:var(--rw-blue);font-size:10px;font-weight:700}
+.risk-workspace .rw-filter-scroll{overflow-x:auto;border-top:1px solid var(--rw-line)}
+.risk-workspace .risk-register-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;align-items:end;gap:12px;min-width:650px;padding:20px}
+.risk-workspace .risk-register-filters label{display:block;min-width:0;font-size:11px;font-weight:700;color:#51617a}
+.risk-workspace .rw-search-field{grid-column:1/-1;position:relative}
+.risk-workspace .rw-search-field svg{position:absolute;left:13px;bottom:13px;width:16px;height:16px;color:#8290a6;pointer-events:none}
+.risk-workspace .risk-register-filters input,.risk-workspace .risk-register-filters select{display:block;width:100%;min-width:0;height:42px;margin-top:7px;padding:9px 12px;border:1px solid #d6dfec;border-radius:9px;background:#fff;color:#263951;font-size:12px;font-weight:400}
+.risk-workspace .rw-search-field input{padding-left:39px}
+.risk-workspace .risk-register-filters input:focus,.risk-workspace .risk-register-filters select:focus{border-color:#7ca0ee;outline:3px solid #e3edff}
+.risk-workspace .rw-table-panel{margin-top:20px;border:1px solid var(--rw-line);border-radius:15px;background:#fff;overflow:hidden;box-shadow:0 3px 12px #15264004}
+.risk-workspace .rw-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 22px;border-bottom:1px solid var(--rw-line)}
+.risk-workspace .rw-table-toolbar h2{font-size:14px;font-weight:750}
+.risk-workspace .rw-count{display:inline-block;margin-left:8px;padding:3px 8px;border-radius:6px;background:#edf3ff;color:var(--rw-blue);font-size:11px;font-weight:750;vertical-align:middle}
+.risk-workspace .rw-table-note{font-size:11px;color:#8290a6}
+.risk-workspace .rw-register-table{width:100%;min-width:1000px;table-layout:fixed;border-collapse:collapse}
+.risk-workspace .rw-register-table th{padding:13px 20px;background:#f7f9fc;color:#738098;font-size:10px;font-weight:750;letter-spacing:.055em;text-transform:uppercase;text-align:left;vertical-align:middle}
+.risk-workspace .rw-register-table th a{color:inherit}
+.risk-workspace .rw-register-table td{padding:21px 20px;border-top:1px solid #edf1f7;vertical-align:middle;font-size:12px;line-height:1.6;color:#51617a}
+.risk-workspace .rw-register-table tbody tr:hover{background:#f8faff}
+.risk-workspace .rw-code{display:inline-flex;max-width:100%;padding:3px 7px;border:1px solid #e1e9f8;border-radius:5px;background:#f1f5fd;color:#345994;font-size:10px;font-weight:750;letter-spacing:.015em}
+.risk-workspace .rw-risk-title{display:block;margin-top:8px;font-size:13px;font-weight:700;line-height:1.65;color:var(--rw-ink)}
+.risk-workspace .rw-risk-title:hover{color:var(--rw-blue)}
+.risk-workspace .rw-owner{display:block;margin-top:5px;font-size:11px;color:#8490a3}
+.risk-workspace .rw-inherent{display:inline-flex;align-items:center;justify-content:center;min-width:35px;min-height:35px;border:1px solid #e3e9f2;border-radius:9px;background:#f7f9fc;font-size:14px;font-weight:750;color:#34465f;font-variant-numeric:tabular-nums}
+.risk-workspace .rw-register-table .risk-badge{font-size:10px;font-weight:700;padding:4px 9px}
+.risk-workspace .rw-residual-score{display:block;margin-top:6px;font-size:10px;color:#8490a3}
+.risk-workspace .rw-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#60718a}
+.risk-workspace .rw-status::before{content:"";width:6px;height:6px;border-radius:50%;background:#94a3b8;flex-shrink:0}
+.risk-workspace .rw-status-mitigating::before{background:#d99b26}.risk-workspace .rw-status-monitoring::before{background:#477de1}.risk-workspace .rw-status-closed::before{background:#2b9a70}
+.risk-workspace .rw-detail{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:750;color:var(--rw-blue)}
+.risk-workspace .rw-detail svg{width:14px;height:14px;flex-shrink:0}
+.risk-workspace .rw-register-table th:last-child,.risk-workspace .rw-register-table td:last-child{padding-left:9px;padding-right:12px}
+.risk-workspace .rw-table-footer{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:16px 22px;border-top:1px solid var(--rw-line);font-size:11px;color:#7d8ba0}
+.risk-workspace .rw-pagination{display:flex;align-items:center;gap:10px}.risk-workspace .rw-pagination .rw-button{min-height:33px;padding:6px 10px;font-size:10px}
+.risk-workspace .rw-empty{text-align:center;padding:55px 20px!important}.risk-workspace .rw-empty strong{display:block;margin-bottom:5px;font-size:14px;color:#34465f}.risk-workspace .rw-empty p{font-size:12px;color:#8490a3}
+.risk-register .rw-heading{margin-bottom:22px}
+.risk-register .rw-register-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:23px}
+.risk-register .rw-register-summary>div{position:relative;padding:18px 20px;border:1px solid var(--rw-line);border-radius:12px;background:#fff}
+.risk-register .rw-summary-label{display:block;font-size:11px;font-weight:650;color:#62738c}
+.risk-register .rw-register-summary strong{display:block;margin-top:8px;font-size:27px;line-height:1.2;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.035em;color:#253d65}
+.risk-register .rw-summary-note{display:block;margin-top:7px;font-size:10px;color:#8a98ac}
+.risk-register .rw-register-summary .rw-summary-high{border-top:3px solid #e3a16b;padding-top:16px}.risk-register .rw-summary-high strong{color:#b96529}
+.risk-register .rw-register-summary .rw-summary-closed{border-top:3px solid #74b49a;padding-top:16px}.risk-register .rw-summary-closed strong{color:#2d8765}
+.risk-register .rw-register-search{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:7px 8px 7px 17px;border:1px solid #d8e2ef;border-radius:12px;background:#fff;box-shadow:0 2px 6px #15264003}
+.risk-register .rw-register-search>svg{width:19px;height:19px;flex-shrink:0;color:#8295b0}
+.risk-register .rw-register-search input[type=search]{flex:1;min-width:0;height:42px;border:0;background:transparent;padding:8px 0;font-size:13px;color:#304764;box-shadow:none;outline:none}
+.risk-register .rw-register-search:focus-within{border-color:#86a8ea;box-shadow:0 0 0 3px #e8f0ff}
+.risk-register .rw-register-search .rw-button{min-height:38px;font-size:11px}
+.risk-register .rw-filter summary{padding:11px 17px}.risk-register .rw-filter-icon{width:27px;height:27px}
+.risk-register .rw-filter-chips{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:13px}
+.risk-register .rw-filter-chip{display:inline-flex;align-items:center;gap:10px;max-width:100%;padding:6px 9px;border:1px solid #d9e5f6;border-radius:7px;background:#eef4fe;font-size:10px;color:#597298}
+.risk-register .rw-filter-chip strong{font-weight:650;color:#294f89}.risk-register .rw-filter-chip>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.risk-register .rw-filter-chip>span:last-child{font-size:16px;line-height:1;color:#6e8bb5}
+.risk-register .rw-filter-chip:hover{background:#e4edfc;border-color:#b7ceef}.risk-register .rw-clear-filters{padding:5px;font-size:10px;font-weight:650;color:#7187a5}.risk-register .rw-clear-filters:hover{color:#1947b8}
+.risk-register .rw-table-panel{margin-top:19px}.risk-register .rw-table-toolbar{padding:17px 21px}
+.risk-register .rw-register-table th{padding-top:14px;padding-bottom:14px;font-size:10px;letter-spacing:.035em;white-space:nowrap}
+.risk-register .rw-register-table td{padding-top:18px;padding-bottom:18px;line-height:1.55}
+.risk-register .rw-register-table tbody tr:nth-child(even) td{background:#fcfdff}.risk-register .rw-register-table tbody tr:hover td{background:#f3f7fe}
+.risk-register .rw-risk-identifiers{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.risk-register .rw-priority{padding:2px 6px;border:1px solid #f1dfad;border-radius:5px;background:#fff8e7;color:#9a7625;font-size:9px;font-weight:650}
+.risk-register .rw-risk-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:13px;font-weight:650;line-height:1.6}
+.risk-register .rw-owner{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.risk-register .rw-division-name{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:11px;font-weight:600;color:#4b627f}
+.risk-register .rw-category{display:inline-flex;padding:4px 7px;border-radius:5px;background:#f0f3f8;color:#687b95;font-size:10px}
+.risk-register .rw-inherent{background:#f4f7fc;border-color:#dfe7f3;color:#3f5b85}
+.risk-register .rw-detail{white-space:nowrap;font-size:10px;gap:3px}
+.risk-register .rw-status{font-size:10px}.risk-register .rw-residual-score{font-size:10px;color:#7186a3}
+@media(min-width:761px){.risk-register .rw-register-table thead th:first-child{position:sticky;left:0;z-index:2;background:#f7f9fc;box-shadow:1px 0 #e4ebf5}.risk-register .rw-register-table tbody td:not([colspan]):first-child{position:sticky;left:0;z-index:1;background:#fff;box-shadow:1px 0 #edf1f7}.risk-register .rw-register-table tbody tr:nth-child(even) td:first-child{background:#fcfdff}.risk-register .rw-register-table tbody tr:hover td:first-child{background:#f3f7fe}}
+@media(max-width:760px){.risk-register .rw-register-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:17px}.risk-register .rw-register-summary>div{padding:14px}.risk-register .rw-register-summary strong{font-size:23px}.risk-register .rw-summary-note{font-size:9px}.risk-register .rw-summary-label{font-size:10px}.risk-register .rw-register-summary .rw-summary-high,.risk-register .rw-register-summary .rw-summary-closed{padding-top:12px}.risk-register .rw-register-search{padding-left:12px;gap:8px}.risk-register .rw-register-search input[type=search]{font-size:12px}.risk-register .rw-register-search .rw-button{padding:9px 11px;font-size:10px}.risk-register .rw-register-table td{padding-top:15px;padding-bottom:15px}}
+.risk-editor .rw-heading{align-items:flex-start}
+.risk-editor .rw-section-nav{position:sticky;top:76px;z-index:15;display:flex;gap:8px;align-items:center;margin-bottom:22px;padding:8px;border:1px solid var(--rw-line);border-radius:12px;background:#fff;box-shadow:0 4px 12px #15264005;overflow-x:auto}
+.risk-editor .rw-section-nav a{display:flex;align-items:center;gap:9px;padding:9px 13px;border-radius:7px;font-size:11px;font-weight:650;color:#657590;white-space:nowrap}
+.risk-editor .rw-section-nav a:hover,.risk-editor .rw-section-nav a:focus-visible{background:#edf3ff;color:var(--rw-blue)}
+.risk-editor .rw-section-nav span{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:6px;background:#edf3ff;font-size:10px;font-weight:800;color:var(--rw-blue)}
+.risk-editor .rw-section-nav .rw-nav-save{position:sticky;right:0;margin-left:auto;min-height:35px;padding:8px 13px;border:0;border-radius:7px;background:var(--rw-blue);color:#fff;font-size:11px;font-weight:700;white-space:nowrap}
+.risk-editor .rw-main-form{display:flex;flex-direction:column;gap:22px}
+.risk-editor .rw-main-form>section{padding:25px;border:1px solid var(--rw-line);border-radius:15px;background:#fff;box-shadow:0 3px 12px #15264003;scroll-margin-top:150px}
+.risk-editor .rw-section-heading{display:flex;align-items:center;gap:13px;margin-bottom:22px}
+.risk-editor .rw-section-number{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:37px;height:37px;border:1px solid #e1eaff;border-radius:11px;background:#f1f5ff;font-size:12px;font-weight:800;color:var(--rw-blue)}
+.risk-editor .rw-section-heading h2{font-size:16px;font-weight:750;letter-spacing:-.02em}
+.risk-editor .rw-section-heading p{margin-top:4px;font-size:11px;line-height:1.6;color:#8290a6}
+.risk-editor .rw-metadata{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:20px;padding:18px;border:1px solid #e8edf6;border-radius:10px;background:#f8fafd}
+.risk-editor .rw-metadata label{font-size:11px;font-weight:700;color:#60718a}
+.risk-editor .rw-main-form input:not([type=hidden]):not([type=radio]):not([type=checkbox]),.risk-editor .rw-main-form select,.risk-editor .rw-main-form textarea{width:100%;max-width:100%;min-width:0;border:1px solid #d7e0ed;border-radius:8px;background:#fff;padding:10px 11px;color:#253951;font-size:12px;line-height:1.6;box-sizing:border-box;box-shadow:none}
+.risk-editor .rw-main-form input:not([type=hidden]):not([type=radio]):not([type=checkbox]),.risk-editor .rw-main-form select{min-height:42px}
+.risk-editor .rw-main-form textarea{min-height:96px;resize:vertical}
+.risk-editor .rw-main-form input:focus,.risk-editor .rw-main-form select:focus,.risk-editor .rw-main-form textarea:focus{border-color:#82a4ed;outline:3px solid #e8f0ff}
+.risk-editor .rw-main-form input[type=radio],.risk-editor .rw-main-form input[type=checkbox]{appearance:auto;width:17px;height:17px;accent-color:var(--rw-blue);margin:4px}
+.risk-editor .rw-main-form input[type=radio]{appearance:none;background:#fff;border:1.5px solid #b5c4db;border-radius:50%;cursor:pointer}
+.risk-editor .rw-main-form input[type=radio]:checked{background:var(--rw-blue);border-color:var(--rw-blue);box-shadow:inset 0 0 0 4px #fff}
+.risk-editor .rw-table-scroll{margin-top:0;border:1px solid #dbe3ef;border-radius:11px;overflow:auto;scrollbar-color:#bccbe2 #f0f4fa;scrollbar-width:thin}
+.risk-editor .risk-document-form th,.risk-editor .risk-document-form td,.risk-editor .treatment-table th,.risk-editor .treatment-table td{border-color:#dfe6f1;padding:13px 12px}
+.risk-editor .risk-document-form thead,.risk-editor .treatment-table thead{background:#203e77;color:#fff}
+.risk-editor .risk-document-form thead th,.risk-editor .treatment-table thead th{font-size:11px;font-weight:650;line-height:1.65;white-space:normal;vertical-align:middle}
+.risk-editor .risk-document-form thead tr:nth-child(2),.risk-editor .treatment-table thead tr:nth-child(2){background:#edf3fc;color:#4c6383}
+.risk-editor .risk-document-form tbody td,.risk-editor .treatment-table tbody td{background:#fff;vertical-align:top}
+.risk-editor .risk-document-form tbody td:first-child,.risk-editor .treatment-table tbody td:first-child{position:sticky;left:0;z-index:1;background:#f6f8fc;text-align:center;font-size:11px;font-weight:750;color:#71829b}
+.risk-editor .risk-document-form output,.risk-editor .treatment-table output{display:block;min-height:40px;padding:10px 5px;font-size:12px;font-weight:650;color:#426089}
+.risk-editor .rw-scroll-hint{margin-top:10px;font-size:10px;color:#8a97ab;text-align:right}
+.risk-editor .rw-save-bar{position:sticky;bottom:14px;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:15px 20px;border:1px solid #d8e2f0;border-radius:13px;background:#fff;box-shadow:0 7px 28px #15264014}
+.risk-editor .rw-save-caption{font-size:12px;font-weight:700}.risk-editor .rw-save-caption small{display:block;margin-top:3px;font-size:10px;font-weight:400;color:#8290a6}
+.risk-editor #addInlineTreatment{display:inline-flex;align-items:center;gap:7px;margin-top:16px;padding:9px 13px;border:1px solid #d5e2f8;border-radius:8px;background:#f5f8ff;font-size:11px;font-weight:700;color:var(--rw-blue)}
+.risk-editor #addInlineTreatment:hover{background:#eaf1ff}.risk-editor #addInlineTreatment:disabled{opacity:.5;cursor:not-allowed}
+.risk-monitoring .rw-heading{align-items:flex-start;margin-bottom:22px}
+.risk-monitoring .rw-heading>.rw-actions{padding-top:8px;flex-wrap:wrap;justify-content:flex-end}
+.risk-monitoring .rw-report-period{display:inline-flex;margin-top:12px;padding:5px 9px;border:1px solid #dce7fa;border-radius:6px;background:#eef4fe;color:#42659b;font-size:11px;font-weight:650}
+.risk-monitoring .rw-monitor-filters{display:grid;grid-template-columns:1.1fr .65fr .9fr 1.4fr auto;align-items:end;gap:16px;padding:19px 21px;border:1px solid var(--rw-line);border-radius:13px;background:#fff}
+.risk-monitoring .rw-monitor-filter-label{align-self:center}.risk-monitoring .rw-monitor-filter-label>span{display:block;font-size:12px;font-weight:700}.risk-monitoring .rw-monitor-filter-label small{display:block;margin-top:5px;font-size:10px;color:#8a97ac}
+.risk-monitoring .rw-monitor-filters label{min-width:0;font-size:10px;font-weight:700;color:#60718a}
+.risk-monitoring .rw-monitor-filters select{display:block;width:100%;min-width:0;min-height:41px;margin-top:7px;padding:9px 11px;border:1px solid #d7e1ef;border-radius:8px;background:#fff;font-size:12px;font-weight:400;color:#304967}
+.risk-monitoring .rw-monitor-filters select:focus{border-color:#86a8ea;outline:3px solid #e8f0ff}
+.risk-monitoring .rw-monitor-filters .rw-button{min-height:41px;font-size:11px}
+.risk-monitoring .rw-monitor-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:20px 0}
+.risk-monitoring .rw-monitor-summary>div{padding:18px;border:1px solid var(--rw-line);border-radius:12px;background:#fff;min-width:0}
+.risk-monitoring .rw-monitor-summary>div>span{display:block;font-size:10px;font-weight:650;color:#6a7d97}
+.risk-monitoring .rw-monitor-summary strong{display:block;margin-top:8px;font-size:27px;font-weight:750;line-height:1.2;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:#29446d}
+.risk-monitoring .rw-monitor-summary em{font-style:normal;font-size:17px;margin-left:3px;color:#7d9b8f}
+.risk-monitoring .rw-monitor-summary small{display:block;margin-top:8px;font-size:9px;line-height:1.6;color:#8a98ae}
+.risk-monitoring .rw-monitor-summary .rw-metric-success strong,.risk-monitoring .rw-monitor-summary .rw-metric-change strong{color:#2f8869}.risk-monitoring .rw-monitor-summary .rw-metric-change{background:#f4faf7;border-color:#d6e9df}.risk-monitoring .rw-monitor-summary .is-negative strong{color:#bf5c48}
+.risk-monitoring .rw-monitor-progress{display:block;width:100%;height:5px;margin-top:15px;appearance:none;overflow:hidden;border:0;border-radius:10px;background:#e9f0ed;color:#69a78c}
+.risk-monitoring .rw-monitor-progress::-webkit-progress-bar{background:#e9f0ed;border-radius:10px}.risk-monitoring .rw-monitor-progress::-webkit-progress-value{background:#69a78c;border-radius:10px}.risk-monitoring .rw-monitor-progress::-moz-progress-bar{background:#69a78c;border-radius:10px}
+.risk-monitoring .rw-monitor-nav{display:flex;align-items:center;gap:7px;margin:6px 0 19px;overflow-x:auto}
+.risk-monitoring .rw-monitor-nav a{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #e1e8f3;border-radius:8px;background:#fff;color:#617797;font-size:11px;font-weight:650;white-space:nowrap}.risk-monitoring .rw-monitor-nav a:hover{background:#edf4ff;color:var(--rw-blue);border-color:#c5d6f1}
+.risk-monitoring .rw-monitor-nav span{padding:2px 5px;border-radius:4px;background:#edf3fd;color:#42679f;font-size:9px}
+.risk-monitoring .rw-monitor-panel{margin-top:20px;border:1px solid var(--rw-line);border-radius:14px;background:#fff;overflow:hidden;scroll-margin-top:85px;box-shadow:0 3px 10px #15264003}
+.risk-monitoring .rw-monitor-section-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 22px;border-bottom:1px solid var(--rw-line)}
+.risk-monitoring .rw-monitor-section-heading h2{font-size:14px;font-weight:750;color:#29405f}.risk-monitoring .rw-monitor-section-heading p{margin-top:6px;font-size:11px;line-height:1.6;color:#8292a9}
+.risk-monitoring .rw-monitor-table-hint{font-size:10px;color:#8796ac;line-height:1.7;text-align:right}
+.risk-monitoring .rw-priority-count{background:#fff2e7;color:#b77b40}
+.risk-monitoring .monitoring-table-scroll{max-height:620px;overflow:auto;scrollbar-color:#bdcce2 #f0f4fa;scrollbar-width:thin}
+.risk-monitoring .monitoring-document-table th,.risk-monitoring .monitoring-document-table td{border-color:#e2e8f2;font-size:11px;line-height:1.65;padding:13px 12px}
+.risk-monitoring .monitoring-document-table thead{background:#203e77;color:#fff}
+.risk-monitoring .monitoring-document-table thead{position:sticky;top:0;z-index:4}
+.risk-monitoring .monitoring-document-table thead th{font-size:10px;font-weight:650;white-space:normal;text-align:center}.risk-monitoring .monitoring-document-table thead a{color:inherit;line-height:1.6}
+.risk-monitoring .monitoring-document-table thead tr:nth-child(2){background:#f0f4fb;color:#5e7699}
+.risk-monitoring .monitoring-document-table .monitor-group-initial{background:#385783}.risk-monitoring .monitoring-document-table .monitor-group-final{background:#39776e}.risk-monitoring .monitoring-document-table .monitor-group-expected{background:#927647}
+.risk-monitoring .monitoring-document-table td{background:#fff;color:#5a708e}.risk-monitoring .monitoring-document-table .monitor-score-value{font-size:15px;color:#3b587f;font-variant-numeric:tabular-nums}
+.risk-monitoring .monitoring-document-table td.monitor-tone-initial{background:#f8faff}.risk-monitoring .monitoring-document-table td.monitor-tone-final{background:#f6fbf9}.risk-monitoring .monitoring-document-table td.monitor-tone-expected{background:#fffcf6}
+.risk-monitoring .monitoring-document-table .risk-badge{padding:4px 8px;font-size:10px;font-weight:650}
+.risk-monitoring .monitoring-document-table td a{color:#315b9a;font-size:11px;font-weight:650}
+.risk-monitoring .rw-monitor-footnote{padding:12px 21px;border-top:1px solid var(--rw-line);background:#fafbfd;color:#8292aa;font-size:10px;line-height:1.7}
+.risk-monitoring #rekap-divisi table,.risk-monitoring #risiko-prioritas table{width:100%;min-width:950px;border-collapse:collapse}
+.risk-monitoring #rekap-divisi th:first-child{width:24%}.risk-monitoring #risiko-prioritas th:first-child{width:55px}.risk-monitoring #risiko-prioritas th:nth-child(2){width:32%}.risk-monitoring #risiko-prioritas th:nth-child(3){width:145px}.risk-monitoring #risiko-prioritas th:nth-child(4),.risk-monitoring #risiko-prioritas th:nth-child(5){width:90px}
+.risk-monitoring #rekap-divisi th,.risk-monitoring #risiko-prioritas th{padding:13px 18px;background:#f5f8fc;color:#7387a1;font-size:10px;font-weight:650;letter-spacing:.025em;line-height:1.6;vertical-align:middle}
+.risk-monitoring #rekap-divisi td,.risk-monitoring #risiko-prioritas td{padding:17px 18px;border-bottom:1px solid #edf1f7;color:#5b7190;font-size:11px;line-height:1.65;vertical-align:middle}
+.risk-monitoring #rekap-divisi tbody tr:hover,.risk-monitoring #risiko-prioritas tbody tr:hover{background:#f8faff}.risk-monitoring #rekap-divisi tfoot{background:#edf4fc}.risk-monitoring #rekap-divisi tfoot td{color:#355682;font-weight:750}
+.risk-monitoring #risiko-prioritas td a{font-weight:650;color:#355c93}.risk-monitoring #risiko-prioritas .risk-badge{font-size:10px;padding:4px 8px}
+@media print{.risk-monitoring .monitoring-document-table thead{position:static!important}}
+@media(min-width:761px){.risk-monitoring .monitoring-document-table .monitor-fixed-number{position:sticky;left:0;z-index:2}.risk-monitoring .monitoring-document-table .monitor-fixed-risk{position:sticky;left:50px;z-index:2;box-shadow:2px 0 0 #dce5f2}.risk-monitoring .monitoring-document-table thead .monitor-fixed-number,.risk-monitoring .monitoring-document-table thead .monitor-fixed-risk{background:#203e77;z-index:3}.risk-monitoring .monitoring-document-table tbody .monitor-fixed-number{background:#f7f9fd;color:#8191a9;font-size:10px}}
+@media(max-width:1150px){.risk-monitoring .rw-heading{flex-direction:column;gap:13px}.risk-monitoring .rw-heading>.rw-actions{padding:0;justify-content:flex-start}.risk-monitoring .rw-monitor-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.risk-monitoring .rw-monitor-filter-label{display:none}.risk-monitoring .rw-monitor-filters{grid-template-columns:.8fr 1fr 1.6fr auto}.risk-monitoring .rw-monitor-table-hint{max-width:190px}}
+@media(max-width:640px){.risk-monitoring .rw-monitor-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.risk-monitoring .rw-monitor-summary>div{padding:14px}.risk-monitoring .rw-heading>.rw-actions{flex-wrap:wrap;gap:8px}.risk-monitoring .rw-heading>.rw-actions .rw-button{flex:none;font-size:10px;padding:9px 11px}.risk-monitoring .rw-monitor-filters{grid-template-columns:1fr 1fr;padding:15px;gap:13px}.risk-monitoring .rw-monitor-filters label:nth-of-type(3){grid-column:1/-1}.risk-monitoring .rw-monitor-filters .rw-button{grid-column:1/-1}.risk-monitoring .rw-monitor-section-heading{align-items:flex-start;flex-direction:column;padding:17px;gap:9px}.risk-monitoring .rw-monitor-table-hint{max-width:none;text-align:left}.risk-monitoring .rw-monitor-nav a{font-size:10px;padding:8px 10px}}
+@media print{.risk-monitoring .rw-heading{display:block;margin-bottom:12px}.risk-monitoring .rw-heading h1{font-size:19pt}.risk-monitoring .rw-report-period{border:0;background:none;padding:0;color:#111}.risk-monitoring .rw-monitor-summary{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin:12px 0}.risk-monitoring .rw-monitor-summary>div{padding:8px;background:none!important;border-color:#999}.risk-monitoring .rw-monitor-summary strong{font-size:17pt;color:#111!important}.risk-monitoring .rw-monitor-summary small{color:#333}.risk-monitoring progress{display:none!important}.risk-monitoring .rw-monitor-panel{break-inside:auto!important;margin-top:15px;border-radius:0;box-shadow:none}.risk-monitoring .rw-monitor-section-heading{padding:9px;break-after:avoid}.risk-monitoring .rw-monitor-section-heading h2{font-size:11pt}.risk-monitoring .monitoring-table-scroll{max-height:none;overflow:visible}.risk-monitoring .monitoring-document-table{width:100%;min-width:0;font-size:7pt}.risk-monitoring .monitoring-document-table col{width:auto!important}.risk-monitoring .monitoring-document-table th,.risk-monitoring .monitoring-document-table td{padding:3px;font-size:7pt!important;position:static!important;box-shadow:none!important;background:#fff!important;color:#111!important}.risk-monitoring .monitoring-document-table thead th{font-size:6pt!important}.risk-monitoring .monitoring-document-table .risk-badge{padding:0;background:none!important;color:#111!important;font-size:7pt}.risk-monitoring #rekap-divisi table,.risk-monitoring #risiko-prioritas table{min-width:0;font-size:8pt}.risk-monitoring #rekap-divisi td,.risk-monitoring #rekap-divisi th,.risk-monitoring #risiko-prioritas td,.risk-monitoring #risiko-prioritas th{padding:5px;font-size:8pt;color:#111}.risk-monitoring .rw-monitor-footnote{padding:7px;font-size:7pt;color:#222}}
+@media(max-width:760px){.risk-workspace .rw-heading{align-items:flex-start;flex-direction:column;gap:16px}.risk-workspace .rw-heading h1{font-size:25px}.risk-workspace .rw-heading .rw-actions{width:100%}.risk-workspace .rw-heading .rw-actions .rw-button{flex:1}.risk-workspace .rw-table-note{display:none}.risk-workspace .rw-table-footer{align-items:flex-start;flex-direction:column}.risk-editor .rw-metadata{grid-template-columns:1fr;gap:13px}.risk-editor .rw-main-form>section{padding:18px}.risk-editor .rw-section-nav{top:72px}.risk-editor .rw-section-nav a{padding:8px}.risk-editor .rw-save-bar{padding:12px;bottom:8px}.risk-editor .rw-save-caption{display:none}.risk-editor .rw-save-bar .rw-actions{justify-content:flex-end;width:100%}.risk-editor .rw-section-heading{align-items:flex-start}.risk-editor .rw-scroll-hint{text-align:left}}

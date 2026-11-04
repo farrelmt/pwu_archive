@@ -162,7 +162,7 @@ class KoperasiHostTests(TestCase):
         )
         self.assertEqual(dashboard_response.status_code, 403)
 
-    def test_superuser_without_koperasi_role_cannot_open_koperasi(self):
+    def test_superuser_without_koperasi_role_can_open_koperasi(self):
         superuser = get_user_model().objects.create_superuser(
             username="superuser_without_koperasi",
             password="test-password",
@@ -172,7 +172,7 @@ class KoperasiHostTests(TestCase):
 
         response = self.client.get("/", HTTP_HOST="koperasi.localhost:8000")
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
 
     def test_legacy_viewer_row_does_not_grant_koperasi_access(self):
         user = get_user_model().objects.create_user(

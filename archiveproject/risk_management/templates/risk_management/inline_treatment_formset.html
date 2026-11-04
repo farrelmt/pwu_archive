@@ -1,0 +1,40 @@
+<section id="perlakuan" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <div class="rw-section-heading"><span class="rw-section-number" aria-hidden="true">03</span><div><h2 class="text-lg font-bold">Perlakuan Risiko</h2><p>Susun rencana aksi, penanggung jawab, dan target risiko yang diharapkan.</p></div></div>
+    {{ treatment_formset.management_form }}
+    {% if treatment_formset.non_form_errors %}<div class="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ treatment_formset.non_form_errors }}</div>{% endif %}
+    {% include 'risk_management/treatment_table_style.html' %}
+    <div class="rw-table-scroll" role="region" aria-label="Formulir Perlakuan Risiko" tabindex="0">
+    <table class="treatment-table text-left text-sm">
+        <colgroup><col class="treatment-number"><col class="treatment-name"><col class="treatment-text"><col class="treatment-text"><col class="treatment-score"><col class="treatment-score"><col class="treatment-score"><col class="treatment-level"><col class="treatment-date"><col class="treatment-owner"><col class="treatment-text"></colgroup>
+        <thead class="bg-blue-900 text-white"><tr><th rowspan="2" scope="col">No.</th><th rowspan="2" scope="col">Nama Risiko</th><th rowspan="2" scope="col">Opsi Perlakuan Risiko</th><th rowspan="2" scope="col">Rencana Aksi Perlakuan Risiko</th><th colspan="4" scope="colgroup">Risiko yang Diharapkan</th><th rowspan="2" scope="col">Jadwal Pelaksanaan</th><th rowspan="2" scope="col">Penanggung Jawab</th><th rowspan="2" scope="col">Keterangan</th></tr><tr><th scope="col">Kemungkinan</th><th scope="col">Dampak</th><th scope="col">Skor Risiko</th><th scope="col">Level Risiko</th></tr></thead>
+        <tbody id="inlineTreatmentRows">{% for treatment_form in treatment_formset %}{% include 'risk_management/inline_treatment_row.html' with row_number=forloop.counter %}{% endfor %}</tbody>
+    </table>
+    </div>
+    <p class="rw-scroll-hint">Geser tabel ke samping untuk melihat seluruh kolom &rarr;</p>
+    <button type="button" id="addInlineTreatment" class="mt-4 rounded-xl border border-blue-200 px-4 py-2 text-sm font-bold text-blue-700">+ Tambah Baris Perlakuan</button>
+    <template id="inlineTreatmentEmptyForm">{% include 'risk_management/inline_treatment_row.html' with treatment_form=treatment_formset.empty_form row_number='-' %}</template>
+</section>
+<script nonce="{{ request.csp_nonce }}">
+    (()=>{
+        const rows=document.getElementById('inlineTreatmentRows'),total=document.getElementById('id_treatments-TOTAL_FORMS'),add=document.getElementById('addInlineTreatment');
+        const level=score=>score>=17?'Sangat Tinggi':score>=10?'Tinggi':score>=5?'Sedang':score>=3?'Rendah':'Sangat Rendah';
+        function update(){
+            rows.querySelectorAll('[data-treatment-row]').forEach((row,index)=>{
+                row.querySelector('[data-treatment-number]').textContent=index+1;
+                row.querySelector('[data-treatment-risk-name]').textContent=document.getElementById('id_title').value||'-';
+                const likelihood=Number(row.querySelector('[name$="-expected_likelihood"]').value),impact=Number(row.querySelector('[name$="-expected_impact"]').value);
+                const valid=Number.isInteger(likelihood)&&Number.isInteger(impact)&&likelihood>=1&&likelihood<=5&&impact>=1&&impact<=5;
+                row.querySelector('[data-treatment-score]').textContent=valid?likelihood*impact:'-';
+                row.querySelector('[data-treatment-level]').textContent=valid?level(likelihood*impact):'-';
+            });
+            add.disabled=Number(total.value)>=100;
+        }
+        add.addEventListener('click',()=>{
+            if(Number(total.value)>=100)return;
+            const template=document.createElement('template');
+            template.innerHTML=document.getElementById('inlineTreatmentEmptyForm').innerHTML.replaceAll('__prefix__',total.value);
+            rows.appendChild(template.content);total.value=Number(total.value)+1;update();
+        });
+        rows.addEventListener('input',update);document.getElementById('id_title').addEventListener('input',update);update();
+    })();
+</script>

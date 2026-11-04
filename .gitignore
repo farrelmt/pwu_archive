@@ -42,6 +42,7 @@ desktop.ini
 # --- Database ---
 pwu_archive_db
 backups/
+pwu_users*.xlsx
 
 # --- Temporary Codex testing and preview files ---
 .codex-tmp/

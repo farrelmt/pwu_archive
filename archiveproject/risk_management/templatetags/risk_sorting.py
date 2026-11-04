@@ -5,6 +5,14 @@ register = template.Library()
 
 
 @register.simple_tag(takes_context=True)
+def without_filter(context, field):
+    params = context["request"].GET.copy()
+    params.pop(field, None)
+    params.pop("page", None)
+    return "?" + params.urlencode() if params else context["request"].path
+
+
+@register.simple_tag(takes_context=True)
 def sort_header(context, field, label):
     if not context.get("sorting_enabled"):
         return label

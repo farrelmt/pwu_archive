@@ -188,23 +188,24 @@ class HostRoutingTests(TestCase):
         self.assertContains(response, ">Sistem Koperasi<")
         self.assertContains(response, "/accounts/system/koperasi/")
 
-    def test_portal_hides_koperasi_from_superuser_without_koperasi_role(self):
+    def test_portal_shows_all_systems_to_superuser_without_system_roles(self):
         superuser = get_user_model().objects.create_superuser(
             username="portal_superuser_without_koperasi",
             password="test-password",
-            role="admin",
+            role="direktur_utama",
         )
         self.client.force_login(superuser)
 
         response = self.client.get("/", HTTP_HOST="pwujatim.site")
 
-        self.assertNotContains(response, ">Sistem Koperasi<")
-        self.assertNotContains(response, "/accounts/system/koperasi/")
-        launch_response = self.client.get(
-            reverse("accounts:system_launch", args=["koperasi"]),
-            HTTP_HOST="pwujatim.site",
-        )
-        self.assertEqual(launch_response.status_code, 403)
+        for system in ("archive", "koperasi", "risk", "inventory"):
+            with self.subTest(system=system):
+                self.assertContains(response, f"/accounts/system/{system}/")
+                launch_response = self.client.get(
+                    reverse("accounts:system_launch", args=[system]),
+                    HTTP_HOST="pwujatim.site",
+                )
+                self.assertEqual(launch_response.status_code, 302)
 
     def test_portal_ignores_legacy_koperasi_viewer_role(self):
         KoperasiAccess.objects.create(

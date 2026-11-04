@@ -14,6 +14,53 @@ from .access import has_archive_access
 from inventory.models import CompanyMember
 
 
+@override_settings(
+    ALLOWED_HOSTS=['127.0.0.1', 'localhost', 'archive.localhost'],
+    LANDING_HOSTS=frozenset({'localhost', '127.0.0.1'}),
+    ARCHIVE_HOSTS=frozenset({'archive.localhost'}),
+    SESSION_COOKIE_DOMAIN='.pwujatim.site', SESSION_COOKIE_SECURE=False,
+    CSRF_COOKIE_SECURE=False, SECURE_SSL_REDIRECT=False,
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.InMemoryStorage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    },
+)
+class LoopbackLoginTests(TestCase):
+    def setUp(self):
+        self.user = SystemUser.objects.create_user(username='loopback-login', password='local-login-test', role='admin')
+
+    def test_ip_login_cookie_is_host_only_and_portal_stays_authenticated(self):
+        for host in ('127.0.0.1:8000', 'localhost:8000'):
+            with self.subTest(host=host):
+                self.client.cookies.clear()
+                response = self.client.post('/accounts/login/', {
+                    'username': self.user.username, 'password': 'local-login-test', 'next': '/',
+                }, HTTP_HOST=host, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.json()['ok'])
+                cookie = response.cookies[settings.SESSION_COOKIE_NAME]
+                self.assertEqual(cookie['domain'], '')
+                self.assertFalse(cookie['secure'])
+                portal = self.client.get(response.json()['redirect_url'], HTTP_HOST=host)
+                self.assertEqual(portal.status_code, 200)
+                self.assertNotIn('upgrade-insecure-requests', portal['Content-Security-Policy'])
+                status = self.client.get('/accounts/login/status/', HTTP_HOST=host)
+                self.assertTrue(status.json()['authenticated'])
+
+    def test_ip_portal_launch_uses_local_subdomain(self):
+        self.client.force_login(self.user)
+        response = self.client.get('/accounts/system/archive/', HTTP_HOST='127.0.0.1:8000')
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response['Location'].startswith('http://archive.localhost:8000/accounts/handoff/'))
+
+    def test_ip_invalid_password_returns_explicit_error(self):
+        response = self.client.post('/accounts/login/', {'username': self.user.username, 'password': 'wrong'},
+                                    HTTP_HOST='127.0.0.1:8000', HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(response.json()['ok'])
+        self.assertTrue(response.json()['error'])
+
+
 class ArchiveRoleTests(SimpleTestCase):
     def test_removed_roles_are_not_archive_roles(self):
         for role in ("akuntan", "risk", "inventory", "wirajatim_kso"):
@@ -173,7 +220,7 @@ class LogoutSecurityTests(TestCase):
                     "https://pwujatim.site/accounts/login/",
                 )
                 self.assertNotIn("_auth_user_id", self.client.session)
-                self.assertEqual(response.cookies["sessionid"]["domain"], ".pwujatim.site")
+                self.assertEqual(response.cookies[settings.SESSION_COOKIE_NAME]["domain"], ".pwujatim.site")
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"])
