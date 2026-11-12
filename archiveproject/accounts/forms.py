@@ -4,6 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from accounts.directory import MEMBER_DIVISION_ORDER
 from inventory.models import InventoryAccess
 from koperasi.models import KoperasiAccess
 from risk_management.models import RiskAccess, RiskDivision
@@ -132,6 +133,11 @@ class MemberAccessForm(forms.ModelForm):
         choices=InventoryAccess.ROLE_CHOICES,
         initial="participant",
     )
+    inventory_division = forms.ChoiceField(
+        label="Divisi PIC Inventaris", required=False,
+        choices=[("", "Pilih divisi"), *[(name, name) for name in MEMBER_DIVISION_ORDER]],
+        help_text="Wajib untuk PIC Divisi Inventaris. PIC dapat mengelola barang milik anggota divisi ini.",
+    )
 
     class Meta:
         model = User
@@ -185,6 +191,7 @@ class MemberAccessForm(forms.ModelForm):
                 "risk_roles": [access.role for access in risk_accesses],
                 "risk_division": risk_division,
                 "inventory_role": inventory_access.role if inventory_access else "participant",
+                "inventory_division": inventory_access.division if inventory_access else "",
             })
 
         input_class = (
@@ -213,6 +220,8 @@ class MemberAccessForm(forms.ModelForm):
             and not cleaned.get("risk_division")
         ):
             self.add_error("risk_division", "Divisi wajib dipilih untuk role risiko ini.")
+        if cleaned.get("inventory_role") == "division_pic" and not cleaned.get("inventory_division"):
+            self.add_error("inventory_division", "Pilih divisi untuk PIC Inventaris.")
         if self.instance.pk and self.actor == self.instance and not cleaned.get("is_active"):
             self.add_error("is_active", "Anda tidak dapat menonaktifkan akun sendiri.")
         return cleaned
@@ -256,6 +265,8 @@ class MemberAccessForm(forms.ModelForm):
         ])
         InventoryAccess.objects.update_or_create(
             user=user,
-            defaults={"role": self.cleaned_data["inventory_role"], "is_active": True},
+            defaults={"role": self.cleaned_data["inventory_role"],
+                      "division": self.cleaned_data["inventory_division"] if self.cleaned_data["inventory_role"] == "division_pic" else "",
+                      "is_active": True},
         )
         return user

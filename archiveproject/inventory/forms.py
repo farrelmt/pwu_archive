@@ -2,9 +2,12 @@ from io import BytesIO
 
 from PIL import Image, ImageOps
 from django import forms
+from django.db.models import Q
 from django.core.files.base import ContentFile
 
-from .models import InternetPackageHistory, InternetSimCard, InventoryItem, InventoryReport
+from accounts.directory import MEMBER_DIVISION_ORDER
+
+from .models import CompanyMember, InternetPackageHistory, InternetSimCard, InventoryItem, InventoryReport
 from .codes import asset_code_for_ownership
 from .credentials import encrypt_software_password
 
@@ -13,6 +16,34 @@ FIELD_CLASS = (
     "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 "
     "text-sm focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100"
 )
+
+
+class DivisionPICForm(forms.Form):
+    division = forms.ChoiceField(choices=[(name, name) for name in MEMBER_DIVISION_ORDER], widget=forms.HiddenInput)
+    member = forms.ModelChoiceField(
+        queryset=CompanyMember.objects.none(), required=False,
+        empty_label="Tanpa PIC", label="PIC divisi",
+    )
+
+    def __init__(self, *args, division=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        division = division or self.data.get("division") or self.initial.get("division")
+        if division in MEMBER_DIVISION_ORDER:
+            self.fields["member"].queryset = (
+                CompanyMember.objects.select_related("user")
+                .filter(division=division, status="active", user__is_active=True)
+                .filter(Q(user__inventory_access__isnull=True) |
+                        Q(user__inventory_access__role="participant",
+                          user__inventory_access__is_active=True) |
+                        Q(user__inventory_access__role="division_pic",
+                          user__inventory_access__division=division,
+                          user__inventory_access__is_active=True))
+                .order_by("full_name", "pk")
+            )
+        self.fields["member"].label_from_instance = lambda member: (
+            f"{member.full_name} ({member.user.username})"
+        )
+        self.fields["member"].widget.attrs["class"] = FIELD_CLASS + " inventory-form-select"
 
 
 class StyledModelForm(forms.ModelForm):

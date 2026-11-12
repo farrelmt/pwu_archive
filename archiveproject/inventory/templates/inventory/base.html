@@ -20,11 +20,12 @@
     <aside id="inventorySidebar" class="fixed bottom-0 left-0 top-16 z-50 flex w-64 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform lg:translate-x-0">
         <nav class="flex-1 p-3 py-5">
             <p class="mb-2 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Inventaris</p>
-            {% if request.can_edit_inventory %}
+            {% if request.can_write_inventory %}
                 <a class="inventory-nav {% if request.path == '/' %}inventory-nav-active{% endif %}" href="{% url 'inventory:dashboard' %}">Ringkasan</a>
-                <a class="inventory-nav {% if '/anggota/' in request.path and '/laporan/' not in request.path %}inventory-nav-active{% endif %}" href="{% url 'inventory:member_list' %}">Anggota Perusahaan</a>
+                {% if request.pic_division %}<a class="inventory-nav {% if request.resolver_match.url_name == 'division_workspace' %}inventory-nav-active{% endif %}" href="{% url 'inventory:division_workspace' %}">Inventaris Divisi</a>{% else %}<a class="inventory-nav {% if '/anggota/' in request.path and request.resolver_match.url_name != 'division_pics' %}inventory-nav-active{% endif %}" href="{% url 'inventory:member_list' %}">Anggota Perusahaan</a>{% endif %}
+                {% if request.user.is_superuser or request.can_manage_inventory %}<a class="inventory-nav {% if request.resolver_match.url_name == 'division_pics' %}inventory-nav-active{% endif %}" href="{% url 'inventory:division_pics' %}">PIC Divisi</a>{% endif %}
                 <a class="inventory-nav {% if '/barang/' in request.path and '/laporan/' not in request.path %}inventory-nav-active{% endif %}" href="{% url 'inventory:item_list' %}">Barang &amp; Hardware</a>
-                {% if request.can_manage_inventory %}<a class="inventory-nav {% if '/inventaris-saya/' in request.path or member.user_id == request.user.pk %}inventory-nav-active{% endif %}" href="{% url 'inventory:my_inventory' %}">Inventaris Saya</a>{% endif %}
+                <a class="inventory-nav {% if '/inventaris-saya/' in request.path or member.user_id == request.user.pk %}inventory-nav-active{% endif %}" href="{% url 'inventory:my_inventory' %}">Inventaris Saya</a>
             {% else %}
                 <a class="inventory-nav {% if '/laporan/' not in request.path and request.resolver_match.url_name != 'internet_list' and request.resolver_match.url_name != 'internet_detail' %}inventory-nav-active{% endif %}" href="{% url 'inventory:dashboard' %}">Inventaris Saya</a>
             {% endif %}

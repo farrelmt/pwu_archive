@@ -3,13 +3,13 @@
 {% block content %}
 <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
-        {% if request.can_edit_inventory %}<a href="{% url 'inventory:item_list' %}" class="text-sm font-semibold text-slate-500">&larr; Barang &amp; Hardware</a>{% elif item.assigned_to %}<a href="{% url 'inventory:member_detail' item.assigned_to.pk %}" class="text-sm font-semibold text-slate-500">&larr; Inventaris Saya</a>{% endif %}
+        {% if request.can_write_inventory %}<a href="{% url 'inventory:item_list' %}" class="text-sm font-semibold text-slate-500">&larr; Barang &amp; Hardware</a>{% elif item.assigned_to %}<a href="{% url 'inventory:member_detail' item.assigned_to.pk %}" class="text-sm font-semibold text-slate-500">&larr; Inventaris Saya</a>{% endif %}
         <h1 class="mt-3 text-3xl font-bold">{{ item.item_name }}</h1>
         <p class="mt-1 text-slate-500">{{ item.asset_code }} &middot; {{ item_type_label }} &middot; {{ item.get_category_display }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
 
-        {% if request.can_edit_inventory %}<a href="{% url 'inventory:item_edit' item.pk %}" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white hover:bg-violet-800">Edit Barang</a>{% elif can_edit_personal_item %}<a href="{% url 'inventory:personal_item_edit' item.pk %}" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white hover:bg-violet-800">Edit Inventaris Saya</a>{% endif %}
+        {% if can_write_item %}<a href="{% url 'inventory:item_edit' item.pk %}" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white hover:bg-violet-800">Edit Barang</a>{% elif can_edit_personal_item %}<a href="{% url 'inventory:personal_item_edit' item.pk %}" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white hover:bg-violet-800">Edit Inventaris Saya</a>{% endif %}
     </div>
 </div>
 <div class="mt-6 grid gap-6 xl:grid-cols-[1.5fr_.8fr]">

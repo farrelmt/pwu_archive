@@ -6,7 +6,10 @@
         <h1 class="text-3xl font-bold">Anggota Perusahaan</h1>
         <p class="mt-2 text-sm text-slate-500">Terhubung langsung dengan data Member PWU Jatim.</p>
     </div>
-    {% if request.can_edit_inventory %}<a href="{{ portal_member_list_url }}" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white">Kelola Member PWU</a>{% endif %}
+    <div class="flex flex-wrap gap-2">
+        {% if request.can_manage_inventory %}<a href="{% url 'inventory:division_pics' %}" class="rounded-xl border border-violet-200 bg-white px-5 py-3 text-sm font-bold text-violet-800">Atur PIC Divisi</a>{% endif %}
+        {% if request.can_edit_inventory %}<a href="{{ portal_member_list_url }}" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white">Kelola Member PWU</a>{% endif %}
+    </div>
 </div>
 
 <form method="get" class="mt-6 grid gap-3 rounded-2xl border bg-white p-4 md:grid-cols-5">

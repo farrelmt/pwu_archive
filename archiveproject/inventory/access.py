@@ -37,6 +37,27 @@ def can_manage_inventory(user):
     return bool(access and access.role == "manager")
 
 
+def pic_division(user):
+    access = access_for_user(user)
+    return access.division if access and access.role == "division_pic" and access.division else None
+
+
+def can_write_inventory(user):
+    return can_edit_inventory(user) or bool(pic_division(user))
+
+
+def can_access_member(user, member):
+    return (can_edit_inventory(user) or member.user_id == user.pk
+            or bool(pic_division(user) and member.division == pic_division(user)))
+
+
+def can_write_item(user, item):
+    return can_edit_inventory(user) or bool(
+        item.assigned_to_id and pic_division(user)
+        and item.assigned_to.division == pic_division(user)
+    )
+
+
 def can_view_internet(user):
     return bool(user.is_authenticated and user.is_active and (
         can_manage_inventory(user) or user.username == "it_pwu"
@@ -51,6 +72,8 @@ def inventory_required(view_func):
             raise PermissionDenied("Anda tidak memiliki akses ke Sistem Inventaris.")
         request.inventory_access = access_for_user(request.user)
         request.can_edit_inventory = can_edit_inventory(request.user)
+        request.pic_division = pic_division(request.user)
+        request.can_write_inventory = can_write_inventory(request.user)
         request.can_manage_inventory = can_manage_inventory(request.user)
         request.can_view_internet = can_view_internet(request.user)
         return view_func(request, *args, **kwargs)

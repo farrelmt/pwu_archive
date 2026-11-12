@@ -20,6 +20,138 @@ from .credentials import decrypt_software_password
 from .models import CompanyMember, InternetPackageHistory, InternetSimCard, InventoryAccess, InventoryItem, InventoryReport, InventoryRequest
 
 
+@override_settings(ROOT_URLCONF="inventory.host_urls")
+class DivisionPICTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.pic = User.objects.create_user(username="pic-aset", password="test-pass-123", role="inventory")
+        self.colleague = User.objects.create_user(username="aset_colleague", password="test-pass-123", role="inventory")
+        self.outsider = User.objects.create_user(username="keuangan_colleague", password="test-pass-123", role="inventory")
+        InventoryAccess.objects.update_or_create(user=self.pic, defaults={"role": "division_pic", "division": "Divisi Aset", "is_active": True})
+        for user, division in ((self.pic, "Divisi Aset"), (self.colleague, "Divisi Aset"), (self.outsider, "Divisi Keuangan")):
+            CompanyMember.objects.filter(user=user).update(division=division)
+        self.colleague_member = CompanyMember.objects.get(user=self.colleague)
+        self.outsider_member = CompanyMember.objects.get(user=self.outsider)
+        self.own_item = InventoryItem.objects.create(
+            asset_code="PIC-OWN", item_name="Meja Aset", category="office", status="assigned",
+            assigned_to=self.colleague_member, created_by=self.pic, updated_by=self.pic,
+        )
+        self.other_item = InventoryItem.objects.create(
+            asset_code="PIC-OTHER", item_name="Meja Keuangan", category="office", status="assigned",
+            assigned_to=self.outsider_member, created_by=self.pic, updated_by=self.pic,
+        )
+        self.client.force_login(self.pic)
+
+    def get(self, name, *args):
+        return self.client.get(reverse(f"inventory:{name}", args=args), HTTP_HOST="inventory.localhost")
+
+    def post(self, name, data, *args):
+        return self.client.post(reverse(f"inventory:{name}", args=args), data, HTTP_HOST="inventory.localhost")
+
+    def test_pic_sees_only_own_division_and_cannot_export_everything(self):
+        for name in ("dashboard", "item_list", "member_list", "division_workspace"):
+            response = self.get(name)
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Meja Aset" if name != "member_list" else self.colleague.username)
+            self.assertNotContains(response, "Meja Keuangan" if name != "member_list" else self.outsider.username)
+        workspace_url = reverse("inventory:division_workspace")
+        self.assertContains(self.get("dashboard"), f'href="{workspace_url}"')
+        self.assertNotContains(self.get("dashboard"), reverse("inventory:division_pics"))
+        self.assertEqual(self.get("member_detail", self.colleague_member.pk).status_code, 200)
+        self.assertEqual(self.get("member_detail", self.outsider_member.pk).status_code, 403)
+        self.assertEqual(self.get("item_detail", self.other_item.pk).status_code, 403)
+        self.assertEqual(self.get("export_inventory_excel").status_code, 403)
+
+    def test_pic_can_create_and_edit_colleague_inventory_only(self):
+        create_page = self.get("item_create")
+        self.assertEqual(create_page.status_code, 200)
+        self.assertContains(create_page, self.colleague_member.full_name)
+        self.assertNotContains(create_page, self.outsider_member.full_name)
+        self.assertEqual(self.post("item_create", {"item_name": "Tanpa pemilik", "item_type": "inventaris"}).status_code, 200)
+        self.assertFalse(InventoryItem.objects.filter(item_name="Tanpa pemilik").exists())
+        self.assertEqual(self.post("item_create", {
+            "item_name": "Barang divisi lain", "item_type": "inventaris",
+            "assigned_to": self.outsider_member.pk, "status": "assigned",
+        }).status_code, 200)
+        self.assertFalse(InventoryItem.objects.filter(item_name="Barang divisi lain").exists())
+        created = self.post("item_create", {
+            "item_name": "Barang rekan", "item_type": "inventaris",
+            "assigned_to": self.colleague_member.pk, "status": "assigned",
+        })
+        self.assertEqual(created.status_code, 302)
+        item = InventoryItem.objects.get(item_name="Barang rekan")
+        self.assertEqual(item.assigned_to, self.colleague_member)
+        self.assertEqual(self.get("item_edit", self.own_item.pk).status_code, 200)
+        self.assertEqual(self.post("item_edit", {
+            "item_name": "Pindah divisi", "item_type": "inventaris",
+            "assigned_to": self.outsider_member.pk, "status": "assigned",
+        }, self.own_item.pk).status_code, 200)
+        self.own_item.refresh_from_db()
+        self.assertEqual(self.own_item.assigned_to, self.colleague_member)
+        self.assertEqual(self.get("item_edit", self.other_item.pk).status_code, 403)
+        self.assertEqual(self.post("item_delete", {}, self.other_item.pk).status_code, 403)
+        self.assertEqual(self.post("item_delete", {}, item.pk).status_code, 302)
+        self.assertFalse(InventoryItem.objects.filter(pk=item.pk).exists())
+
+    def test_pic_without_division_has_no_extended_access(self):
+        InventoryAccess.objects.filter(user=self.pic).update(division="")
+        self.assertEqual(self.get("member_list").status_code, 403)
+        self.assertEqual(self.get("item_create").status_code, 403)
+        self.assertEqual(self.get("item_edit", self.own_item.pk).status_code, 403)
+
+    def test_manager_can_replace_and_clear_division_pic(self):
+        manager = get_user_model().objects.create_user(
+            username="inventory-manager-pic", password="test-pass-123", role="inventory"
+        )
+        InventoryAccess.objects.create(user=manager, role="manager")
+        InventoryAccess.objects.create(user=self.outsider, role="participant")
+        CompanyMember.objects.filter(user=manager).update(division="Divisi Aset")
+        self.client.force_login(manager)
+        page = self.get("division_pics")
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "PIC Divisi")
+        self.assertEqual(self.get("division_workspace").status_code, 403)
+        self.assertEqual(self.post("division_pics", {
+            "division": "Divisi Aset",
+            "member": CompanyMember.objects.get(user=manager).pk,
+        }).status_code, 302)
+        self.assertEqual(InventoryAccess.objects.get(user=manager).role, "manager")
+        response = self.post("division_pics", {
+            "division": "Divisi Aset", "member": self.outsider_member.pk,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(InventoryAccess.objects.get(user=self.pic).role, "division_pic")
+        response = self.post("division_pics", {
+            "division": "Divisi Aset", "member": self.colleague_member.pk,
+        })
+        self.assertEqual(response.status_code, 302)
+        old = InventoryAccess.objects.get(user=self.pic)
+        new = InventoryAccess.objects.get(user=self.colleague)
+        self.assertEqual((old.role, old.division), ("participant", ""))
+        self.assertEqual((new.role, new.division), ("division_pic", "Divisi Aset"))
+        self.assertTrue(ActivityLog.objects.filter(action="DIVISION_PIC_ASSIGNED", target_id="Divisi Aset").exists())
+        self.assertEqual(self.post("division_pics", {"division": "Divisi Aset", "member": ""}).status_code, 302)
+        self.assertEqual(InventoryAccess.objects.get(user=self.colleague).role, "participant")
+
+    def test_only_manager_can_assign_pic(self):
+        InventoryAccess.objects.create(user=self.colleague, role="officer")
+        for user in (self.pic, self.colleague):
+            self.client.force_login(user)
+            self.assertEqual(self.get("division_pics").status_code, 403)
+            self.assertEqual(self.post("division_pics", {
+                "division": "Divisi Aset", "member": self.colleague_member.pk,
+            }).status_code, 403)
+
+    def test_superuser_sees_pic_menu_and_can_open_assignments(self):
+        superuser = get_user_model().objects.create_superuser(
+            username="inventory-superuser-pic", password="test-pass-123"
+        )
+        self.client.force_login(superuser)
+        pic_url = reverse("inventory:division_pics")
+        self.assertContains(self.get("dashboard"), f'href="{pic_url}"')
+        self.assertEqual(self.get("division_pics").status_code, 200)
+
+
 @override_settings(STORAGES={
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},

@@ -3,11 +3,13 @@
 {% block content %}
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div><h1 class="text-3xl font-bold">Barang &amp; Hardware</h1><p class="mt-2 text-sm text-slate-500">Daftar aset, spesifikasi, nilai, kondisi, kepemilikan, dan penanggung jawab.</p></div>
-    {% if request.can_edit_inventory %}<div class="flex flex-wrap gap-2">
+    {% if request.can_write_inventory %}<div class="flex flex-wrap gap-2">
+        {% if request.can_edit_inventory %}
         <a href="{% url 'inventory:export_inventory_excel' %}" class="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-5 py-3 text-sm font-bold text-violet-800 shadow-sm hover:bg-violet-50" title="Unduh seluruh inventaris, tanpa filter">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
             Unduh Laporan Excel
         </a>
+        {% endif %}
         <a href="{% url 'inventory:item_create' %}" class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white">+ Tambah Barang</a>
     </div>{% endif %}
 </div>

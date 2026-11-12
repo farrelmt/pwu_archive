@@ -7,12 +7,14 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
+from accounts.directory import MEMBER_DIVISION_ORDER
 
 
 class InventoryAccess(models.Model):
     ROLE_CHOICES = [
         ("manager", "Manajer Inventaris"),
         ("officer", "Petugas Inventaris"),
+        ("division_pic", "PIC Divisi Inventaris"),
         ("participant", "Peserta Inventaris"),
     ]
     user = models.OneToOneField(
@@ -21,6 +23,7 @@ class InventoryAccess(models.Model):
         related_name="inventory_access",
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    division = models.CharField("Divisi PIC", max_length=120, blank=True, choices=[("", "Tidak ditentukan"), *[(name, name) for name in MEMBER_DIVISION_ORDER]])
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

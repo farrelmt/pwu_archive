@@ -4,6 +4,7 @@ from cryptography.fernet import InvalidToken
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Q, Sum, Value
 from django.db.models.functions import Coalesce, Lower
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
@@ -14,13 +15,14 @@ from django.views.decorators.http import require_http_methods
 from archiveproject.host_routing import portal_base_url
 from accounts.activity_views import system_activity_log
 from accounts.audit import record_activity
+from accounts.directory import MEMBER_DIVISION_ORDER
 
-from .access import inventory_required, inventory_write_required
-from .forms import InternetPackageForm, InternetSimCardForm, InventoryItemForm, InventoryReportForm, PersonalInventoryItemForm, NewInventoryReportForm, HARDWARE_CATEGORIES, category_section
+from .access import can_access_member, can_write_item, inventory_required, inventory_write_required
+from .forms import DivisionPICForm, InternetPackageForm, InternetSimCardForm, InventoryItemForm, InventoryReportForm, PersonalInventoryItemForm, NewInventoryReportForm, HARDWARE_CATEGORIES, category_section
 from .exports import build_inventory_workbook
 from .codes import asset_code_for_ownership
 from .credentials import decrypt_software_password
-from .models import CompanyMember, InternetPackageHistory, InventoryActivity, InventoryItem, InventoryReport
+from .models import CompanyMember, InternetPackageHistory, InventoryAccess, InventoryActivity, InventoryItem, InventoryReport
 from .services import sync_company_member
 
 
@@ -48,10 +50,12 @@ def activity_log(request):
 
 @inventory_required
 def dashboard(request):
-    if not request.can_edit_inventory:
+    if not request.can_write_inventory:
         member = sync_company_member(request.user)
         return redirect("inventory:member_detail", pk=member.pk)
     items = InventoryItem.objects.all()
+    if request.pic_division:
+        items = items.filter(assigned_to__division=request.pic_division)
     search = request.GET.get("q", "").strip()
     category = request.GET.get("category", "").strip()
     status = request.GET.get("status", "").strip()
@@ -107,7 +111,7 @@ def dashboard(request):
     query_string = params.urlencode()
     page_query = f"{query_string}&" if query_string else ""
     return render(request, "inventory/dashboard.html", {
-        "member_count": CompanyMember.objects.filter(user__isnull=False, status="active").count(),
+        "member_count": CompanyMember.objects.filter(user__isnull=False, status="active", **({"division": request.pic_division} if request.pic_division else {})).count(),
         "item_count": summary["item_count"],
         "assigned_count": summary["assigned_count"],
         "maintenance_count": summary["maintenance_count"],
@@ -120,6 +124,28 @@ def dashboard(request):
         "ownerships": InventoryItem.OWNERSHIP_CHOICES,
         "filters": {"q": search, "category": category, "status": status, "condition": condition, "ownership": ownership},
         "sort": sort,
+    })
+
+
+@inventory_required
+def division_workspace(request):
+    if not request.pic_division:
+        raise PermissionDenied("Halaman ini hanya untuk PIC divisi.")
+    members = (
+        CompanyMember.objects.filter(
+            division=request.pic_division, user__isnull=False, status="active"
+        )
+        .select_related("user")
+        .annotate(inventory_count=Count("inventory_items"))
+        .order_by("full_name", "pk")
+    )
+    items = InventoryItem.objects.filter(
+        assigned_to__division=request.pic_division
+    ).select_related("assigned_to").order_by("-updated_at", "-pk")[:20]
+    return render(request, "inventory/division_workspace.html", {
+        "members": members,
+        "items": items,
+        "division": request.pic_division,
     })
 
 
@@ -137,9 +163,13 @@ def export_inventory_excel(request):
     return response
 
 
-@inventory_write_required
+@inventory_required
 def member_list(request):
+    if not request.can_write_inventory:
+        raise PermissionDenied("Anda tidak memiliki akses daftar anggota.")
     members = CompanyMember.objects.select_related("user").filter(user__isnull=False)
+    if request.pic_division:
+        members = members.filter(division=request.pic_division)
     search = request.GET.get("q", "").strip()
     division = request.GET.get("division", "").strip()
     status = request.GET.get("status", "").strip()
@@ -176,7 +206,7 @@ def member_list(request):
     order_expression = order_expression.desc() if direction == "desc" else order_expression.asc()
     members = members.order_by(order_expression, Lower("full_name"), "pk")
     divisions = (
-        CompanyMember.objects.filter(user__isnull=False)
+        CompanyMember.objects.filter(user__isnull=False, **({"division": request.pic_division} if request.pic_division else {}))
         .exclude(division="")
         .order_by("division")
         .values_list("division", flat=True)
@@ -233,10 +263,60 @@ def member_list(request):
 
 
 @inventory_required
+@require_http_methods(["GET", "POST"])
+def division_pics(request):
+    if not request.can_manage_inventory:
+        raise PermissionDenied("Hanya manajer inventaris yang dapat mengatur PIC divisi.")
+    if request.method == "POST":
+        form = DivisionPICForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Pilih anggota aktif dari divisi yang sesuai untuk PIC.")
+            return redirect("inventory:division_pics")
+        division = form.cleaned_data["division"]
+        member = form.cleaned_data["member"]
+        with transaction.atomic():
+            InventoryAccess.objects.select_for_update().filter(
+                role="division_pic", division=division
+            ).update(role="participant", division="")
+            if member:
+                InventoryAccess.objects.update_or_create(
+                    user=member.user,
+                    defaults={"role": "division_pic", "division": division, "is_active": True},
+                )
+        record_activity(
+            request=request, category="INVENTORY",
+            action="DIVISION_PIC_ASSIGNED" if member else "DIVISION_PIC_REMOVED",
+            description=(f"PIC {division}: {member.full_name}." if member else f"PIC {division} dikosongkan."),
+            target_type="InventoryDivision", target_id=division,
+            target_label=division,
+        )
+        messages.success(request, f"PIC {division} berhasil diperbarui.")
+        return redirect("inventory:division_pics")
+
+    current_pics = {}
+    for access in InventoryAccess.objects.select_related("user").filter(
+        role="division_pic", is_active=True, user__is_active=True
+    ):
+        current_pics.setdefault(access.division, []).append(access.user)
+    rows = []
+    for number, division in enumerate(MEMBER_DIVISION_ORDER):
+        assigned_users = current_pics.get(division, [])
+        current_member = CompanyMember.objects.filter(user__in=assigned_users, division=division).first()
+        form = DivisionPICForm(
+            initial={"division": division, "member": current_member},
+            auto_id=f"pic_{number}_%s",
+        )
+        rows.append({"division": division, "form": form,
+                     "pics": assigned_users,
+                     "member_count": form.fields["member"].queryset.count()})
+    return render(request, "inventory/division_pics.html", {"rows": rows})
+
+
+@inventory_required
 def member_detail(request, pk):
     member = get_object_or_404(CompanyMember, pk=pk)
-    if not request.can_edit_inventory and member.user_id != request.user.pk:
-        raise PermissionDenied("Anda hanya dapat melihat inventaris milik sendiri.")
+    if not can_access_member(request.user, member):
+        raise PermissionDenied("Anda hanya dapat melihat anggota dalam divisi Anda.")
     assigned_items = member.inventory_items.all().order_by("category", "item_name", "asset_code")
     hardware_items = assigned_items.filter(category__in=HARDWARE_CATEGORIES)
     software_items = assigned_items.filter(category="software")
@@ -370,9 +450,13 @@ def _delete_item(request, item, return_url, return_pk=None):
     })
 
 
-@inventory_write_required
+@inventory_required
 def item_list(request):
+    if not request.can_write_inventory:
+        raise PermissionDenied("Anda tidak memiliki akses daftar barang.")
     items = InventoryItem.objects.select_related("assigned_to")
+    if request.pic_division:
+        items = items.filter(assigned_to__division=request.pic_division)
     search = request.GET.get("q", "").strip()
     category = request.GET.get("category", "").strip()
     status = request.GET.get("status", "").strip()
@@ -471,14 +555,13 @@ def internet_detail(request, pk):
 @inventory_required
 def item_detail(request, pk):
     item = get_object_or_404(InventoryItem.objects.select_related("assigned_to"), pk=pk)
-    if not request.can_edit_inventory:
-        assigned_user_id = item.assigned_to.user_id if item.assigned_to else None
-        if assigned_user_id != request.user.pk:
-            raise PermissionDenied("Anda hanya dapat melihat inventaris milik sendiri.")
+    if not can_write_item(request.user, item) and not _participant_owns_item(request, item):
+        raise PermissionDenied("Anda tidak dapat melihat barang di luar divisi Anda.")
     item_reports = item.reports.all() if request.can_manage_inventory else item.reports.filter(reporter=request.user)
     return render(request, "inventory/item_detail.html", {
         "item": item, "item_reports": item_reports,
         "can_edit_personal_item": _can_edit_personal_item(request.user, item),
+        "can_write_item": can_write_item(request.user, item),
         "item_type_label": {
             "inventaris": "Inventaris", "hardware": "Hardware", "software": "Software",
         }.get(category_section(item.category), "Inventaris"),
@@ -489,7 +572,7 @@ def item_detail(request, pk):
 @require_http_methods(["POST"])
 def software_password_reveal(request, pk):
     item = get_object_or_404(InventoryItem.objects.select_related("assigned_to"), pk=pk)
-    if not request.can_edit_inventory and not _participant_owns_item(request, item):
+    if not can_write_item(request.user, item) and not _participant_owns_item(request, item):
         raise PermissionDenied("Anda hanya dapat melihat akun software milik sendiri.")
     if item.category != "software" or not item.software_password_encrypted:
         raise Http404("Password software belum tersimpan.")
@@ -506,7 +589,7 @@ def software_password_reveal(request, pk):
 @inventory_required
 def item_photo(request, pk):
     item = get_object_or_404(InventoryItem.objects.select_related("assigned_to"), pk=pk)
-    if not request.can_edit_inventory and not _participant_owns_item(request, item):
+    if not can_write_item(request.user, item) and not _participant_owns_item(request, item):
         raise PermissionDenied("Anda hanya dapat melihat foto inventaris milik sendiri.")
     if not item.photo:
         raise Http404("Foto belum tersedia.")
@@ -519,18 +602,26 @@ def item_photo(request, pk):
     return response
 
 
-@inventory_write_required
+@inventory_required
 def item_create(request):
+    if not request.can_write_inventory:
+        raise PermissionDenied("Anda tidak dapat menambah barang inventaris.")
     initial = {}
     member_id = request.GET.get("member")
     requested_category = request.GET.get("category")
     if member_id:
-        assigned_member = CompanyMember.objects.filter(pk=member_id).first()
+        assigned_member = CompanyMember.objects.filter(
+            pk=member_id, **({"division": request.pic_division} if request.pic_division else {})
+        ).first()
         if assigned_member:
             initial.update({"assigned_to": assigned_member, "status": "assigned"})
     if requested_category in dict(InventoryItem.CATEGORY_CHOICES):
         initial["category"] = requested_category
     form = InventoryItemForm(request.POST if request.method == "POST" else None, request.FILES or None, initial=initial, section=category_section(requested_category))
+    if request.pic_division:
+        form.fields["assigned_to"].queryset = CompanyMember.objects.filter(division=request.pic_division, user__isnull=False, status="active")
+        form.fields["assigned_to"].required = True
+        form.fields["assigned_to"].help_text = "Pilih anggota aktif dalam divisi Anda."
     if request.method == "POST" and form.is_valid():
         item = form.save(commit=False)
         item.created_by = request.user
@@ -569,11 +660,16 @@ def item_create(request):
     })
 
 
-@inventory_write_required
+@inventory_required
 def item_edit(request, pk):
-    item = get_object_or_404(InventoryItem, pk=pk)
+    item = get_object_or_404(InventoryItem.objects.select_related("assigned_to"), pk=pk)
+    if not can_write_item(request.user, item):
+        raise PermissionDenied("Anda tidak dapat mengedit barang di luar divisi Anda.")
     previous_user = item.assigned_to
     form = InventoryItemForm(request.POST if request.method == "POST" else None, request.FILES or None, instance=item, section=category_section(item.category))
+    if request.pic_division:
+        form.fields["assigned_to"].queryset = CompanyMember.objects.filter(division=request.pic_division, user__isnull=False, status="active") | CompanyMember.objects.filter(pk=item.assigned_to_id)
+        form.fields["assigned_to"].required = True
     if request.method == "POST" and form.is_valid():
         item = form.save(commit=False)
         item.updated_by = request.user
@@ -617,10 +713,12 @@ def item_edit(request, pk):
     })
 
 
-@inventory_write_required
+@inventory_required
 @require_http_methods(["GET", "POST"])
 def item_delete(request, pk):
-    item = get_object_or_404(InventoryItem, pk=pk)
+    item = get_object_or_404(InventoryItem.objects.select_related("assigned_to"), pk=pk)
+    if not can_write_item(request.user, item):
+        raise PermissionDenied("Anda tidak dapat menghapus barang di luar divisi Anda.")
     return _delete_item(request, item, "inventory:item_list")
 
 
