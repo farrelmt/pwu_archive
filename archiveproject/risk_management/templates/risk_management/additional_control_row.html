@@ -1,0 +1,11 @@
+<tr data-control-row>
+    <td>
+        {{ control_form.risk_index }}<span class="hidden">{{ control_form.DELETE }}</span>
+        {% for error in control_form.risk_index.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        <label class="text-xs font-bold text-slate-600" for="{{ control_form.description.id_for_label }}" data-control-number>Pengendalian 2</label>
+        {% include 'risk_management/document_form_field.html' with field=control_form.description %}
+        <button type="button" class="mt-2 text-xs font-semibold text-red-700" data-remove-control>Hapus Pengendalian</button>
+    </td>
+    {% for radio in control_form.effectiveness %}<td class="text-center"><label>{{ radio.tag }}<span class="sr-only">{{ radio.choice_label }}</span></label>{% if forloop.first %}{% for error in control_form.effectiveness.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}{% endif %}</td>{% endfor %}
+    <td>{% include 'risk_management/document_form_field.html' with field=control_form.notes %}</td>
+</tr>

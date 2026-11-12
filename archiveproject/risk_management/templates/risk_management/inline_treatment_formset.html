@@ -5,35 +5,69 @@
     {% include 'risk_management/treatment_table_style.html' %}
     <div class="rw-table-scroll" role="region" aria-label="Formulir Perlakuan Risiko" tabindex="0">
     <table class="treatment-table text-left text-sm">
-        <colgroup><col class="treatment-number"><col class="treatment-name"><col class="treatment-text"><col class="treatment-text"><col class="treatment-score"><col class="treatment-score"><col class="treatment-score"><col class="treatment-level"><col class="treatment-date"><col class="treatment-owner"><col class="treatment-text"></colgroup>
-        <thead class="bg-blue-900 text-white"><tr><th rowspan="2" scope="col">No.</th><th rowspan="2" scope="col">Nama Risiko</th><th rowspan="2" scope="col">Opsi Perlakuan Risiko</th><th rowspan="2" scope="col">Rencana Aksi Perlakuan Risiko</th><th colspan="4" scope="colgroup">Risiko yang Diharapkan</th><th rowspan="2" scope="col">Jadwal Pelaksanaan</th><th rowspan="2" scope="col">Penanggung Jawab</th><th rowspan="2" scope="col">Keterangan</th></tr><tr><th scope="col">Kemungkinan</th><th scope="col">Dampak</th><th scope="col">Skor Risiko</th><th scope="col">Level Risiko</th></tr></thead>
-        <tbody id="inlineTreatmentRows">{% for treatment_form in treatment_formset %}{% include 'risk_management/inline_treatment_row.html' with row_number=forloop.counter %}{% endfor %}</tbody>
+        <colgroup><col class="treatment-number"><col class="treatment-name"><col class="treatment-text"><col class="treatment-text"><col class="treatment-score"><col class="treatment-score"><col class="treatment-level"><col class="treatment-date"><col class="treatment-owner"><col class="treatment-text"></colgroup>
+        <thead class="bg-blue-900 text-white"><tr><th rowspan="2" scope="col">No.</th><th rowspan="2" scope="col">Nama Risiko</th><th rowspan="2" scope="col">Opsi Perlakuan Risiko</th><th rowspan="2" scope="col">Rencana Aksi Perlakuan Risiko</th><th colspan="3" scope="colgroup">Risiko yang Diharapkan</th><th rowspan="2" scope="col">Jadwal Pelaksanaan</th><th rowspan="2" scope="col">Penanggung Jawab</th><th rowspan="2" scope="col">Keterangan</th></tr><tr><th scope="col">Kemungkinan</th><th scope="col">Dampak</th><th scope="col">Level Risiko</th></tr></thead>
+        <tbody id="inlineTreatmentRows">{% for treatment_form in treatment_formset %}{% if not forloop.first and not treatment_form.expected_likelihood.value and not treatment_form.expected_impact.value %}{% include 'risk_management/inline_treatment_row.html' with row_number=forloop.counter detail_row=True %}{% else %}{% include 'risk_management/inline_treatment_row.html' with row_number=forloop.counter %}{% endif %}{% endfor %}</tbody>
     </table>
     </div>
     <p class="rw-scroll-hint">Geser tabel ke samping untuk melihat seluruh kolom &rarr;</p>
-    <button type="button" id="addInlineTreatment" class="mt-4 rounded-xl border border-blue-200 px-4 py-2 text-sm font-bold text-blue-700">+ Tambah Baris Perlakuan</button>
-    <template id="inlineTreatmentEmptyForm">{% include 'risk_management/inline_treatment_row.html' with treatment_form=treatment_formset.empty_form row_number='-' %}</template>
+    <template id="inlineTreatmentDetailForm">{% include 'risk_management/inline_treatment_row.html' with treatment_form=treatment_formset.empty_form row_number='-' detail_row=True %}</template>
 </section>
 <script nonce="{{ request.csp_nonce }}">
     (()=>{
-        const rows=document.getElementById('inlineTreatmentRows'),total=document.getElementById('id_treatments-TOTAL_FORMS'),add=document.getElementById('addInlineTreatment');
-        const level=score=>score>=17?'Sangat Tinggi':score>=10?'Tinggi':score>=5?'Sedang':score>=3?'Rendah':'Sangat Rendah';
+        const rows=document.getElementById('inlineTreatmentRows'),total=document.getElementById('id_treatments-TOTAL_FORMS'),singleRisk={{ risk|yesno:'true,false' }};
         function update(){
-            rows.querySelectorAll('[data-treatment-row]').forEach((row,index)=>{
-                row.querySelector('[data-treatment-number]').textContent=index+1;
-                row.querySelector('[data-treatment-risk-name]').textContent=document.getElementById('id_title').value||'-';
+            let number=0;
+            const active=[];
+            rows.querySelectorAll('[data-treatment-row]').forEach(row=>{
+                const deleted=row.querySelector('[name$="-DELETE"]').value==='on';
+                row.hidden=deleted;
+                if(deleted)return;
+                active.push(row);
+                row.querySelector('[data-treatment-number]').textContent=++number;
+                const select=row.querySelector('[data-treatment-risk-select]');
+                if(select&&!document.getElementById('id_additional-TOTAL_FORMS')){
+                    select.options[0].textContent=`1. ${document.getElementById('id_title').value||'Risiko 1'}`;
+                    select.value='';
+                }
+                const label=row.querySelector('[data-treatment-risk-label]');
+                if(label){label.textContent=select.selectedOptions[0]?.textContent||'Risiko terkait';label.classList.toggle('hidden',!singleRisk&&!row.hasAttribute('data-treatment-detail-row'));}
+                if(singleRisk)select.classList.add('hidden');
                 const likelihood=Number(row.querySelector('[name$="-expected_likelihood"]').value),impact=Number(row.querySelector('[name$="-expected_impact"]').value);
-                const valid=Number.isInteger(likelihood)&&Number.isInteger(impact)&&likelihood>=1&&likelihood<=5&&impact>=1&&impact<=5;
-                row.querySelector('[data-treatment-score]').textContent=valid?likelihood*impact:'-';
-                row.querySelector('[data-treatment-level]').textContent=valid?level(likelihood*impact):'-';
+                const level=row.querySelector('[data-treatment-level]');
+                if(level)level.textContent=riskLevelFor(likelihood,impact);
             });
-            add.disabled=Number(total.value)>=100;
+            if(singleRisk)active.forEach((row,index)=>{
+                const cell=row.querySelector('[data-treatment-name-cell]');
+                cell.hidden=index>0;
+                if(index===0)cell.rowSpan=active.length;
+            });
+            rows.querySelectorAll('[data-add-treatment-detail]').forEach(button=>button.disabled=Number(total.value)>=100);
         }
-        add.addEventListener('click',()=>{
-            if(Number(total.value)>=100)return;
+        function append(templateId){
+            if(Number(total.value)>=100)return null;
             const template=document.createElement('template');
-            template.innerHTML=document.getElementById('inlineTreatmentEmptyForm').innerHTML.replaceAll('__prefix__',total.value);
+            template.innerHTML=document.getElementById(templateId).innerHTML.replaceAll('__prefix__',total.value);
+            const row=template.content.querySelector('[data-treatment-row]');
             rows.appendChild(template.content);total.value=Number(total.value)+1;update();
+            return row;
+        }
+        rows.addEventListener('click',event=>{
+            const detail=event.target.closest('[data-add-treatment-detail]');
+            if(detail){
+                const source=detail.closest('[data-treatment-row]').querySelector('[data-treatment-risk-select]');
+                const row=append('inlineTreatmentDetailForm');
+                if(!row)return;
+                const select=row.querySelector('[data-treatment-risk-select]');
+                select.dataset.selected=source.value;
+                select.value=source.value;
+                window.refreshTreatmentRiskNames?.();
+                update();
+                row.querySelector('[name$="-option"]').focus();
+                return;
+            }
+            const remove=event.target.closest('[data-delete-treatment]');
+            if(remove){remove.closest('[data-treatment-row]').querySelector('[name$="-DELETE"]').value='on';update();}
         });
         rows.addEventListener('input',update);document.getElementById('id_title').addEventListener('input',update);update();
     })();

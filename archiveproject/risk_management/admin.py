@@ -20,8 +20,8 @@ class RiskAccessAdmin(admin.ModelAdmin):
 
 @admin.register(RiskRegister)
 class RiskRegisterAdmin(admin.ModelAdmin):
-    list_display = ("risk_code", "title", "division", "category", "status", "updated_at")
-    list_filter = ("division", "category", "status")
+    list_display = ("risk_code", "title", "division", "risk_kind", "code_category", "status", "updated_at")
+    list_filter = ("division", "risk_kind", "code_category", "status")
     search_fields = ("risk_code", "title", "description", "risk_owner")
 
 

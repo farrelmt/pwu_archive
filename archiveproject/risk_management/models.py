@@ -1,9 +1,8 @@
-import uuid
-
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
-from django.utils import timezone
+from django.db import models, transaction
+
+from .scoring import level_for
 
 
 class RiskDivision(models.Model):
@@ -20,12 +19,20 @@ class RiskDivision(models.Model):
         return self.name
 
 
+class RiskCodeSequence(models.Model):
+    prefix = models.CharField(max_length=32, unique=True)
+    last_number = models.PositiveIntegerField(default=0)
+
+
 class RiskAccess(models.Model):
     ROLE_CHOICES = [
         ("head_manager", "Kepala Manajemen Risiko"),
         ("manager_member", "Anggota Manajemen Risiko"),
         ("risk_officer", "Risk Officer"),
         ("division_head", "Kepala Divisi"),
+        ("staff_it", "Staff IT"),
+        ("staff_hrd", "HRD"),
+        ("staff_humas", "Humas"),
     ]
 
     user = models.ForeignKey(
@@ -62,6 +69,20 @@ class RiskAccess(models.Model):
 
 
 class RiskRegister(models.Model):
+    RISK_KIND_CHOICES = [
+        ("A", "A - Strategis"), ("B", "B - Operasional"), ("C", "C - Proyek"),
+    ]
+    SOURCE_CHOICES = [
+        ("01", "01 - Divisi, proyek, atau kombinasi keduanya"),
+        ("02", "02 - Selain divisi atau proyek"),
+    ]
+    CODE_CATEGORY_CHOICES = [
+        ("001", "001 - Keuangan"), ("002", "002 - Fraud/Korupsi"),
+        ("003", "003 - Legal/Hukum"), ("004", "004 - Kepatuhan"),
+        ("005", "005 - Reputasi"), ("006", "006 - Kebijakan"),
+        ("007", "007 - SDM"), ("008", "008 - Keselamatan Kerja"),
+        ("009", "009 - Aset"), ("010", "010 - Kinerja"),
+    ]
     CATEGORY_CHOICES = [
         ("strategic", "Strategis"),
         ("operational", "Operasional"),
@@ -88,8 +109,11 @@ class RiskRegister(models.Model):
         ("effective", "Efektif"),
     ]
 
-    risk_code = models.CharField("Kode risiko", max_length=30, unique=True, editable=False)
+    risk_code = models.CharField("Kode risiko", max_length=40, unique=True, editable=False)
     division = models.ForeignKey(RiskDivision, on_delete=models.PROTECT, related_name="risks")
+    risk_kind = models.CharField("Jenis risiko", max_length=1, choices=RISK_KIND_CHOICES, default="B")
+    risk_source = models.CharField("Sumber risiko strategis", max_length=2, choices=SOURCE_CHOICES, blank=True)
+    code_category = models.CharField("Kategori risiko", max_length=3, choices=CODE_CATEGORY_CHOICES, default="010")
     title = models.CharField("Risiko", max_length=220)
     category = models.CharField("Kategori", max_length=20, choices=CATEGORY_CHOICES)
     strategic_objective = models.TextField("Sasaran terkait", blank=True)
@@ -101,10 +125,12 @@ class RiskRegister(models.Model):
     )
     impact = models.TextField("Dampak")
     inherent_likelihood = models.PositiveSmallIntegerField(
-        "Kemungkinan inheren", validators=[MinValueValidator(1), MaxValueValidator(5)]
+        "Kemungkinan inheren", null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
     )
     inherent_impact = models.PositiveSmallIntegerField(
-        "Dampak inheren", validators=[MinValueValidator(1), MaxValueValidator(5)]
+        "Dampak inheren", null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
     )
     existing_controls = models.TextField("Pengendalian yang ada", blank=True)
     control_effectiveness = models.CharField(
@@ -121,10 +147,12 @@ class RiskRegister(models.Model):
     risk_officer = models.CharField("Risk officer", max_length=160, blank=True)
     target_date = models.DateField("Target penyelesaian", blank=True, null=True)
     residual_likelihood = models.PositiveSmallIntegerField(
-        "Kemungkinan residual", validators=[MinValueValidator(1), MaxValueValidator(5)]
+        "Kemungkinan residual", null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
     )
     residual_impact = models.PositiveSmallIntegerField(
-        "Dampak residual", validators=[MinValueValidator(1), MaxValueValidator(5)]
+        "Dampak residual", null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
     created_by = models.ForeignKey(
@@ -144,36 +172,97 @@ class RiskRegister(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        if not self.risk_code:
-            self.risk_code = f"RSK-{timezone.localdate():%Y}-{uuid.uuid4().hex[:6].upper()}"
-        super().save(*args, **kwargs)
+        prefix = self.code_prefix()
+        with transaction.atomic():
+            if not self.risk_code or not self.risk_code.startswith(f"{prefix}/"):
+                sequence, _ = RiskCodeSequence.objects.select_for_update().get_or_create(prefix=prefix)
+                sequence.last_number += 1
+                sequence.save(update_fields=["last_number"])
+                self.risk_code = f"{prefix}/{sequence.last_number:03d}"
+                if kwargs.get("update_fields") is not None:
+                    kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                        "risk_code", "risk_kind", "risk_source", "code_category", "division",
+                    }
+            super().save(*args, **kwargs)
+
+    def code_prefix(self):
+        if self.risk_kind == "A":
+            source = self.risk_source or "01"
+        elif self.risk_kind == "C":
+            source = "KSO"
+        else:
+            source = self.division.code
+        return f"{self.risk_kind}/{source}/{self.code_category}"
 
     @property
     def inherent_score(self):
+        if self.inherent_likelihood is None or self.inherent_impact is None:
+            return None
         return self.inherent_likelihood * self.inherent_impact
 
     @property
     def residual_score(self):
+        if self.residual_likelihood is None or self.residual_impact is None:
+            return None
         return self.residual_likelihood * self.residual_impact
 
-    @staticmethod
-    def level_for(score):
-        if score >= 17:
-            return "Sangat Tinggi"
-        if score >= 10:
-            return "Tinggi"
-        if score >= 5:
-            return "Sedang"
-        if score >= 3:
-            return "Rendah"
-        return "Sangat Rendah"
+    level_for = staticmethod(level_for)
+
+    @property
+    def inherent_level(self):
+        return self.level_for(self.inherent_likelihood, self.inherent_impact) if self.inherent_score is not None else "-"
 
     @property
     def risk_level(self):
-        return self.level_for(self.residual_score)
+        return self.level_for(self.residual_likelihood, self.residual_impact) if self.residual_score is not None else "-"
 
     def __str__(self):
         return f"{self.risk_code} - {self.title}"
+
+
+class RiskCause(models.Model):
+    risk = models.ForeignKey(RiskRegister, on_delete=models.CASCADE, related_name="additional_causes")
+    position = models.PositiveSmallIntegerField()
+    description = models.TextField("Sebab risiko")
+    controllability = models.CharField(
+        "Kendali penyebab", max_length=20,
+        choices=RiskRegister.CONTROLLABILITY_CHOICES, blank=True,
+    )
+    impact = models.TextField("Dampak", blank=True)
+    inherent_likelihood = models.PositiveSmallIntegerField(
+        "Kemungkinan inheren", null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    inherent_impact = models.PositiveSmallIntegerField(
+        "Dampak inheren", null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    identification_notes = models.TextField("Keterangan identifikasi", blank=True)
+
+    @property
+    def inherent_level(self):
+        if self.inherent_likelihood and self.inherent_impact:
+            return RiskRegister.level_for(self.inherent_likelihood, self.inherent_impact)
+        return "-"
+
+    class Meta:
+        ordering = ["position", "pk"]
+        constraints = [models.UniqueConstraint(fields=["risk", "position"], name="unique_risk_cause_position")]
+
+
+class RiskControl(models.Model):
+    risk = models.ForeignKey(RiskRegister, on_delete=models.CASCADE, related_name="additional_controls")
+    position = models.PositiveSmallIntegerField()
+    description = models.TextField("Pengendalian yang ada")
+    effectiveness = models.CharField(
+        "Efektivitas pengendalian", max_length=20,
+        choices=RiskRegister.CONTROL_EFFECTIVENESS_CHOICES, blank=True,
+    )
+    notes = models.TextField("Keterangan", blank=True)
+
+    class Meta:
+        ordering = ["position", "pk"]
+        constraints = [models.UniqueConstraint(fields=["risk", "position"], name="unique_risk_control_position")]
 
 
 class RiskActivity(models.Model):
@@ -265,17 +354,17 @@ class RiskMonitoring(models.Model):
 
     @property
     def final_level(self):
-        return RiskRegister.level_for(self.final_score)
+        return RiskRegister.level_for(self.final_likelihood, self.final_impact)
 
     @property
     def initial_level(self):
-        return RiskRegister.level_for(self.initial_score)
+        return RiskRegister.level_for(self.initial_likelihood, self.initial_impact)
 
     @property
     def expected_level(self):
         if self.expected_score is None:
             return None
-        return RiskRegister.level_for(self.expected_score)
+        return RiskRegister.level_for(self.expected_likelihood, self.expected_impact)
 
     @property
     def expected_score(self):
@@ -340,7 +429,7 @@ class RiskTreatment(models.Model):
 
     @property
     def expected_level(self):
-        return RiskRegister.level_for(self.expected_score) if self.expected_score else "-"
+        return RiskRegister.level_for(self.expected_likelihood, self.expected_impact) if self.expected_score else "-"
 
     def __str__(self):
         return f"{self.risk.risk_code}: {self.action_plan[:60]}"

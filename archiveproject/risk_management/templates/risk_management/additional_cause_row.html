@@ -1,0 +1,12 @@
+<tr data-cause-row>
+    <td>
+        {{ cause_form.risk_index }}
+        {{ cause_form.inherent_likelihood }}{{ cause_form.inherent_impact }}
+        <span class="hidden">{{ cause_form.DELETE }}</span>
+        {% for error in cause_form.risk_index.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        <label class="text-xs font-bold text-slate-600" for="{{ cause_form.description.id_for_label }}" data-cause-number>Sebab Risiko</label>{% include 'risk_management/document_form_field.html' with field=cause_form.description %}<button type="button" class="mt-2 text-xs font-semibold text-red-700" data-remove-cause>Hapus Sebab Risiko</button>
+    </td>
+    <td>{% include 'risk_management/document_form_field.html' with field=cause_form.controllability %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=cause_form.impact %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=cause_form.identification_notes %}</td>
+</tr>

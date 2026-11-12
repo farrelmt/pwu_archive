@@ -63,8 +63,15 @@ def can_edit_risks(user):
     return bool(roles_for_user(user).intersection(EDITOR_ROLES))
 
 
-def can_manage_division_pic(user):
-    return user.is_superuser or bool(roles_for_user(user).intersection(MANAGER_ROLES))
+def can_manage_division_pic(user, division=None):
+    if user.is_superuser or bool(roles_for_user(user).intersection(MANAGER_ROLES)):
+        return True
+    return any(
+        access.role == "risk_officer" and (
+            division is None or access.division_id == division.pk
+        )
+        for access in _cached_access_rows(user)
+    )
 
 
 def can_edit_risk(user, risk):

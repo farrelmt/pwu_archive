@@ -6,33 +6,37 @@
 <div class="risk-workspace risk-editor">
 <nav class="rw-breadcrumb" aria-label="Jejak halaman"><a href="{% url 'risk:risk_list' %}">Register Risiko</a><span aria-hidden="true">/</span><span>{{ page_title }}</span></nav>
 <div class="rw-heading"><div><p class="rw-eyebrow">{% if risk %}{{ risk.risk_code }}{% else %}Pencatatan Risiko{% endif %}</p><h1>{{ page_title }}</h1><p class="rw-subtitle">Lengkapi identifikasi, penilaian, dan rencana penanganan risiko perusahaan.</p></div><a href="{% if risk %}{% url 'risk:risk_detail' risk.pk %}{% else %}{% url 'risk:risk_list' %}{% endif %}" class="rw-button">&larr; Kembali</a></div>
-<nav class="rw-section-nav" aria-label="Bagian formulir risiko"><a href="#identifikasi"><span>01</span> Identifikasi Risiko</a><a href="#analisis"><span>02</span> Analisis &amp; Evaluasi</a><a href="#perlakuan"><span>03</span> Perlakuan Risiko</a><button type="submit" form="riskDocumentForm" class="rw-nav-save">Simpan Risiko</button></nav>
+<nav class="rw-section-nav" aria-label="Bagian formulir risiko"><a href="#identifikasi"><span>01</span> Identifikasi Risiko</a><a href="#analisis"><span>02</span> Analisis &amp; Evaluasi</a><a href="#perlakuan"><span>03</span> Perlakuan Risiko</a></nav>
+{{ risk_level_matrix|json_script:"riskLevelMatrix" }}
+<script nonce="{{ request.csp_nonce }}">function riskLevelFor(likelihood,impact){const matrix=JSON.parse(document.getElementById('riskLevelMatrix').textContent);return Number.isInteger(likelihood)&&Number.isInteger(impact)&&likelihood>=1&&likelihood<=5&&impact>=1&&impact<=5?matrix[impact-1][likelihood-1]:'-';}function riskScoreFor(likelihood,impact){return Number.isInteger(likelihood)&&Number.isInteger(impact)&&likelihood>=1&&likelihood<=5&&impact>=1&&impact<=5?likelihood*impact:'-';}</script>
 <form method="post" id="riskDocumentForm" class="rw-main-form">{% csrf_token %}
+    {% if additional_formset %}{{ additional_formset.management_form }}{% if additional_formset.non_form_errors %}<div class="rounded-xl bg-red-50 p-4 text-sm text-red-700">{{ additional_formset.non_form_errors }}</div>{% endif %}{% endif %}
+    {{ cause_formset.management_form }}{% if cause_formset.non_form_errors %}<div class="rounded-xl bg-red-50 p-4 text-sm text-red-700">{{ cause_formset.non_form_errors }}</div>{% endif %}
+    {{ control_formset.management_form }}{% if control_formset.non_form_errors %}<div class="rounded-xl bg-red-50 p-4 text-sm text-red-700">{{ control_formset.non_form_errors }}</div>{% endif %}
     {% if form.non_field_errors %}<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{ form.non_field_errors }}</div>{% endif %}
     <section id="identifikasi" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div class="rw-section-heading"><span class="rw-section-number" aria-hidden="true">01</span><div><h2 class="text-lg font-bold">Identifikasi Risiko</h2><p>Tentukan sasaran, penyebab, dan dampak risiko.</p></div></div>
-        <div class="rw-metadata">
-            <label class="text-sm font-semibold" for="{{ form.division.id_for_label }}">Nama Divisi{% include 'risk_management/document_form_field.html' with field=form.division %}</label>
-            <label class="text-sm font-semibold" for="{{ form.risk_owner.id_for_label }}">Risk Owner{% include 'risk_management/document_form_field.html' with field=form.risk_owner %}</label>
-            <label class="text-sm font-semibold" for="{{ form.risk_officer.id_for_label }}">Risk Officer{% include 'risk_management/document_form_field.html' with field=form.risk_officer %}</label>
-        </div>
+        <div class="rw-section-heading"><span class="rw-section-number" aria-hidden="true">01</span><div><h2 class="text-lg font-bold">Identifikasi Risiko</h2><p>Pilih jenis dan kategori untuk kode otomatis. Sumber risiko wajib untuk risiko strategis dan dapat diisi untuk jenis lain; risiko proyek memakai divisi KSO. Analisis dan perlakuan dapat diisi nanti.</p></div></div>
         <div class="rw-table-scroll" tabindex="0" role="region" aria-label="Formulir Identifikasi Risiko">
             <table class="risk-document-form risk-identification-form w-full border-collapse text-left text-sm">
-                <colgroup><col class="document-number"><col class="document-text"><col class="document-text"><col class="document-text"><col class="document-text"><col class="document-control"><col class="document-text"><col class="document-score"><col class="document-score"><col class="document-score"><col class="document-level"><col class="document-text"></colgroup>
+                <colgroup><col class="document-number"><col class="document-meta"><col class="document-meta"><col class="document-meta"><col class="document-meta"><col class="document-text"><col class="document-text"><col class="document-text"><col class="document-text"><col class="document-control"><col class="document-text"><col class="document-score"><col class="document-score"><col class="document-score"><col class="document-level"><col class="document-text"></colgroup>
                 <thead class="bg-slate-50 text-xs text-slate-600">
                     <tr>
-                        <th rowspan="2" scope="col">No.</th><th rowspan="2" scope="col">Sasaran Terkait</th><th rowspan="2" scope="col">Nama Risiko</th><th rowspan="2" scope="col">Indikasi Risiko</th>
+                        <th rowspan="2" scope="col">No.</th><th rowspan="2" scope="col">Nama Divisi</th><th rowspan="2" scope="col">Jenis Risiko</th><th rowspan="2" scope="col">Sumber Risiko</th><th rowspan="2" scope="col">Kategori Risiko</th><th rowspan="2" scope="col">Sasaran Terkait</th><th rowspan="2" scope="col">Nama Risiko</th><th rowspan="2" scope="col">Indikasi Risiko</th>
                         <th colspan="2" scope="colgroup">Sebab Risiko</th><th rowspan="2" scope="col">Dampak</th>
                         <th colspan="4" scope="colgroup">Risiko Inheren (risiko sebelum pengendalian)</th><th rowspan="2" scope="col">Keterangan</th>
                     </tr>
                     <tr><th scope="col">Uraian</th><th scope="col">Controllable / Uncontrollable</th><th scope="col">Kemungkinan</th><th scope="col">Dampak</th><th scope="col">Skor Risiko</th><th scope="col">Level Risiko</th></tr>
                 </thead>
-                <tbody><tr>
+                <tbody id="identificationRows"><tr data-identification-row="0">
                     <td>1</td>
+                    <td>{% include 'risk_management/document_form_field.html' with field=form.division %}</td>
+                    <td>{% include 'risk_management/document_form_field.html' with field=form.risk_kind %}</td>
+                    <td>{% include 'risk_management/document_form_field.html' with field=form.risk_source %}</td>
+                    <td>{% include 'risk_management/document_form_field.html' with field=form.code_category %}</td>
                     <td>{% include 'risk_management/document_form_field.html' with field=form.strategic_objective %}</td>
                     <td>{% include 'risk_management/document_form_field.html' with field=form.title %}</td>
                     <td>{% include 'risk_management/document_form_field.html' with field=form.indication %}</td>
-                    <td>{% include 'risk_management/document_form_field.html' with field=form.cause %}</td>
+                    <td><label class="text-xs font-bold text-slate-600" for="{{ form.cause.id_for_label }}">Sebab Risiko 1</label>{% include 'risk_management/document_form_field.html' with field=form.cause %}<button type="button" class="mt-2 text-xs font-bold text-blue-700" data-add-cause="0">+ Tambah Sebab Risiko</button></td>
                     <td>{% include 'risk_management/document_form_field.html' with field=form.controllability %}</td>
                     <td>{% include 'risk_management/document_form_field.html' with field=form.impact %}</td>
                     <td>{% include 'risk_management/document_form_field.html' with field=form.inherent_likelihood %}</td>
@@ -40,9 +44,11 @@
                     <td><output id="inherentScore" for="id_inherent_likelihood id_inherent_impact">-</output></td>
                     <td><output id="inherentLevel" for="id_inherent_likelihood id_inherent_impact">-</output></td>
                     <td>{% include 'risk_management/document_form_field.html' with field=form.identification_notes %}</td>
-                </tr></tbody>
+                </tr>{% for additional_form in additional_formset %}{% include 'risk_management/additional_identification_row.html' with row_number=forloop.counter row_index=forloop.counter %}{% endfor %}{% for cause_form in cause_formset %}{% include 'risk_management/additional_cause_row.html' %}{% endfor %}</tbody>
             </table>
         </div>
+        <template id="emptyCauseRow"><table><tbody>{% include 'risk_management/additional_cause_row.html' with cause_form=cause_formset.empty_form %}</tbody></table></template>
+        {% if additional_formset %}<div class="mt-4 flex flex-wrap gap-3"><button type="button" id="addRiskRow" class="rounded-xl border border-blue-200 px-4 py-2 text-sm font-bold text-blue-700">+ Tambah Baris Risiko</button><template id="emptyIdentificationRow">{% include 'risk_management/additional_identification_row.html' with additional_form=additional_formset.empty_form row_number='-' row_index='__rowindex__' %}</template></div>{% endif %}
         <p class="rw-scroll-hint">Geser tabel ke samping untuk melihat seluruh kolom &rarr;</p>
     </section>
     <section id="analisis" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -54,9 +60,9 @@
                     <tr><th rowspan="2" scope="col">No.</th><th rowspan="2" scope="col">Nama Risiko</th><th rowspan="2" scope="col">Pengendalian yang Ada (Existing Control)</th><th colspan="3" scope="colgroup">Efektivitas Pengendalian</th><th colspan="4" scope="colgroup">Risiko Setelah Pengendalian yang Ada</th><th rowspan="2" scope="col">Nominasi Prioritas Risiko</th><th rowspan="2" scope="col">Keterangan</th></tr>
                     <tr><th scope="col">Tidak Efektif</th><th scope="col">Cukup Efektif</th><th scope="col">Efektif</th><th scope="col">Kemungkinan</th><th scope="col">Dampak</th><th scope="col">Skor Risiko</th><th scope="col">Level Risiko</th></tr>
                 </thead>
-                <tbody><tr>
-                    <td>1</td><td><output id="evaluationRiskName" for="id_title">{{ form.title.value|default:'-' }}</output></td>
-                    <td>{% include 'risk_management/document_form_field.html' with field=form.existing_controls %}</td>
+                <tbody id="evaluationRows"><tr data-evaluation-index="0">
+                    <td data-evaluation-number>1</td><td><select data-evaluation-risk-select aria-label="Nama Risiko untuk Analisis dan Evaluasi" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"><option value="0">1. {{ form.title.value|default:'Risiko 1' }}</option></select></td>
+                    <td><label class="text-xs font-bold text-slate-600" for="{{ form.existing_controls.id_for_label }}">Pengendalian 1</label>{% include 'risk_management/document_form_field.html' with field=form.existing_controls %}<button type="button" class="mt-2 text-xs font-bold text-blue-700" data-add-control="0">+ Tambah Pengendalian</button></td>
                     {% for radio in form.control_effectiveness %}<td class="text-center"><label>{{ radio.tag }}<span class="sr-only">{{ radio.choice_label }}</span></label>{% if forloop.first %}{% for error in form.control_effectiveness.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}{% endif %}</td>{% endfor %}
                     <td>{% include 'risk_management/document_form_field.html' with field=form.residual_likelihood %}</td>
                     <td>{% include 'risk_management/document_form_field.html' with field=form.residual_impact %}</td>
@@ -64,30 +70,232 @@
                     <td><output id="residualLevel" for="id_residual_likelihood id_residual_impact">-</output></td>
                     <td class="text-center">{% include 'risk_management/document_form_field.html' with field=form.is_priority %}</td>
                     <td>{% include 'risk_management/document_form_field.html' with field=form.evaluation_notes %}</td>
-                </tr></tbody>
+                </tr>{% for additional_form in additional_formset %}{% include 'risk_management/additional_evaluation_row.html' with row_number=forloop.counter row_index=forloop.counter %}{% endfor %}{% for control_form in control_formset %}{% include 'risk_management/additional_control_row.html' %}{% endfor %}</tbody>
             </table>
         </div>
+        {% if additional_formset %}<template id="emptyEvaluationRow">{% include 'risk_management/additional_evaluation_row.html' with additional_form=additional_formset.empty_form row_number='-' row_index='__rowindex__' %}</template>{% endif %}
+        <template id="emptyControlRow"><table><tbody>{% include 'risk_management/additional_control_row.html' with control_form=control_formset.empty_form %}</tbody></table></template>
         <p class="rw-scroll-hint">Geser tabel ke samping untuk melihat seluruh kolom &rarr;</p>
     </section>
     {% include 'risk_management/inline_treatment_formset.html' %}
-    <div class="rw-save-bar"><p class="rw-save-caption">{% if risk %}Perbarui pencatatan risiko{% else %}Simpan pencatatan risiko{% endif %}<small>Identifikasi, evaluasi, dan perlakuan disimpan bersama.</small></p><div class="rw-actions"><a href="{% if risk %}{% url 'risk:risk_detail' risk.pk %}{% else %}{% url 'risk:risk_list' %}{% endif %}" class="rw-button">Batal</a><button class="rw-button rw-button-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke-linecap="round" stroke-linejoin="round"/></svg>Simpan Risiko</button></div></div>
+    <div class="rw-save-bar"><p class="rw-save-caption">Pencatatan risiko<small>Analisis dan perlakuan dapat dilengkapi kemudian.</small></p><div class="rw-actions"><a href="{% if risk %}{% url 'risk:risk_detail' risk.pk %}{% else %}{% url 'risk:risk_list' %}{% endif %}" class="rw-button">Batal</a><button type="submit" class="rw-button rw-button-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke-linecap="round" stroke-linejoin="round"/></svg>Simpan Risiko</button></div></div>
 </form>
+{% if risk %}<form method="post" action="{% url 'risk:risk_delete' risk.pk %}" id="deleteRiskForm" class="mt-4 text-right">{% csrf_token %}<button type="submit" class="rounded-xl border border-red-300 px-5 py-3 text-sm font-bold text-red-700">Hapus Risiko</button></form><script nonce="{{ request.csp_nonce }}">document.getElementById('deleteRiskForm').addEventListener('submit',event=>{if(!confirm('Hapus risiko ini beserta seluruh perlakuan dan pemantauannya?'))event.preventDefault();});</script>{% endif %}
 <style nonce="{{ request.csp_nonce }}">
-    .risk-document-form{table-layout:fixed}.risk-identification-form{width:2070px}.risk-evaluation-form{width:1710px}.risk-document-form .document-number{width:50px}.risk-document-form .document-text{width:220px}.risk-document-form .document-control{width:170px}.risk-document-form .document-score{width:100px}.risk-document-form .document-level{width:130px}.risk-document-form th,.risk-document-form td{border:1px solid #cbd5e1;padding:.75rem;vertical-align:top;overflow-wrap:anywhere}.risk-document-form th{vertical-align:middle}.risk-document-form textarea,.risk-document-form input,.risk-document-form select{min-width:0;max-width:100%;box-sizing:border-box}.risk-document-form textarea{resize:vertical}.risk-document-form output{display:block;white-space:pre-line}.risk-document-form input[type=radio]{width:1rem;height:1rem}
+.risk-document-form{table-layout:fixed}.risk-identification-form{width:2820px}.risk-evaluation-form{width:1710px}.risk-document-form .document-number{width:50px}.risk-document-form .document-meta{width:180px}.risk-document-form .document-text{width:220px}.risk-document-form .document-control{width:170px}.risk-document-form .document-score{width:100px}.risk-document-form .document-level{width:130px}.risk-document-form th,.risk-document-form td{border:1px solid #cbd5e1;padding:.75rem;vertical-align:top;overflow-wrap:anywhere}.risk-document-form th{vertical-align:middle}.risk-document-form textarea,.risk-document-form input,.risk-document-form select{min-width:0;max-width:100%;box-sizing:border-box}.risk-document-form textarea{resize:vertical}.risk-document-form output{display:block;white-space:pre-line}.risk-document-form input[type=radio]{width:1rem;height:1rem}
 </style>
 <script nonce="{{ request.csp_nonce }}">
     function updateRiskDocument(){
-        document.getElementById('evaluationRiskName').textContent=document.getElementById('id_title').value||'-';
         ['inherent','residual'].forEach(prefix=>{
             const likelihood=Number(document.getElementById('id_'+prefix+'_likelihood').value),impact=Number(document.getElementById('id_'+prefix+'_impact').value);
-            const valid=Number.isInteger(likelihood)&&Number.isInteger(impact)&&likelihood>=1&&likelihood<=5&&impact>=1&&impact<=5;
-            const score=likelihood*impact;
-            document.getElementById(prefix+'Score').textContent=valid?score:'-';
-            document.getElementById(prefix+'Level').textContent=valid?(score>=17?'Sangat Tinggi':score>=10?'Tinggi':score>=5?'Sedang':score>=3?'Rendah':'Sangat Rendah'):'-';
+            document.getElementById(prefix+'Level').textContent=riskLevelFor(likelihood,impact);
+            document.getElementById(prefix+'Score').textContent=riskScoreFor(likelihood,impact);
         });
     }
-    ['id_title','id_inherent_likelihood','id_inherent_impact','id_residual_likelihood','id_residual_impact'].forEach(id=>document.getElementById(id).addEventListener('input',updateRiskDocument));
+    ['id_inherent_likelihood','id_inherent_impact','id_residual_likelihood','id_residual_impact'].forEach(id=>document.getElementById(id).addEventListener('input',updateRiskDocument));
+    const identificationTitle=document.getElementById('id_title');
+    const analysisRiskSelect=document.querySelector('[data-evaluation-index="0"] [data-evaluation-risk-select]');
+    if(!document.getElementById('id_additional-TOTAL_FORMS'))identificationTitle.addEventListener('input',()=>{analysisRiskSelect.options[0].textContent=`1. ${identificationTitle.value||'Risiko 1'}`;});
     updateRiskDocument();
+</script>
+{% if additional_formset %}<script nonce="{{ request.csp_nonce }}">
+    (()=>{
+        const total=document.getElementById('id_additional-TOTAL_FORMS');
+        const identification=document.getElementById('identificationRows');
+        const evaluation=document.getElementById('evaluationRows');
+        const treatmentRows=document.getElementById('inlineTreatmentRows');
+        const form=document.getElementById('riskDocumentForm');
+        const riskRows=()=>[...identification.querySelectorAll('[data-identification-row]')];
+        const isDeleted=row=>Number(row.dataset.identificationRow)>0&&row.querySelector('[name$="-DELETE"]').checked;
+        const activeRisks=()=>riskRows().filter(row=>!isDeleted(row)).map((row,number)=>({
+            index:Number(row.dataset.identificationRow),number:number+1,
+            name:row.querySelector('[name="title"],[name$="-title"]').value.trim()||`Risiko ${number+1}`,
+        }));
+        function sync(){
+            const risks=activeRisks();
+            evaluation.querySelectorAll('[data-evaluation-index]').forEach(row=>{
+                const index=Number(row.dataset.evaluationIndex);
+                const current=risks.find(item=>item.index===index);
+                row.hidden=!current;
+                row.querySelector('[data-evaluation-number]').textContent=current?.number||'';
+                const select=row.querySelector('[data-evaluation-risk-select]');
+                if(current)select.replaceChildren(new Option(`${current.number}. ${current.name}`,String(index)));
+                if(index){
+                    const likelihood=Number(row.querySelector('[name$="-residual_likelihood"]').value);
+                    const impact=Number(row.querySelector('[name$="-residual_impact"]').value);
+                    row.querySelector('[data-residual-score]').textContent=riskScoreFor(likelihood,impact);
+                    row.querySelector('[data-residual-level]').textContent=riskLevelFor(likelihood,impact);
+                }
+            });
+            riskRows().forEach(row=>{
+                const index=Number(row.dataset.identificationRow);
+                const current=risks.find(item=>item.index===index);
+                row.hidden=!current;
+                row.firstElementChild.textContent=current?.number||'';
+                if(index){
+                    const likelihood=Number(row.querySelector('[name$="-inherent_likelihood"]').value);
+                    const impact=Number(row.querySelector('[name$="-inherent_impact"]').value);
+                    row.querySelector('[data-inherent-score]').textContent=riskScoreFor(likelihood,impact);
+                    row.querySelector('[data-inherent-level]').textContent=riskLevelFor(likelihood,impact);
+                }
+            });
+            treatmentRows.querySelectorAll('[data-treatment-row]').forEach(row=>{
+                const select=row.querySelector('[name$="-risk_index"]');
+                if(!select)return;
+                const selected=select.dataset.selected===undefined?select.value:select.dataset.selected;
+                delete select.dataset.selected;
+                select.replaceChildren(...risks.map(item=>new Option(`${item.number}. ${item.name}`,item.index?String(item.index):'')));
+                select.value=risks.some(item=>(item.index?String(item.index):'')===selected)?selected:'';
+            });
+            document.getElementById('addRiskRow').disabled=Number(total.value)>=99;
+            window.refreshEvaluationControls?.();
+        }
+        window.refreshTreatmentRiskNames=sync;
+        document.getElementById('addRiskRow').addEventListener('click',()=>{
+            if(Number(total.value)>=99)return;
+            const index=Number(total.value);
+            for(const [templateId,target] of [['emptyIdentificationRow',identification],['emptyEvaluationRow',evaluation]]){
+                const template=document.createElement('template');
+                template.innerHTML=document.getElementById(templateId).innerHTML.replaceAll('__prefix__',index).replaceAll('__rowindex__',index+1);
+                target.appendChild(template.content);
+            }
+            total.value=index+1;
+            sync();
+        });
+        form.addEventListener('click',event=>{
+            const remove=event.target.closest('[data-delete-risk]');
+            if(!remove)return;
+            const index=Number(remove.dataset.deleteRisk);
+            const row=identification.querySelector(`[data-identification-row="${index}"]`);
+            if(!row)return;
+            row.querySelector('[name$="-DELETE"]').checked=true;
+            for(const selector of ['[data-cause-row]','[data-control-row]']){
+                form.querySelectorAll(selector).forEach(child=>{
+                    if(Number(child.querySelector('[name$="-risk_index"]').value)===index){
+                        child.querySelector('[name$="-DELETE"]').checked=true;
+                        child.hidden=true;
+                    }
+                });
+            }
+            treatmentRows.querySelectorAll('[data-treatment-row]').forEach(treatment=>{
+                const select=treatment.querySelector('[data-treatment-risk-select]');
+                if(Number(select.value)!==index)return;
+                treatment.querySelector('[name$="-DELETE"]').value='on';
+                treatment.hidden=true;
+            });
+            sync();
+            window.refreshIdentificationCauses?.();
+        });
+        form.addEventListener('input',sync);
+        new MutationObserver(sync).observe(treatmentRows,{childList:true});
+        sync();
+    })();
+</script>{% endif %}
+<script nonce="{{ request.csp_nonce }}">
+    (()=>{
+        const form=document.getElementById('riskDocumentForm');
+        const rows=document.getElementById('evaluationRows');
+        const total=document.getElementById('id_controls-TOTAL_FORMS');
+        function refreshControls(){
+            const counts={};
+            const anchors={};
+            const riskRows={};
+            rows.querySelectorAll('[data-evaluation-index]').forEach(row=>{
+                const index=Number(row.dataset.evaluationIndex);
+                anchors[index]=row;
+                riskRows[index]=row;
+            });
+            rows.querySelectorAll('[data-control-row]').forEach(row=>{
+                if(row.querySelector('[name$="-DELETE"]').checked){row.hidden=true;return;}
+                const index=Number(row.querySelector('[name$="-risk_index"]').value);
+                counts[index]=(counts[index]||1)+1;
+                row.querySelector('[data-control-number]').textContent=`Pengendalian ${counts[index]}`;
+                const riskRow=riskRows[index];
+                const anchor=anchors[index];
+                if(anchor&&anchor.nextElementSibling!==row)anchor.after(row);
+                anchors[index]=row;
+                row.hidden=!riskRow||riskRow.hidden;
+            });
+            Object.entries(riskRows).forEach(([index,row])=>{
+                [0,1,6,7,8,9,10].forEach(column=>{row.cells[column].rowSpan=counts[index]||1;});
+            });
+            form.querySelectorAll('[data-add-control]').forEach(button=>{button.disabled=Number(total.value)>=99;});
+        }
+        form.addEventListener('click',event=>{
+            const add=event.target.closest('[data-add-control]');
+            if(add){
+                if(Number(total.value)>=99)return;
+                const index=Number(total.value);
+                const template=document.createElement('template');
+                template.innerHTML=document.getElementById('emptyControlRow').innerHTML.replaceAll('__prefix__',index);
+                const row=template.content.querySelector('[data-control-row]');
+                row.querySelector('[name$="-risk_index"]').value=add.dataset.addControl;
+                rows.appendChild(row);
+                total.value=index+1;
+                refreshControls();
+                row.querySelector('textarea').focus();
+            }
+            const remove=event.target.closest('[data-remove-control]');
+            if(remove){remove.closest('[data-control-row]').querySelector('[name$="-DELETE"]').checked=true;refreshControls();}
+        });
+        form.addEventListener('input',event=>{
+            if(event.target.name?.endsWith('residual_likelihood')||event.target.name?.endsWith('residual_impact'))refreshControls();
+        });
+        window.refreshEvaluationControls=refreshControls;
+        refreshControls();
+    })();
+</script>
+<script nonce="{{ request.csp_nonce }}">
+    (()=>{
+        const form=document.getElementById('riskDocumentForm');
+        const rows=document.getElementById('identificationRows');
+        const total=document.getElementById('id_causes-TOTAL_FORMS');
+        function refreshCauses(){
+            const counts={};
+            const anchors={};
+            const riskRows={};
+            rows.querySelectorAll('[data-identification-row]').forEach(row=>{
+                const index=Number(row.dataset.identificationRow);
+                anchors[index]=row;
+                riskRows[index]=row;
+            });
+            rows.querySelectorAll('[data-cause-row]').forEach(row=>{
+                if(row.querySelector('[name$="-DELETE"]').checked){row.hidden=true;return;}
+                const index=Number(row.querySelector('[name$="-risk_index"]').value);
+                counts[index]=(counts[index]||1)+1;
+                row.querySelector('[data-cause-number]').textContent=`Sebab Risiko ${counts[index]}`;
+                const anchor=anchors[index];
+                if(anchor&&anchor.nextElementSibling!==row)anchor.after(row);
+                anchors[index]=row;
+            });
+            Object.entries(riskRows).forEach(([index,row])=>{
+                [...row.cells].forEach((cell,column)=>{
+                    if(column<8||(column>=11&&column<=14))cell.rowSpan=counts[index]||1;
+                });
+            });
+            form.querySelectorAll('[data-add-cause]').forEach(button=>{button.disabled=Number(total.value)>=99;});
+        }
+        form.addEventListener('click',event=>{
+            const add=event.target.closest('[data-add-cause]');
+            if(add){
+                if(Number(total.value)>=99)return;
+                const index=Number(total.value);
+                const template=document.createElement('template');
+                template.innerHTML=document.getElementById('emptyCauseRow').innerHTML.replaceAll('__prefix__',index);
+                const row=template.content.querySelector('[data-cause-row]');
+                row.querySelector('[name$="-risk_index"]').value=add.dataset.addCause;
+                rows.appendChild(row);
+                total.value=index+1;
+                refreshCauses();
+                row.querySelector('textarea').focus();
+            }
+            const remove=event.target.closest('[data-remove-cause]');
+            if(remove){remove.closest('[data-cause-row]').querySelector('[name$="-DELETE"]').checked=true;refreshCauses();}
+        });
+        form.addEventListener('input',refreshCauses);
+        window.refreshIdentificationCauses=refreshCauses;
+        refreshCauses();
+    })();
 </script>
 </div>
 {% endblock %}

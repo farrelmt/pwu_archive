@@ -2,7 +2,7 @@
 {% block title %}Kriteria Risiko{% endblock %}
 {% block content %}
 <div class="risk-criteria">
-<div><p class="text-sm font-bold uppercase tracking-wider text-blue-700">Acuan Template 2026</p><h1 class="mt-1 text-3xl font-bold">Kriteria Risiko</h1><p class="mt-2 text-sm text-slate-500">Skor risiko = kemungkinan × dampak.</p></div>
+<div><p class="text-sm font-bold uppercase tracking-wider text-blue-700">Acuan Template 2026</p><h1 class="mt-1 text-3xl font-bold">Kriteria Risiko</h1><p class="mt-2 text-sm text-slate-500">Level risiko mengikuti pertemuan kemungkinan dan dampak pada peta risiko.</p></div>
 <div class="criteria-top">
 <section class="criteria-panel">
     <div class="criteria-panel-heading"><h2>Peta Risiko</h2></div>
@@ -11,7 +11,7 @@
         <tbody>{% for row in matrix %}<tr>
             {% if forloop.first %}<th rowspan="5" class="matrix-impact" scope="rowgroup">Dampak</th>{% endif %}
             <th scope="row" class="matrix-tick">{{ row.impact }}</th>
-            {% for cell in row.cells %}<td class="matrix-cell matrix-{{ cell.color }}" aria-label="Dampak {{ row.impact }}, kemungkinan {{ cell.likelihood }}"><span class="sr-only">Skor {{ cell.score }}</span></td>{% endfor %}
+            {% for cell in row.cells %}<td class="matrix-cell matrix-{{ cell.color }}" aria-label="Dampak {{ row.impact }}, kemungkinan {{ cell.likelihood }}: {{ cell.level }}"><span class="sr-only">{{ cell.level }}</span></td>{% endfor %}
         </tr>{% endfor %}</tbody>
         <tfoot><tr><td colspan="2"></td>{% for likelihood in "12345" %}<th scope="col">{{ likelihood }}</th>{% endfor %}</tr><tr><td colspan="2"></td><th colspan="5" class="matrix-likelihood">Kemungkinan</th></tr></tfoot>
     </table></div>

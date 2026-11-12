@@ -287,10 +287,17 @@ def _risk_values(likelihood, impact, likelihood_column, impact_column, row):
     if likelihood is None or impact is None:
         return [likelihood, impact, None, None]
     score = likelihood * impact
-    score_col = _column(_column_number(impact_column) + 1)
-    score_ref = f"{score_col}{row}"
-    level_formula = f'IF({score_ref}>=17,"Sangat Tinggi",IF({score_ref}>=10,"Tinggi",IF({score_ref}>=5,"Sedang",IF({score_ref}>=3,"Rendah","Sangat Rendah"))))'
-    return [likelihood, impact, Formula(f"{likelihood_column}{row}*{impact_column}{row}", score), Formula(level_formula, RiskRegister.level_for(score))]
+    from .scoring import MATRIX_COLORS, LEVEL_BY_COLOR
+
+    rows = [
+        "CHOOSE(" + f"{likelihood_column}{row}," + ",".join(
+            f'"{LEVEL_BY_COLOR[color]}"' for color in colors
+        ) + ")"
+        for colors in MATRIX_COLORS
+    ]
+    level_formula = f"CHOOSE({impact_column}{row}," + ",".join(rows) + ")"
+    return [likelihood, impact, Formula(f"{likelihood_column}{row}*{impact_column}{row}", score),
+            Formula(level_formula, RiskRegister.level_for(likelihood, impact))]
 
 
 def annual_risk_workbook(risks, *, division, year, download_mark=None):
@@ -305,15 +312,28 @@ def annual_risk_workbook(risks, *, division, year, download_mark=None):
     quarter_records = {quarter: [] for quarter in range(1, 5)}
     for number, risk in enumerate(risks, 1):
         lines = [text.splitlines() or [""] for text in (
-            risk.strategic_objective, risk.indication or risk.description, risk.cause, risk.impact,
+            risk.strategic_objective, risk.indication or risk.description, risk.impact,
         )]
-        for index in range(max(map(len, lines))):
+        cause_rows = [(
+            part, risk.get_controllability_display() if risk.controllability else "",
+            "", "",
+        ) for part in (risk.cause.splitlines() or [""])]
+        cause_rows.extend((
+            cause.description, cause.get_controllability_display() if cause.controllability else "",
+            cause.impact, cause.identification_notes,
+        ) for cause in risk.additional_causes.all())
+        for index in range(max(len(cause_rows), *(len(values) for values in lines))):
             parts = [values[index] if index < len(values) else "" for values in lines]
-            identification.append(lambda row, n=number, r=risk, p=parts, first=index == 0: [
-                n if first else None, p[0], r.title if first else None, p[1], p[2],
-                r.get_controllability_display() if r.controllability and p[2] else "", p[3],
-                *(_risk_values(r.inherent_likelihood, r.inherent_impact, "H", "I", row) if first else [None] * 4),
-                r.identification_notes if first else None,
+            cause, control, extra_impact, notes = (
+                cause_rows[index] if index < len(cause_rows) else ("", "", "", "")
+            )
+            identification.append(lambda row, n=number, r=risk, p=parts, c=cause, control=control,
+                                  extra_impact=extra_impact, notes=notes, first=index == 0: [
+                n if first else None, p[0], r.title if first else None, p[1], c,
+                control if c else "", p[2] if first else extra_impact or p[2],
+                *(_risk_values(r.inherent_likelihood, r.inherent_impact, "H", "I", row) if first
+                  else [None] * 4),
+                r.identification_notes if first else notes,
             ])
         for index, control in enumerate(risk.existing_controls.splitlines() or [""]):
             evaluation.append(lambda row, n=number, r=risk, c=control, first=index == 0: [

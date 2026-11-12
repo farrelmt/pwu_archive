@@ -12,7 +12,7 @@
         <div class="mt-2">{{ form.workbook }}</div>
         <p class="mt-2 text-xs text-slate-500">{{ form.workbook.help_text }}</p>
         {% for error in form.workbook.errors %}<p class="mt-2 text-sm font-semibold text-red-600">{{ error }}</p>{% endfor %}
-        <div class="mt-6 rounded-xl bg-blue-50 p-4 text-sm leading-6 text-blue-900"><strong>Sebelum mengimpor:</strong> pastikan nama divisi pada sel C4 sudah terdaftar dan skor kemungkinan/dampak menggunakan angka 1–5. Seluruh perubahan dibatalkan otomatis jika ada data yang tidak valid.</div>
+        <div class="mt-6 rounded-xl bg-blue-50 p-4 text-sm leading-6 text-blue-900"><strong>Sebelum mengimpor:</strong> pastikan nama divisi pada sel C4 sudah terdaftar dan nilai kemungkinan/dampak menggunakan angka 1–5. Seluruh perubahan dibatalkan otomatis jika ada data yang tidak valid.</div>
         <div class="mt-6 flex justify-end gap-3"><a href="{% url 'risk:risk_list' %}" class="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700">Batal</a><button class="rounded-xl bg-blue-700 px-6 py-3 text-sm font-bold text-white hover:bg-blue-600">Validasi dan Impor</button></div>
     </form>
 </div>

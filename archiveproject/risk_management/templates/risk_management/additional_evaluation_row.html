@@ -1,0 +1,11 @@
+<tr data-evaluation-index="{{ row_index }}">
+    <td data-evaluation-number>{{ row_number }}</td><td><select data-evaluation-risk-select aria-label="Nama Risiko untuk Analisis dan Evaluasi" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"><option value="{{ row_index }}">{{ row_number }}. {{ additional_form.title.value|default:'Risiko baru' }}</option></select><button type="button" class="mt-2 text-xs font-semibold text-red-700" data-delete-risk="{{ row_index }}">Hapus Nama Risiko</button></td>
+    <td><label class="text-xs font-bold text-slate-600" for="{{ additional_form.existing_controls.id_for_label }}">Pengendalian 1</label>{% include 'risk_management/document_form_field.html' with field=additional_form.existing_controls %}<button type="button" class="mt-2 text-xs font-bold text-blue-700" data-add-control="{{ row_index }}">+ Tambah Pengendalian</button></td>
+    {% for radio in additional_form.control_effectiveness %}<td class="text-center"><label>{{ radio.tag }}<span class="sr-only">{{ radio.choice_label }}</span></label>{% if forloop.first %}{% for error in additional_form.control_effectiveness.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}{% endif %}</td>{% endfor %}
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.residual_likelihood %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.residual_impact %}</td>
+    <td><output data-residual-score>-</output></td>
+    <td><output data-residual-level>-</output></td>
+    <td class="text-center">{% include 'risk_management/document_form_field.html' with field=additional_form.is_priority %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.evaluation_notes %}</td>
+</tr>

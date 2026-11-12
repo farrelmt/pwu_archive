@@ -1,0 +1,18 @@
+<tr data-identification-row="{{ row_index }}">
+    <td>{{ row_number }}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.division %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.risk_kind %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.risk_source %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.code_category %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.strategic_objective %}</td>
+    <td><span class="hidden">{{ additional_form.DELETE }}</span>{% include 'risk_management/document_form_field.html' with field=additional_form.title %}<button type="button" class="mt-2 text-xs font-semibold text-red-700" data-delete-risk="{{ row_index }}">Hapus Nama Risiko</button></td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.indication %}</td>
+    <td><label class="text-xs font-bold text-slate-600" for="{{ additional_form.cause.id_for_label }}">Sebab Risiko 1</label>{% include 'risk_management/document_form_field.html' with field=additional_form.cause %}<button type="button" class="mt-2 text-xs font-bold text-blue-700" data-add-cause="{{ row_index }}">+ Tambah Sebab Risiko</button></td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.controllability %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.impact %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.inherent_likelihood %}</td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.inherent_impact %}</td>
+    <td><output data-inherent-score>-</output></td>
+    <td><output data-inherent-level>-</output></td>
+    <td>{% include 'risk_management/document_form_field.html' with field=additional_form.identification_notes %}</td>
+</tr>

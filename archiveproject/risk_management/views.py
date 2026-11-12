@@ -5,9 +5,10 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, ExpressionWrapper, F, IntegerField, Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 from django.utils import timezone
 
 from accounts.activity_views import system_activity_log
@@ -16,6 +17,9 @@ from accounts.audit import record_activity
 from .access import MANAGER_ROLES, can_edit_risk, can_manage_division_pic, risk_required, risk_write_required, risks_for_user
 from .criteria import IMPACT_HEADERS, impact_criteria
 from .forms import (
+    AdditionalCauseFormSet,
+    AdditionalControlFormSet,
+    AdditionalRiskFormSet,
     AnnualRiskReportForm,
     DivisionPICForm,
     RiskTreatmentForm,
@@ -24,16 +28,20 @@ from .forms import (
     RiskMonitoringForm,
     RiskRegisterForm,
     RiskWorkbookImportForm,
+    pic_name,
 )
 from .models import (
     RiskActionPlan,
     RiskAccess,
     RiskActivity,
+    RiskCause,
+    RiskControl,
     RiskDivision,
     RiskMonitoring,
     RiskRegister,
     RiskTreatment,
 )
+from .scoring import MATRIX_COLORS, LEVEL_BY_COLOR, LEVEL_ORDER, level_filter, level_rank
 from .services import import_risk_workbook
 from .exports import annual_risk_workbook
 
@@ -126,12 +134,7 @@ def _monitoring_summary(monitorings):
 
 @risk_required
 def dashboard(request):
-    risks = risks_for_user(request.user).annotate(
-        calculated_residual_score=ExpressionWrapper(
-            F("residual_likelihood") * F("residual_impact"),
-            output_field=IntegerField(),
-        )
-    )
+    risks = risks_for_user(request.user)
     today = timezone.localdate()
     summary = risks.aggregate(
         total=Count("pk", distinct=True),
@@ -142,27 +145,11 @@ def dashboard(request):
             distinct=True,
         ),
         divisions=Count("division_id", distinct=True),
-        very_low=Count(
-            "pk", filter=Q(calculated_residual_score__lt=3), distinct=True,
-        ),
-        low=Count(
-            "pk",
-            filter=Q(calculated_residual_score__gte=3, calculated_residual_score__lt=5),
-            distinct=True,
-        ),
-        medium=Count(
-            "pk",
-            filter=Q(calculated_residual_score__gte=5, calculated_residual_score__lt=10),
-            distinct=True,
-        ),
-        high=Count(
-            "pk",
-            filter=Q(calculated_residual_score__gte=10, calculated_residual_score__lt=17),
-            distinct=True,
-        ),
-        very_high=Count(
-            "pk", filter=Q(calculated_residual_score__gte=17), distinct=True,
-        ),
+        very_low=Count("pk", filter=level_filter("Sangat Rendah", "residual_likelihood", "residual_impact"), distinct=True),
+        low=Count("pk", filter=level_filter("Rendah", "residual_likelihood", "residual_impact"), distinct=True),
+        medium=Count("pk", filter=level_filter("Sedang", "residual_likelihood", "residual_impact"), distinct=True),
+        high=Count("pk", filter=level_filter("Tinggi", "residual_likelihood", "residual_impact"), distinct=True),
+        very_high=Count("pk", filter=level_filter("Sangat Tinggi", "residual_likelihood", "residual_impact"), distinct=True),
     )
     counts = {
         "Sangat_Rendah": summary["very_low"],
@@ -200,15 +187,15 @@ def risk_list(request):
     risks = risks_for_user(request.user)
     sort_fields = {
         "code": "risk_code", "title": "title", "division": "division__name",
-        "category": "category", "inherent": "sort_inherent",
+        "category": "code_category", "inherent": "sort_inherent",
         "residual": "sort_residual", "status": "status",
     }
     sort_key = request.GET.get("sort", "")
     direction = "desc" if request.GET.get("order") == "desc" else "asc"
     if sort_key in sort_fields:
         risks = risks.annotate(
-            sort_inherent=F("inherent_likelihood") * F("inherent_impact"),
-            sort_residual=F("residual_likelihood") * F("residual_impact"),
+            sort_inherent=level_rank("inherent_likelihood", "inherent_impact"),
+            sort_residual=level_rank("residual_likelihood", "residual_impact"),
         ).order_by(("-" if direction == "desc" else "") + sort_fields[sort_key], "pk")
     else:
         sort_key = ""
@@ -229,31 +216,19 @@ def risk_list(request):
         risks = risks.filter(division_id=division)
     if status in dict(RiskRegister.STATUS_CHOICES):
         risks = risks.filter(status=status)
-    if category in dict(RiskRegister.CATEGORY_CHOICES):
-        risks = risks.filter(category=category)
+    if category in dict(RiskRegister.CODE_CATEGORY_CHOICES):
+        risks = risks.filter(code_category=category)
     if level:
-        score_ranges = {
-            "sangat rendah": (None, 3),
-            "rendah": (3, 5),
-            "sedang": (5, 10),
-            "tinggi": (10, 17),
-            "sangat tinggi": (17, None),
-        }
-        bounds = score_ranges.get(level.lower())
-        if bounds is None:
+        level_name = next((name for name in LEVEL_BY_COLOR.values() if name.lower() == level.lower()), None)
+        if level_name is None:
             risks = risks.none()
         else:
-            risks = risks.alias(
-                level_score=F("residual_likelihood") * F("residual_impact")
-            )
-            lower, upper = bounds
-            if lower is not None:
-                risks = risks.filter(level_score__gte=lower)
-            if upper is not None:
-                risks = risks.filter(level_score__lt=upper)
-    register_summary = risks.annotate(register_score=F("residual_likelihood") * F("residual_impact")).aggregate(
+            risks = risks.filter(level_filter(level_name, "residual_likelihood", "residual_impact"))
+    register_summary = risks.aggregate(
         total=Count("pk"), priority=Count("pk", filter=Q(is_priority=True)),
-        high=Count("pk", filter=Q(register_score__gte=10)), closed=Count("pk", filter=Q(status="closed")),
+        high=Count("pk", filter=level_filter("Tinggi", "residual_likelihood", "residual_impact") |
+                   level_filter("Sangat Tinggi", "residual_likelihood", "residual_impact")),
+        closed=Count("pk", filter=Q(status="closed")),
     )
     page_obj = Paginator(risks, 20).get_page(request.GET.get("page"))
     visible_divisions = RiskDivision.objects.filter(risks__in=risks_for_user(request.user)).distinct()
@@ -267,7 +242,7 @@ def risk_list(request):
         active_filters.append({"key": "division", "label": "Divisi", "value": division_label})
     for key, value, label, choices in (
         ("status", status, "Status", dict(RiskRegister.STATUS_CHOICES)),
-        ("category", category, "Kategori", dict(RiskRegister.CATEGORY_CHOICES)),
+        ("category", category, "Kategori", dict(RiskRegister.CODE_CATEGORY_CHOICES)),
         ("level", level, "Level", {}),
     ):
         if value:
@@ -280,7 +255,7 @@ def risk_list(request):
         "available_years": available_years,
         "sorting_enabled": True, "sort_key": sort_key, "sort_order": direction,
         "pagination_query": pagination_params.urlencode(),
-        "statuses": RiskRegister.STATUS_CHOICES, "categories": RiskRegister.CATEGORY_CHOICES,
+        "statuses": RiskRegister.STATUS_CHOICES, "categories": RiskRegister.CODE_CATEGORY_CHOICES,
         "filters": {"q": search, "division": division, "status": status, "category": category, "level": level, "year": year},
     })
     _log(
@@ -308,7 +283,7 @@ def workbook_import(request):
             allowed_division_ids = {
                 access.division_id
                 for access in access_rows
-                if access.division_id is not None
+                if access.role == "risk_officer" and access.division_id is not None
             }
         try:
             stats = import_risk_workbook(
@@ -431,17 +406,10 @@ def scoring_guide(request):
         ("Sedang", "Kuning", "yellow"), ("Rendah", "Hijau", "green"),
         ("Sangat Rendah", "Biru", "blue"),
     ]
-    matrix_colors = {
-        5: ("orange", "orange", "orange", "red", "red"),
-        4: ("yellow", "yellow", "orange", "orange", "red"),
-        3: ("green", "yellow", "yellow", "orange", "orange"),
-        2: ("blue", "green", "yellow", "yellow", "orange"),
-        1: ("blue", "blue", "green", "green", "yellow"),
-    }
     matrix = [
         {"impact": impact, "cells": [
-            {"score": impact * likelihood, "level": RiskRegister.level_for(impact * likelihood),
-             "likelihood": likelihood, "color": matrix_colors[impact][likelihood - 1]}
+            {"level": RiskRegister.level_for(likelihood, impact),
+             "likelihood": likelihood, "color": MATRIX_COLORS[impact - 1][likelihood - 1]}
             for likelihood in range(1, 6)
         ]}
         for impact in range(5, 0, -1)
@@ -501,7 +469,10 @@ def treatment_create(request):
                  target_label=treatment.risk.risk_code)
         messages.success(request, "Perlakuan risiko berhasil ditambahkan.")
         return redirect("risk:risk_detail", pk=treatment.risk_id)
-    return render(request, "risk_management/treatment_form.html", {"form": form, "page_title": "Tambah Perlakuan Risiko"})
+    return render(request, "risk_management/treatment_form.html", {
+        "form": form, "page_title": "Tambah Perlakuan Risiko",
+        "risk_level_matrix": [[LEVEL_BY_COLOR[color] for color in row] for row in MATRIX_COLORS],
+    })
 
 
 @risk_write_required
@@ -526,26 +497,100 @@ def treatment_edit(request, pk):
         return redirect("risk:risk_detail", pk=treatment.risk_id)
     return render(request, "risk_management/treatment_form.html", {
         "form": form, "treatment": treatment, "page_title": "Edit Perlakuan Risiko",
+        "risk_level_matrix": [[LEVEL_BY_COLOR[color] for color in row] for row in MATRIX_COLORS],
     })
 
 
 @risk_write_required
 def risk_create(request):
-    form = RiskRegisterForm(request.POST or None, user=request.user)
-    treatments = _risk_treatment_formset(request, form.instance)
-    if request.method == "POST" and all([form.is_valid(), not treatments.is_bound or treatments.is_valid()]):
+    identification_only = request.method == "POST" and request.POST.get("save_scope") == "identification"
+    form = RiskRegisterForm(request.POST or None, user=request.user, identification_only=identification_only)
+    additional = AdditionalRiskFormSet(
+        request.POST if request.method == "POST" and "additional-TOTAL_FORMS" in request.POST else None,
+        prefix="additional", form_kwargs={"user": request.user, "identification_only": identification_only},
+    )
+    treatments = _risk_treatment_formset(request, form.instance, bind=not identification_only)
+    causes = _risk_cause_formset(request)
+    controls = _risk_control_formset(request, bind=not identification_only)
+    form_valid = form.is_valid() if request.method == "POST" else False
+    additional_valid = additional.is_valid() if additional.is_bound else True
+    treatments_valid = treatments.is_valid() if treatments.is_bound else True
+    causes_valid = causes.is_valid() if causes.is_bound else True
+    controls_valid = controls.is_valid() if controls.is_bound else True
+    def active_additional(index):
+        return index <= len(additional.forms) and (
+            index == 0 or (additional.forms[index - 1].has_changed()
+                           and not additional.forms[index - 1].cleaned_data.get("DELETE"))
+        )
+    if causes_valid and causes.is_bound:
+        for cause_form in causes.forms:
+            if cause_form.cleaned_data.get("DELETE"):
+                continue
+            index = cause_form.cleaned_data.get("risk_index")
+            if index is None or not active_additional(index):
+                cause_form.add_error("risk_index", "Pilih baris risiko yang sudah diisi.")
+                causes_valid = False
+    if controls_valid and controls.is_bound:
+        for control_form in controls.forms:
+            if control_form.cleaned_data.get("DELETE") or not control_form.cleaned_data:
+                continue
+            index = control_form.cleaned_data.get("risk_index")
+            if index is None or not active_additional(index):
+                control_form.add_error("risk_index", "Pilih baris risiko yang sudah diisi.")
+                controls_valid = False
+    if request.method == "POST" and form_valid and additional_valid and treatments_valid and causes_valid and controls_valid:
+        for treatment_form in treatments.forms if treatments.is_bound else []:
+            if (not treatment_form.has_changed() or treatment_form.cleaned_data.get("DELETE")
+                    or not treatment_form.cleaned_data.get("action_plan")):
+                continue
+            index = treatment_form.cleaned_data.get("risk_index") or 0
+            if not active_additional(index):
+                treatment_form.add_error("risk_index", "Pilih risiko yang sudah diisi pada Identifikasi Risiko.")
+                treatments_valid = False
+        # The row index follows the identification rows, including any blank rows.
+    if request.method == "POST" and form_valid and additional_valid and treatments_valid and causes_valid and controls_valid:
         with transaction.atomic():
             risk = form.save(commit=False)
             risk.created_by = request.user
             risk.updated_by = request.user
             risk.save()
-            _save_risk_treatments(request, risk, treatments)
+            risks_by_index = {0: risk}
             RiskActivity.objects.create(risk=risk, actor=request.user, action="created", description="Risiko dibuat.")
             _log(request, "RISK_CREATED", "Menambahkan risiko baru.", risk, target_label=risk.risk_code)
-        messages.success(request, f"{risk.risk_code} berhasil ditambahkan.")
-        return redirect("risk:risk_detail", pk=risk.pk)
+            for index, item in enumerate(additional.forms, 1):
+                if not item.has_changed() or item.cleaned_data.get("DELETE"):
+                    continue
+                added = item.save(commit=False)
+                added.created_by = added.updated_by = request.user
+                added.save()
+                risks_by_index[index] = added
+                RiskActivity.objects.create(risk=added, actor=request.user, action="created", description="Risiko dibuat.")
+                _log(request, "RISK_CREATED", "Menambahkan risiko baru.", added, target_label=added.risk_code)
+            _save_risk_causes(causes, risks_by_index)
+            _save_risk_controls(controls, risks_by_index)
+            if treatments.is_bound:
+                for row in treatments.forms:
+                    if not row.has_changed() or row.cleaned_data.get("DELETE"):
+                        continue
+                    item = row.save(commit=False)
+                    index = row.cleaned_data.get("risk_index") or 0
+                    item.risk = risks_by_index[index]
+                    item.created_by = item.updated_by = request.user
+                    item.save()
+                    _log(request, "RISK_TREATMENT_CREATED", "Menyimpan perlakuan pada formulir risiko.", item,
+                         target_label=item.risk.risk_code)
+                    RiskActivity.objects.create(risk=item.risk, actor=request.user,
+                                                action="treatment_created", description="Perlakuan risiko disimpan.")
+        if identification_only:
+            messages.success(request, f"Identifikasi {len(risks_by_index)} risiko tersimpan. Analisis dan perlakuan dapat dilengkapi nanti.")
+        else:
+            messages.success(request, f"{len(risks_by_index)} risiko berhasil ditambahkan.")
+        return redirect("risk:risk_detail", pk=risk.pk) if len(risks_by_index) == 1 else redirect("risk:risk_list")
     return render(request, "risk_management/risk_form.html", {
-        "form": form, "treatment_formset": treatments, "page_title": "Tambah Risiko",
+        "form": form, "additional_formset": additional, "cause_formset": causes,
+        "control_formset": controls,
+        "treatment_formset": treatments, "page_title": "Tambah Risiko",
+        "risk_level_matrix": [[LEVEL_BY_COLOR[color] for color in row] for row in MATRIX_COLORS],
     })
 
 
@@ -554,38 +599,153 @@ def risk_edit(request, pk):
     risk = get_object_or_404(risks_for_user(request.user), pk=pk)
     if not can_edit_risk(request.user, risk):
         raise PermissionDenied("Anda tidak dapat mengubah risiko divisi lain.")
-    form = RiskRegisterForm(request.POST or None, instance=risk, user=request.user)
-    treatments = _risk_treatment_formset(request, risk)
-    if request.method == "POST" and all([form.is_valid(), not treatments.is_bound or treatments.is_valid()]):
+    identification_only = request.method == "POST" and request.POST.get("save_scope") == "identification"
+    form = RiskRegisterForm(request.POST or None, instance=risk, user=request.user,
+                            identification_only=identification_only)
+    treatments = _risk_treatment_formset(request, risk, bind=not identification_only)
+    causes = _risk_cause_formset(request, risk)
+    controls = _risk_control_formset(request, risk, bind=not identification_only)
+    causes_valid = causes.is_valid() if causes.is_bound else True
+    if causes_valid and causes.is_bound:
+        for cause_form in causes.forms:
+            if not cause_form.cleaned_data.get("DELETE") and cause_form.cleaned_data.get("risk_index") != 0:
+                cause_form.add_error("risk_index", "Baris risiko tidak valid.")
+                causes_valid = False
+    controls_valid = controls.is_valid() if controls.is_bound else True
+    if controls_valid and controls.is_bound:
+        for control_form in controls.forms:
+            if (not control_form.cleaned_data.get("DELETE") and control_form.cleaned_data
+                    and control_form.cleaned_data.get("risk_index") != 0):
+                control_form.add_error("risk_index", "Baris risiko tidak valid.")
+                controls_valid = False
+    if request.method == "POST" and all([form.is_valid(), not treatments.is_bound or treatments.is_valid(), causes_valid, controls_valid]):
         with transaction.atomic():
             risk = form.save(commit=False)
             risk.updated_by = request.user
             risk.save()
+            if causes.is_bound:
+                risk.additional_causes.all().delete()
+                _save_risk_causes(causes, {0: risk})
+            if controls.is_bound:
+                risk.additional_controls.all().delete()
+                _save_risk_controls(controls, {0: risk})
             _save_risk_treatments(request, risk, treatments)
             RiskActivity.objects.create(risk=risk, actor=request.user, action="updated", description="Data risiko diperbarui.")
             _log(
                 request, "RISK_UPDATED", "Memperbarui data risiko.", risk, target_label=risk.risk_code,
                 metadata={"changed_fields": [form.fields[name].label for name in form.changed_data]},
             )
-        messages.success(request, f"{risk.risk_code} berhasil diperbarui.")
+        if identification_only:
+            messages.success(request, f"Identifikasi {risk.risk_code} tersimpan. Analisis dan perlakuan dapat dilengkapi nanti.")
+        else:
+            messages.success(request, f"{risk.risk_code} berhasil diperbarui.")
         return redirect("risk:risk_detail", pk=risk.pk)
     return render(request, "risk_management/risk_form.html", {
-        "form": form, "risk": risk, "treatment_formset": treatments, "page_title": "Edit Risiko",
+        "form": form, "risk": risk, "cause_formset": causes,
+        "control_formset": controls,
+        "treatment_formset": treatments, "page_title": "Edit Risiko",
+        "risk_level_matrix": [[LEVEL_BY_COLOR[color] for color in row] for row in MATRIX_COLORS],
     })
 
 
-def _risk_treatment_formset(request, risk):
-    data = request.POST if request.method == "POST" and any(
+@risk_write_required
+@require_POST
+def risk_delete(request, pk):
+    risk = get_object_or_404(risks_for_user(request.user), pk=pk)
+    if not can_edit_risk(request.user, risk):
+        raise PermissionDenied("Anda tidak dapat menghapus risiko divisi lain.")
+    with transaction.atomic():
+        _log(request, "RISK_DELETED", "Menghapus risiko.", risk, target_label=risk.risk_code)
+        risk.delete()
+    messages.success(request, "Risiko berhasil dihapus.")
+    return redirect("risk:risk_list")
+
+
+def _risk_cause_formset(request, risk=None):
+    data = request.POST if request.method == "POST" and "causes-TOTAL_FORMS" in request.POST else None
+    initial = [
+        {
+            "risk_index": 0, "description": cause.description,
+            "controllability": cause.controllability, "impact": cause.impact,
+            "inherent_likelihood": cause.inherent_likelihood,
+            "inherent_impact": cause.inherent_impact,
+            "identification_notes": cause.identification_notes,
+        }
+        for cause in risk.additional_causes.all()
+    ] if risk else []
+    return AdditionalCauseFormSet(data, initial=initial, prefix="causes")
+
+
+def _save_risk_causes(formset, risks_by_index):
+    if not formset.is_bound:
+        return
+    positions = {index: 1 for index in risks_by_index}
+    for cause_form in formset.forms:
+        data = cause_form.cleaned_data
+        if data.get("DELETE"):
+            continue
+        index = data["risk_index"]
+        positions[index] += 1
+        RiskCause.objects.create(
+            risk=risks_by_index[index], position=positions[index],
+            description=data["description"], controllability=data["controllability"],
+            impact=data["impact"], inherent_likelihood=data["inherent_likelihood"],
+            inherent_impact=data["inherent_impact"],
+            identification_notes=data["identification_notes"],
+        )
+
+
+def _risk_control_formset(request, risk=None, *, bind=True):
+    data = request.POST if bind and request.method == "POST" and "controls-TOTAL_FORMS" in request.POST else None
+    initial = [
+        {
+            "risk_index": 0, "description": control.description,
+            "effectiveness": control.effectiveness, "notes": control.notes,
+        }
+        for control in risk.additional_controls.all()
+    ] if risk else []
+    return AdditionalControlFormSet(data, initial=initial, prefix="controls")
+
+
+def _save_risk_controls(formset, risks_by_index):
+    if not formset.is_bound:
+        return
+    positions = {index: 1 for index in risks_by_index}
+    for control_form in formset.forms:
+        data = control_form.cleaned_data
+        if not data or data.get("DELETE"):
+            continue
+        index = data["risk_index"]
+        positions[index] += 1
+        RiskControl.objects.create(
+            risk=risks_by_index[index], position=positions[index],
+            description=data["description"], effectiveness=data["effectiveness"],
+            notes=data["notes"],
+        )
+
+
+def _risk_treatment_formset(request, risk, *, bind=True):
+    data = request.POST if bind and request.method == "POST" and any(
         key.startswith("treatments-") for key in request.POST
     ) else None
-    return RiskTreatmentFormSet(data, instance=risk, prefix="treatments")
+    formset = RiskTreatmentFormSet(data, instance=risk, prefix="treatments")
+    if risk.pk and not formset.is_bound and risk.treatments.exists():
+        formset.extra = 0
+    return formset
 
 
 def _save_risk_treatments(request, risk, formset):
     if not formset.is_bound:
         return
     formset.instance = risk
-    for treatment in formset.save(commit=False):
+    treatments = formset.save(commit=False)
+    for deleted in formset.deleted_objects:
+        _log(request, "RISK_TREATMENT_DELETED", "Menghapus perlakuan pada formulir risiko.", deleted,
+             target_label=risk.risk_code)
+        RiskActivity.objects.create(risk=risk, actor=request.user, action="treatment_deleted",
+                                    description="Perlakuan risiko dihapus.")
+        deleted.delete()
+    for treatment in treatments:
         created = not treatment.pk
         if created:
             treatment.created_by = request.user
@@ -600,7 +760,7 @@ def _save_risk_treatments(request, risk, formset):
 
 @risk_required
 def divisions(request):
-    access_rows = RiskDivision.objects.prefetch_related(Prefetch(
+    access_rows = RiskDivision.objects.filter(is_active=True).prefetch_related(Prefetch(
         "accesses", queryset=RiskAccess.objects.filter(is_active=True, user__is_active=True).select_related("user"),
     ))
     if not request.user.is_superuser and not any(
@@ -611,6 +771,17 @@ def divisions(request):
             if access.division_id is not None
         }
         access_rows = access_rows.filter(pk__in=division_ids)
+    access_rows = list(access_rows)
+    for division in access_rows:
+        people = {role: None for role in ("risk_officer", "division_head", "staff_it", "staff_hrd", "staff_humas")}
+        for access in division.accesses.all():
+            if access.role in people and people[access.role] is None:
+                people[access.role] = access.user
+        division.risk_officer_name = pic_name(people["risk_officer"]) if people["risk_officer"] else None
+        division.risk_owner_name = pic_name(people["division_head"]) if people["division_head"] else None
+        for role in ("staff_it", "staff_hrd", "staff_humas"):
+            setattr(division, f"{role}_name", pic_name(people[role]) if people[role] else None)
+        division.can_manage_pic = can_manage_division_pic(request.user, division)
     return render(request, "risk_management/divisions.html", {
         "divisions": access_rows, "can_manage_pic": can_manage_division_pic(request.user),
     })
@@ -618,24 +789,32 @@ def divisions(request):
 
 @risk_required
 def division_pic_edit(request, pk):
-    if not can_manage_division_pic(request.user):
-        raise PermissionDenied("Hanya Manajemen Risiko yang dapat mengubah PIC divisi.")
     division = get_object_or_404(RiskDivision, pk=pk, is_active=True)
+    if not can_manage_division_pic(request.user, division):
+        raise PermissionDenied("Anda tidak dapat mengubah PIC divisi ini.")
     form = DivisionPICForm(request.POST if request.method == "POST" else None, division=division)
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             division = RiskDivision.objects.select_for_update().get(pk=division.pk)
             before, after = {}, {}
-            for name, role in (("risk_officers", "risk_officer"), ("division_heads", "division_head")):
+            assignments = [("risk_officer", "risk_officer"), ("risk_owner", "division_head")]
+            if division.code == "LUM":
+                assignments += [("staff_it", "staff_it"), ("staff_hrd", "staff_hrd"),
+                                ("staff_humas", "staff_humas")]
+            for name, role in assignments:
                 rows = RiskAccess.objects.filter(division=division, role=role)
                 before[role] = sorted(rows.filter(is_active=True).values_list("user_id", flat=True))
-                selected_ids = sorted(user.pk for user in form.cleaned_data[name])
-                after[role] = selected_ids
-                rows.exclude(user_id__in=selected_ids).filter(is_active=True).update(is_active=False)
-                for user_id in selected_ids:
+                user = form.cleaned_data[name]
+                after[role] = [user.pk] if user else []
+                rows.exclude(user_id=user.pk if user else None).filter(is_active=True).update(is_active=False)
+                if user:
                     RiskAccess.objects.update_or_create(
-                        division=division, role=role, user_id=user_id, defaults={"is_active": True},
+                        division=division, role=role, user=user, defaults={"is_active": True},
                     )
+            RiskRegister.objects.filter(division=division).update(
+                risk_owner=pic_name(form.cleaned_data["risk_owner"]),
+                risk_officer=pic_name(form.cleaned_data["risk_officer"]),
+            )
             if before != after:
                 _log(request, "DIVISION_PIC_UPDATED", f"Memperbarui PIC divisi {division.name}.", division,
                      metadata={"before": before, "after": after})
@@ -660,13 +839,13 @@ def monitoring_report(request):
         "title": lambda m: m.risk.title.casefold(),
         "initial_likelihood": lambda m: m.initial_likelihood,
         "initial_impact": lambda m: m.initial_impact,
-        "initial_score": lambda m: m.initial_score,
+        "initial_score": lambda m: LEVEL_ORDER.index(m.initial_level),
         "final_likelihood": lambda m: m.final_likelihood,
         "final_impact": lambda m: m.final_impact,
-        "final_score": lambda m: m.final_score,
+        "final_score": lambda m: LEVEL_ORDER.index(m.final_level),
         "expected_likelihood": lambda m: m.expected_likelihood,
         "expected_impact": lambda m: m.expected_impact,
-        "expected_score": lambda m: m.expected_score,
+        "expected_score": lambda m: LEVEL_ORDER.index(m.expected_level) if m.expected_level else None,
         "deviation": lambda m: m.deviation,
         "notes": lambda m: m.evaluation_notes.casefold(),
     }
@@ -700,8 +879,8 @@ def monitoring_report(request):
         sort_key = ""
     division_rows, totals = _monitoring_summary(monitorings)
     priority_risks = sorted(
-        [item for item in monitorings if item.final_score >= 10],
-        key=lambda item: (-item.final_score, item.risk.risk_code),
+        [item for item in monitorings if item.final_level in {"Tinggi", "Sangat Tinggi"}],
+        key=lambda item: (-LEVEL_ORDER.index(item.final_level), item.risk.risk_code),
     )
     visible_divisions = RiskDivision.objects.filter(
         risks__in=risks_for_user(request.user)

@@ -6,7 +6,7 @@
         <a href="{% url 'risk:risk_list' %}" class="text-sm font-semibold text-slate-500">&larr; Register Risiko</a>
         <div class="mt-3 flex flex-wrap items-center gap-3">
             <h1 class="text-3xl font-bold">{{ risk.risk_code }}</h1>
-            <span class="risk-badge {% if risk.risk_level == 'Sangat Tinggi' %}risk-extreme{% elif risk.risk_level == 'Tinggi' %}risk-high{% elif risk.risk_level == 'Sedang' %}risk-medium{% elif risk.risk_level == 'Rendah' %}risk-low{% else %}risk-very-low{% endif %}">{{ risk.risk_level }}</span>
+            <span class="risk-badge {% if risk.risk_level == '-' %}risk-unrated{% elif risk.risk_level == 'Sangat Tinggi' %}risk-extreme{% elif risk.risk_level == 'Tinggi' %}risk-high{% elif risk.risk_level == 'Sedang' %}risk-medium{% elif risk.risk_level == 'Rendah' %}risk-low{% else %}risk-very-low{% endif %}">{{ risk.risk_level }}</span>
         </div>
         <p class="mt-2 text-lg text-slate-600">{{ risk.title }}</p>
     </div>
@@ -43,18 +43,35 @@
                 <table class="w-full border-collapse text-left text-sm">
                     <caption class="sr-only">Sebab dan dampak risiko</caption>
                     <thead class="bg-slate-50 text-xs uppercase text-slate-500">
-                        <tr><th scope="colgroup" colspan="2" class="border border-slate-200 px-4 py-3">Sebab Risiko</th><th scope="col" rowspan="2" class="border border-slate-200 px-4 py-3">Dampak</th></tr>
-                        <tr><th scope="col" class="border border-slate-200 px-4 py-3">Uraian</th><th scope="col" class="border border-slate-200 px-4 py-3">Controllable / Uncontrollable</th></tr>
+                        <tr><th scope="colgroup" colspan="2" class="border border-slate-200 px-4 py-3">Sebab Risiko</th><th scope="col" rowspan="2" class="border border-slate-200 px-4 py-3">Dampak</th><th scope="colgroup" colspan="4" class="border border-slate-200 px-4 py-3">Risiko Inheren</th><th scope="col" rowspan="2" class="border border-slate-200 px-4 py-3">Keterangan</th></tr>
+                        <tr><th scope="col" class="border border-slate-200 px-4 py-3">Uraian</th><th scope="col" class="border border-slate-200 px-4 py-3">Controllable / Uncontrollable</th><th scope="col" class="border border-slate-200 px-4 py-3">Kemungkinan</th><th scope="col" class="border border-slate-200 px-4 py-3">Dampak</th><th scope="col" class="border border-slate-200 px-4 py-3">Skor Risiko</th><th scope="col" class="border border-slate-200 px-4 py-3">Level Risiko</th></tr>
                     </thead>
-                    <tbody><tr class="align-top"><td class="border border-slate-200 px-4 py-4 whitespace-pre-line">{{ risk.cause|default:'-' }}</td><td class="border border-slate-200 px-4 py-4">{{ risk.get_controllability_display|default:'-' }}</td><td class="border border-slate-200 px-4 py-4 whitespace-pre-line">{{ risk.impact|default:'-' }}</td></tr></tbody>
+                    <tbody>{% with score_rowspan=risk.additional_causes.count|add:1 %}
+                        <tr class="align-top">
+                            <td class="border border-slate-200 px-4 py-4 whitespace-pre-line">1. {{ risk.cause|default:'-' }}</td>
+                            <td class="border border-slate-200 px-4 py-4">{{ risk.get_controllability_display|default:'-' }}</td>
+                            <td class="border border-slate-200 px-4 py-4 whitespace-pre-line">{{ risk.impact|default:'-' }}</td>
+                            <td rowspan="{{ score_rowspan }}" class="border border-slate-200 px-4 py-4">{{ risk.inherent_likelihood|default:'-' }}</td>
+                            <td rowspan="{{ score_rowspan }}" class="border border-slate-200 px-4 py-4">{{ risk.inherent_impact|default:'-' }}</td>
+                            <td rowspan="{{ score_rowspan }}" class="border border-slate-200 px-4 py-4">{{ risk.inherent_score|default:'-' }}</td>
+                            <td rowspan="{{ score_rowspan }}" class="border border-slate-200 px-4 py-4">{{ risk.inherent_level }}</td>
+                            <td class="border border-slate-200 px-4 py-4 whitespace-pre-line">{{ risk.identification_notes|default:'-' }}</td>
+                        </tr>
+                        {% for cause in risk.additional_causes.all %}<tr class="align-top">
+                            <td class="border border-slate-200 px-4 py-4 whitespace-pre-line">{{ cause.position }}. {{ cause.description }}</td>
+                            <td class="border border-slate-200 px-4 py-4">{{ cause.get_controllability_display|default:'-' }}</td>
+                            <td class="border border-slate-200 px-4 py-4 whitespace-pre-line">{{ cause.impact|default:'-' }}</td>
+                            <td class="border border-slate-200 px-4 py-4 whitespace-pre-line">{{ cause.identification_notes|default:'-' }}</td>
+                        </tr>{% endfor %}
+                    {% endwith %}</tbody>
                 </table>
             </div>
         </section>
         <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="text-lg font-bold">Pengendalian &amp; Mitigasi</h2>
             <dl class="mt-5 space-y-5">
-                <div><dt class="text-xs font-bold uppercase text-slate-400">Pengendalian yang Ada</dt><dd class="mt-1 whitespace-pre-line">{{ risk.existing_controls|default:'-' }}</dd></div>
-                <div><dt class="text-xs font-bold uppercase text-slate-400">Efektivitas Pengendalian</dt><dd class="mt-1">{{ risk.get_control_effectiveness_display|default:'-' }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Pengendalian 1</dt><dd class="mt-1 whitespace-pre-line">{{ risk.existing_controls|default:'-' }}</dd><dd class="mt-1 text-sm text-slate-500">{{ risk.get_control_effectiveness_display|default:'-' }}{% if risk.evaluation_notes %} · {{ risk.evaluation_notes }}{% endif %}</dd></div>
+                {% for control in risk.additional_controls.all %}<div><dt class="text-xs font-bold uppercase text-slate-400">Pengendalian {{ control.position }}</dt><dd class="mt-1 whitespace-pre-line">{{ control.description }}</dd><dd class="mt-1 text-sm text-slate-500">{{ control.get_effectiveness_display|default:'-' }}{% if control.notes %} · {{ control.notes }}{% endif %}</dd></div>{% endfor %}
                 <div><dt class="text-xs font-bold uppercase text-slate-400">Rencana Mitigasi</dt><dd class="mt-1 whitespace-pre-line">{{ risk.mitigation_plan|default:'-' }}</dd></div>
             </dl>
         </section>
@@ -63,12 +80,14 @@
         <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="font-bold">Penilaian Risiko</h2>
             <div class="mt-5 grid grid-cols-2 gap-4">
-                <div class="rounded-xl bg-slate-100 p-4"><p class="text-xs uppercase text-slate-500">Inheren</p><p class="mt-1 text-3xl font-bold">{{ risk.inherent_score }}</p><p class="text-xs text-slate-500">{{ risk.inherent_likelihood }} × {{ risk.inherent_impact }}</p></div>
-                <div class="rounded-xl bg-blue-50 p-4"><p class="text-xs uppercase text-blue-700">Residual</p><p class="mt-1 text-3xl font-bold text-blue-900">{{ risk.residual_score }}</p><p class="text-xs text-blue-700">{{ risk.residual_likelihood }} × {{ risk.residual_impact }}</p></div>
+                <div class="rounded-xl bg-slate-100 p-4"><p class="text-xs uppercase text-slate-500">Inheren</p><p class="mt-1 text-lg font-bold">{{ risk.inherent_level }}</p><p class="text-xs text-slate-500">Kemungkinan {{ risk.inherent_likelihood|default:'-' }} · Dampak {{ risk.inherent_impact|default:'-' }}</p></div>
+                <div class="rounded-xl bg-blue-50 p-4"><p class="text-xs uppercase text-blue-700">Residual</p><p class="mt-1 text-lg font-bold text-blue-900">{{ risk.risk_level }}</p><p class="text-xs text-blue-700">Kemungkinan {{ risk.residual_likelihood|default:'-' }} · Dampak {{ risk.residual_impact|default:'-' }}</p></div>
             </div>
             <dl class="mt-5 space-y-4">
                 <div><dt class="text-xs font-bold uppercase text-slate-400">Divisi</dt><dd class="mt-1">{{ risk.division.name }}</dd></div>
-                <div><dt class="text-xs font-bold uppercase text-slate-400">Kategori</dt><dd class="mt-1">{{ risk.get_category_display }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Jenis Risiko</dt><dd class="mt-1">{{ risk.get_risk_kind_display }}</dd></div>
+                {% if risk.risk_source %}<div><dt class="text-xs font-bold uppercase text-slate-400">Sumber Risiko</dt><dd class="mt-1">{{ risk.get_risk_source_display }}</dd></div>{% endif %}
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Kategori Risiko</dt><dd class="mt-1">{{ risk.get_code_category_display }}</dd></div>
                 <div><dt class="text-xs font-bold uppercase text-slate-400">Nominasi Prioritas Risiko</dt><dd class="mt-1">{{ risk.is_priority|yesno:'Ya,Tidak' }}</dd></div>
                 <div><dt class="text-xs font-bold uppercase text-slate-400">Status</dt><dd class="mt-1">{{ risk.get_status_display }}</dd></div>
                 <div><dt class="text-xs font-bold uppercase text-slate-400">Pemilik Risiko</dt><dd class="mt-1">{{ risk.risk_owner }}</dd></div>
@@ -90,7 +109,7 @@
 
 <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 class="text-lg font-bold">Pemantauan Triwulan</h2><p class="mt-1 text-sm text-slate-500">Catat skor awal dan akhir, rencana aksi, serta realisasi per periode.</p></div>
+        <div><h2 class="text-lg font-bold">Pemantauan Triwulan</h2><p class="mt-1 text-sm text-slate-500">Catat level awal dan akhir, rencana aksi, serta realisasi per periode.</p></div>
         <a href="{% url 'risk:monitoring_report' %}" class="text-sm font-bold text-blue-700">Lihat laporan perusahaan</a>
     </div>
     <div class="mt-5 space-y-5">

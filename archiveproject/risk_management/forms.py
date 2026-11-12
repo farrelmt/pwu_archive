@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.forms import BaseInlineFormSet, inlineformset_factory
+from django.db.models import Q
+from django.forms import BaseInlineFormSet, formset_factory, inlineformset_factory
 
 from .access import MANAGER_ROLES, accesses_for_user, risks_for_user
 from .models import RiskAccess, RiskActionPlan, RiskDivision, RiskMonitoring, RiskRegister, RiskTreatment
@@ -43,6 +44,8 @@ class RiskTreatmentForm(forms.ModelForm):
 
 
 class RiskTreatmentInlineForm(RiskTreatmentForm):
+    risk_index = forms.IntegerField(required=False, min_value=0, widget=forms.HiddenInput)
+
     class Meta(RiskTreatmentForm.Meta):
         fields = ["option", "action_plan", "expected_likelihood", "expected_impact",
                   "target_date", "responsible_person", "notes"]
@@ -59,22 +62,54 @@ class BaseRiskTreatmentFormSet(BaseInlineFormSet):
 
 RiskTreatmentFormSet = inlineformset_factory(
     RiskRegister, RiskTreatment, form=RiskTreatmentInlineForm,
-    formset=BaseRiskTreatmentFormSet, extra=1, can_delete=False,
+    formset=BaseRiskTreatmentFormSet, extra=1, can_delete=True,
     max_num=100, validate_max=True, absolute_max=200,
 )
 
 
+def pic_name(user):
+    return user.get_full_name().strip() or user.get_username()
+
+
+def division_pic_users(division):
+    rows = RiskAccess.objects.filter(
+        division=division, role__in=("risk_officer", "division_head", "staff_it", "staff_hrd", "staff_humas"),
+        is_active=True, user__is_active=True,
+    ).select_related("user").order_by("pk")
+    users = {role: None for role in ("risk_officer", "division_head", "staff_it", "staff_hrd", "staff_humas")}
+    for row in rows:
+        if users[row.role] is None:
+            users[row.role] = row.user
+    return users
+
+
+class NamedUserChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        return pic_name(obj)
+
+
 class DivisionPICForm(forms.Form):
-    risk_officers = forms.ModelMultipleChoiceField(label="Risk Officer", queryset=get_user_model().objects.none(), required=False)
-    division_heads = forms.ModelMultipleChoiceField(label="Kepala Divisi", queryset=get_user_model().objects.none(), required=False)
+    risk_officer = NamedUserChoiceField(label="Risk Officer", queryset=get_user_model().objects.none())
+    risk_owner = NamedUserChoiceField(label="Risk Owner", queryset=get_user_model().objects.none())
+    staff_it = NamedUserChoiceField(label="Staff IT", queryset=get_user_model().objects.none(), required=False)
+    staff_hrd = NamedUserChoiceField(label="HRD", queryset=get_user_model().objects.none(), required=False)
+    staff_humas = NamedUserChoiceField(label="Humas", queryset=get_user_model().objects.none(), required=False)
 
     def __init__(self, *args, division, **kwargs):
         super().__init__(*args, **kwargs)
-        for name, role in (("risk_officers", "risk_officer"), ("division_heads", "division_head")):
+        current = division_pic_users(division)
+        if division.code != "LUM":
+            for name in ("staff_it", "staff_hrd", "staff_humas"):
+                self.fields.pop(name)
+        for name, role in (("risk_officer", "risk_officer"), ("risk_owner", "division_head"),
+                           ("staff_it", "staff_it"), ("staff_hrd", "staff_hrd"),
+                           ("staff_humas", "staff_humas")):
+            if name not in self.fields:
+                continue
             field = self.fields[name]
-            field.queryset = get_user_model().objects.filter(is_active=True).order_by("username")
-            field.initial = list(RiskAccess.objects.filter(division=division, role=role, is_active=True).values_list("user_id", flat=True))
-            field.widget.attrs.update({"class": "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm", "size": 8})
+            field.queryset = get_user_model().objects.filter(is_active=True).order_by("first_name", "last_name", "username")
+            field.initial = current[role].pk if current[role] else None
+            field.widget.attrs["class"] = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
 
 
 class AnnualRiskReportForm(forms.Form):
@@ -111,10 +146,10 @@ class RiskRegisterForm(forms.ModelForm):
     class Meta:
         model = RiskRegister
         fields = [
-            "division", "title", "strategic_objective",
+            "division", "risk_kind", "risk_source", "code_category", "title", "strategic_objective",
             "indication", "cause", "controllability", "impact",
             "inherent_likelihood", "inherent_impact", "existing_controls",
-            "control_effectiveness", "is_priority", "risk_owner", "risk_officer",
+            "control_effectiveness", "is_priority",
             "residual_likelihood", "residual_impact",
             "identification_notes", "evaluation_notes",
         ]
@@ -132,8 +167,9 @@ class RiskRegisterForm(forms.ModelForm):
             "control_effectiveness": forms.RadioSelect(),
         }
         labels = {
-            "division": "Nama Divisi", "risk_owner": "Risk Owner",
-            "risk_officer": "Risk Officer", "title": "Nama Risiko",
+            "division": "Nama Divisi", "title": "Nama Risiko",
+            "risk_kind": "Jenis Risiko", "risk_source": "Sumber Risiko",
+            "code_category": "Kategori Risiko",
             "strategic_objective": "Sasaran Terkait", "indication": "Indikasi Risiko",
             "cause": "Uraian", "controllability": "Controllable / Uncontrollable",
             "impact": "Dampak", "inherent_likelihood": "Kemungkinan",
@@ -144,20 +180,30 @@ class RiskRegisterForm(forms.ModelForm):
             "identification_notes": "Keterangan", "evaluation_notes": "Keterangan",
         }
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, user=None, identification_only=False, **kwargs):
         super().__init__(*args, **kwargs)
+        current_division_id = self.instance.division_id if self.instance.pk else None
+        self.fields["division"].queryset = RiskDivision.objects.filter(
+            Q(is_active=True) | Q(pk=current_division_id)
+        )
         common = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100"
         for field in self.fields.values():
             field.widget.attrs["class"] = common
+        for name in ("inherent_likelihood", "inherent_impact", "residual_likelihood", "residual_impact"):
+            self.fields[name].widget.attrs.update({"min": 1, "max": 5, "step": 1})
         self.fields["is_priority"].widget.attrs["class"] = "h-5 w-5 rounded border-slate-300"
         self.fields["control_effectiveness"].widget.attrs["class"] = "space-y-3"
         self.fields["control_effectiveness"].choices = RiskRegister.CONTROL_EFFECTIVENESS_CHOICES[1:]
+        if identification_only:
+            for name in ("existing_controls", "control_effectiveness", "is_priority",
+                         "residual_likelihood", "residual_impact", "evaluation_notes"):
+                self.fields[name].disabled = True
         accesses = accesses_for_user(user) if user else None
         if accesses is not None and accesses.exists() and not accesses.filter(
             role__in=MANAGER_ROLES
         ).exists():
             division_ids = list(
-                accesses.exclude(division__isnull=True)
+                accesses.filter(role="risk_officer").exclude(division__isnull=True)
                 .values_list("division_id", flat=True)
                 .distinct()
             )
@@ -172,15 +218,100 @@ class RiskRegisterForm(forms.ModelForm):
     def clean_division(self):
         return self.cleaned_data["division"]
 
+    def clean(self):
+        cleaned = super().clean()
+        for likelihood, impact in (("inherent_likelihood", "inherent_impact"),
+                                   ("residual_likelihood", "residual_impact")):
+            if (cleaned.get(likelihood) is None) != (cleaned.get(impact) is None):
+                self.add_error(impact if cleaned.get(impact) is None else likelihood,
+                               "Isi kemungkinan dan dampak bersama, atau kosongkan keduanya.")
+        division = cleaned.get("division")
+        kind = cleaned.get("risk_kind")
+        if kind == "A" and not cleaned.get("risk_source"):
+            self.add_error("risk_source", "Pilih kode sumber risiko strategis 01 atau 02.")
+        if division and kind == "C" and division.code != "KSO":
+            self.add_error("division", "Risiko proyek harus memakai divisi KSO.")
+        if division and kind == "B" and division.code == "KSO":
+            self.add_error("risk_kind", "Divisi KSO harus memakai jenis risiko Proyek.")
+        if division:
+            self.pic_users = division_pic_users(division)
+            if not self.instance.pk or self.instance.division_id != division.pk:
+                missing = [label for role, label in (("division_head", "Risk Owner"), ("risk_officer", "Risk Officer"))
+                           if self.pic_users[role] is None]
+                if missing:
+                    self.add_error("division", "Tetapkan %s untuk divisi ini di Divisi & Penanggung Jawab." % " dan ".join(missing))
+        return cleaned
+
     def save(self, commit=True):
         risk = super().save(commit=False)
+        users = getattr(self, "pic_users", {})
+        if users.get("division_head"):
+            risk.risk_owner = pic_name(users["division_head"])
+        if users.get("risk_officer"):
+            risk.risk_officer = pic_name(users["risk_officer"])
         if not risk.pk:
-            risk.category = "operational"
+            risk.category = "strategic" if risk.risk_kind == "A" else "operational"
             risk.description = self.cleaned_data.get("indication") or risk.title
         if commit:
             risk.save()
             self.save_m2m()
         return risk
+
+
+AdditionalRiskFormSet = formset_factory(
+    RiskRegisterForm, extra=0, can_delete=True, max_num=99, validate_max=True, absolute_max=100,
+)
+
+
+class AdditionalCauseForm(forms.Form):
+    risk_index = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
+    description = forms.CharField(label="Uraian", widget=forms.Textarea(attrs={"rows": 3}))
+    controllability = forms.ChoiceField(
+        label="Controllable / Uncontrollable",
+        choices=RiskRegister.CONTROLLABILITY_CHOICES, required=False,
+    )
+    impact = forms.CharField(label="Dampak", required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    inherent_likelihood = forms.IntegerField(label="Kemungkinan", min_value=1, max_value=5,
+                                             required=False, widget=forms.HiddenInput)
+    inherent_impact = forms.IntegerField(label="Dampak inheren", min_value=1, max_value=5,
+                                         required=False, widget=forms.HiddenInput)
+    identification_notes = forms.CharField(label="Keterangan", required=False, widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+
+
+AdditionalCauseFormSet = formset_factory(
+    AdditionalCauseForm, extra=0, can_delete=True, max_num=99,
+    validate_max=True, absolute_max=100,
+)
+
+
+class AdditionalControlForm(forms.Form):
+    risk_index = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
+    description = forms.CharField(label="Pengendalian yang Ada", widget=forms.Textarea(attrs={"rows": 3}))
+    effectiveness = forms.ChoiceField(
+        label="Efektivitas Pengendalian",
+        choices=RiskRegister.CONTROL_EFFECTIVENESS_CHOICES[1:],
+        widget=forms.RadioSelect, required=False,
+    )
+    notes = forms.CharField(label="Keterangan", required=False, widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            field.widget.attrs["class"] = (
+                "h-4 w-4 border-slate-300" if name == "effectiveness"
+                else "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+            )
+
+
+AdditionalControlFormSet = formset_factory(
+    AdditionalControlForm, extra=0, can_delete=True, max_num=99,
+    validate_max=True, absolute_max=100,
+)
 
 
 class RiskMonitoringForm(forms.ModelForm):

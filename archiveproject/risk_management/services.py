@@ -201,6 +201,11 @@ def import_risk_workbook(uploaded_file, *, user, allowed_division_ids=None):
         ).first()
         risk = existing or RiskRegister(division=division, title=title, created_by=user)
         risk.category = existing.category if existing else _category_for(title, impacts)
+        if not existing:
+            risk.risk_kind = "C" if division.code == "KSO" else "B"
+            risk.code_category = {
+                "financial": "001", "compliance": "004", "reputation": "005",
+            }.get(risk.category, "010")
         risk.strategic_objective = objectives
         risk.description = indications or title
         risk.indication = indications
