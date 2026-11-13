@@ -1,0 +1,41 @@
+{% extends 'monitoring/base.html' %}
+{% load static %}
+{% block title %}Papan tugas{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div><p class="eyebrow">Ruang kerja bulanan</p><h1>Papan penugasan</h1><p class="subtle">Pantau tugas setiap divisi dari rencana sampai selesai.</p></div>
+    <a class="primary-button" href="{% url 'monitoring:assignment_create' %}?month={{ month|date:'Y-m' }}{% if division %}&division={{ division|urlencode }}{% endif %}">+ Tugas baru</a>
+</div>
+<section class="toolbar" aria-label="Filter tugas">
+    <div class="month-switch"><a href="{{ previous_url }}" aria-label="Bulan sebelumnya">‹</a><strong>{{ month|date:'F Y' }}</strong><a href="{{ next_url }}" aria-label="Bulan berikutnya">›</a></div>
+    <form method="get" class="filter-form">
+        <input type="hidden" name="month" value="{{ month|date:'Y-m' }}">
+        <label for="division">Divisi</label>
+        <select id="division" name="division"><option value="">Semua divisi</option>{% for name in divisions %}<option value="{{ name }}" {% if name == division %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+        <button class="secondary-button" type="submit">Tampilkan</button>
+    </form>
+    <div class="summary"><strong>{{ total_count }}</strong> tugas <span>·</span> <strong>{{ done_count }}</strong> selesai</div>
+</section>
+<section class="board" aria-label="Papan penugasan bulan {{ month|date:'F Y' }}">
+    {% for column in columns %}
+    <div class="board-column board-column-{{ column.status }}" data-status="{{ column.status }}">
+        <div class="column-heading"><span class="status-dot"></span><h2>{{ column.label }}</h2><span class="count">{{ column.items|length }}</span></div>
+        <div class="card-stack">
+        {% for assignment in column.items %}
+            <article class="assignment-card {% if assignment.is_overdue %}overdue{% endif %}" {% if assignment.editable %}draggable="true"{% endif %}>
+                <div class="card-meta"><span class="division-pill">{{ assignment.division }}</span>{% if assignment.is_overdue %}<span class="overdue-label">Terlambat</span>{% endif %}</div>
+                <h3><a href="{% url 'monitoring:assignment_detail' assignment.pk %}">{{ assignment.title }}</a></h3>
+                {% if assignment.description %}<p class="description">{{ assignment.description|truncatechars:105 }}</p>{% endif %}
+                <div class="card-dates"><span>Mulai {{ assignment.start_date|date:'d M' }}</span><span>Tenggat {{ assignment.due_date|date:'d M Y' }}</span></div>
+                <div class="card-footer"><span class="avatar" aria-hidden="true">{{ assignment.responsible.username|first|upper }}</span><span class="responsible">{{ assignment.responsible.get_full_name|default:assignment.responsible.username }}</span></div>
+                {% if assignment.editable %}<form action="{% url 'monitoring:assignment_status' assignment.pk %}" method="post" class="status-form">{% csrf_token %}<label for="status-{{ assignment.pk }}">Pindah ke</label><select id="status-{{ assignment.pk }}" name="status">{% for key, label in assignment.STATUS_CHOICES %}<option value="{{ key }}" {% if key == assignment.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button type="submit">Simpan</button></form>{% endif %}
+            </article>
+        {% empty %}
+            <div class="empty-column">Belum ada tugas di tahap ini.</div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}
+{% block scripts %}<script src="{% static 'monitoring/board.js' %}" defer></script>{% endblock %}

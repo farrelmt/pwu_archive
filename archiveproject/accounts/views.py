@@ -45,6 +45,7 @@ def _system_hosts_and_url(request, system):
         'koperasi': (settings.KOPERASI_HOSTS, settings.KOPERASI_BASE_URL),
         'risk': (settings.RISK_HOSTS, settings.RISK_BASE_URL),
         'inventory': (settings.INVENTORY_HOSTS, settings.INVENTORY_BASE_URL),
+        'monitoring': (settings.MONITOR_HOSTS, settings.MONITOR_BASE_URL),
     }
     if system not in systems:
         raise Http404
@@ -138,7 +139,7 @@ def _allowed_login_hosts(request):
     allowed_hosts = set(
         settings.LANDING_HOSTS | settings.ARCHIVE_HOSTS
         | settings.KOPERASI_HOSTS | settings.RISK_HOSTS
-        | settings.INVENTORY_HOSTS
+        | settings.INVENTORY_HOSTS | settings.MONITOR_HOSTS
     )
     if ':' in request.get_host():
         port = request.get_host().rsplit(':', 1)[1]
@@ -178,6 +179,8 @@ def _successful_login_destination(request, user, next_url):
         return reverse('risk:dashboard')
     if request_hostname(request) in settings.INVENTORY_HOSTS:
         return reverse('inventory:dashboard')
+    if request_hostname(request) in settings.MONITOR_HOSTS:
+        return reverse('monitoring:board')
     return reverse('homepage:dashboard')
 
 
@@ -201,22 +204,26 @@ def _login_context(request, **extra):
     is_koperasi = request_hostname(request) in settings.KOPERASI_HOSTS
     is_risk = request_hostname(request) in settings.RISK_HOSTS
     is_inventory = request_hostname(request) in settings.INVENTORY_HOSTS
+    is_monitoring = request_hostname(request) in settings.MONITOR_HOSTS
     context = {
         'is_koperasi': is_koperasi,
         'is_risk': is_risk,
         'is_inventory': is_inventory,
+        'is_monitoring': is_monitoring,
         'is_portal': is_portal,
         'system_name': (
             'Portal Sistem Informasi PWU Jatim'
             if is_portal else (
             'Sistem Inventaris PWU'
             if is_inventory else (
+            'Sistem Monitoring PWU'
+            if is_monitoring else (
                 'Sistem Manajemen Risiko'
                 if is_risk else (
                 'Koperasi Karyawan Wira Jatim'
                 if is_koperasi else 'Sistem PWU'
                 )
-            ))
+            )))
         ),
         'system_description': (
             ''
@@ -224,6 +231,8 @@ def _login_context(request, **extra):
             'Kelola data pegawai, perangkat keras, dan aset perusahaan '
             'dalam satu inventaris terpusat.'
             if is_inventory else (
+            'Pantau tugas bulanan dan penanggung jawab di setiap divisi.'
+            if is_monitoring else (
                 'Identifikasi, nilai, mitigasi, dan pantau risiko perusahaan '
                 'secara terintegrasi.'
                 if is_risk else (
@@ -233,20 +242,22 @@ def _login_context(request, **extra):
                 'Kelola surat masuk, disposisi, dan pemantauan dokumen '
                 'dalam satu ruang kerja yang aman.'
                 )
-            ))
+            )))
         ),
         'account_description': (
             'Gunakan akun PWU Jatim yang telah diberikan kepada Anda.'
             if is_portal else (
             'Gunakan akun Sistem Inventaris yang telah diberikan kepada Anda.'
             if is_inventory else (
+            'Gunakan akun PWU Jatim Anda untuk membuka Sistem Monitoring.'
+            if is_monitoring else (
                 'Gunakan akun Manajemen Risiko yang telah diberikan kepada Anda.'
                 if is_risk else (
                 'Gunakan akun Sistem Koperasi yang telah diberikan kepada Anda.'
                 if is_koperasi else
                 'Gunakan akun sistem arsip yang telah diberikan kepada Anda.'
                 )
-            ))
+            )))
         ),
     }
     context.update(extra)

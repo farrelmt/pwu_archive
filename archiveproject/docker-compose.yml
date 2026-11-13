@@ -75,8 +75,8 @@ services:
     environment:
       SECRET_KEY: ${PRODUCTION_SECRET_KEY}
       DEBUG: ${DEBUG:-false}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-pwujatim.site,www.pwujatim.site,archive.pwujatim.site,koperasi.pwujatim.site,risk.pwujatim.site,inventory.pwujatim.site,localhost,archive.localhost,koperasi.localhost,risk.localhost,inventory.localhost,127.0.0.1}
-      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-https://pwujatim.site,https://www.pwujatim.site,https://archive.pwujatim.site,https://koperasi.pwujatim.site,https://risk.pwujatim.site,https://inventory.pwujatim.site,http://localhost:8000,http://archive.localhost:8000,http://koperasi.localhost:8000,http://risk.localhost:8000,http://inventory.localhost:8000,http://127.0.0.1:8000}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-pwujatim.site,www.pwujatim.site,archive.pwujatim.site,koperasi.pwujatim.site,risk.pwujatim.site,inventory.pwujatim.site,monitor.pwujatim.site,localhost,archive.localhost,koperasi.localhost,risk.localhost,inventory.localhost,monitor.localhost,127.0.0.1}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-https://pwujatim.site,https://www.pwujatim.site,https://archive.pwujatim.site,https://koperasi.pwujatim.site,https://risk.pwujatim.site,https://inventory.pwujatim.site,https://monitor.pwujatim.site,http://localhost:8000,http://archive.localhost:8000,http://koperasi.localhost:8000,http://risk.localhost:8000,http://inventory.localhost:8000,http://monitor.localhost:8000,http://127.0.0.1:8000}
       DB_HOST: ${DB_HOST}
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
@@ -95,11 +95,13 @@ services:
       KOPERASI_BASE_URL: ${KOPERASI_BASE_URL:-https://koperasi.pwujatim.site}
       RISK_BASE_URL: ${RISK_BASE_URL:-https://risk.pwujatim.site}
       INVENTORY_BASE_URL: ${INVENTORY_BASE_URL:-https://inventory.pwujatim.site}
+      MONITOR_BASE_URL: ${MONITOR_BASE_URL:-https://monitor.pwujatim.site}
       LANDING_HOSTS: ${LANDING_HOSTS:-pwujatim.site,www.pwujatim.site,localhost}
       ARCHIVE_HOSTS: ${ARCHIVE_HOSTS:-archive.pwujatim.site,archive.localhost}
       KOPERASI_HOSTS: ${KOPERASI_HOSTS:-koperasi.pwujatim.site,koperasi.localhost}
       RISK_HOSTS: ${RISK_HOSTS:-risk.pwujatim.site,risk.localhost}
       INVENTORY_HOSTS: ${INVENTORY_HOSTS:-inventory.pwujatim.site,inventory.localhost}
+      MONITOR_HOSTS: ${MONITOR_HOSTS:-monitor.pwujatim.site,monitor.localhost}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-pwu_sessionid}
       SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-.pwujatim.site}
@@ -157,6 +159,7 @@ services:
       KOPERASI_BASE_URL: ${KOPERASI_BASE_URL:-https://koperasi.pwujatim.site}
       RISK_BASE_URL: ${RISK_BASE_URL:-https://risk.pwujatim.site}
       INVENTORY_BASE_URL: ${INVENTORY_BASE_URL:-https://inventory.pwujatim.site}
+      MONITOR_BASE_URL: ${MONITOR_BASE_URL:-https://monitor.pwujatim.site}
       XDG_CACHE_HOME: /tmp/.cache
     read_only: true
     tmpfs:

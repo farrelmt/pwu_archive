@@ -20,6 +20,7 @@ def request_system(request):
         ("koperasi", settings.KOPERASI_HOSTS),
         ("risk", settings.RISK_HOSTS),
         ("inventory", settings.INVENTORY_HOSTS),
+        ("monitoring", settings.MONITOR_HOSTS),
     ):
         if hostname in hosts:
             return name
@@ -93,6 +94,18 @@ class InventoryHostMiddleware:
         return self.get_response(request)
 
 
+class MonitorHostMiddleware:
+    """Use an isolated URL configuration on the Monitoring subdomain."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request_hostname(request) in settings.MONITOR_HOSTS:
+            request.urlconf = 'monitoring.host_urls'
+        return self.get_response(request)
+
+
 class SystemBoundaryMiddleware:
     """Keep every system behind authentication and an explicit active role."""
 
@@ -103,7 +116,7 @@ class SystemBoundaryMiddleware:
         hostname = request_hostname(request)
         system_hosts = (
             settings.KOPERASI_HOSTS | settings.RISK_HOSTS
-            | settings.INVENTORY_HOSTS | settings.ARCHIVE_HOSTS
+            | settings.INVENTORY_HOSTS | settings.MONITOR_HOSTS | settings.ARCHIVE_HOSTS
         )
         is_asset = (
             request.path.startswith(f"/{settings.STATIC_URL.lstrip('/')}")
@@ -132,6 +145,8 @@ class SystemBoundaryMiddleware:
                 system = "risk"
             elif hostname in settings.INVENTORY_HOSTS:
                 system = "inventory"
+            elif hostname in settings.MONITOR_HOSTS:
+                system = "monitoring"
             else:
                 system = "archive"
             if not has_system_access(request.user, system):

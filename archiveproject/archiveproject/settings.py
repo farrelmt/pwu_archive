@@ -52,9 +52,16 @@ INVENTORY_HOSTS = frozenset(
         default=['inventory.pwujatim.site', 'inventory.localhost'],
     )
 )
+MONITOR_HOSTS = frozenset(
+    host.lower()
+    for host in env.list(
+        'MONITOR_HOSTS',
+        default=['monitor.pwujatim.site', 'monitor.localhost'],
+    )
+)
 ALLOWED_HOSTS = list(
     set(ALLOWED_HOSTS) | set(LANDING_HOSTS) | set(ARCHIVE_HOSTS) | set(KOPERASI_HOSTS)
-    | set(RISK_HOSTS) | set(INVENTORY_HOSTS)
+    | set(RISK_HOSTS) | set(INVENTORY_HOSTS) | set(MONITOR_HOSTS)
 )
 
 INSTALLED_APPS = [
@@ -73,6 +80,7 @@ INSTALLED_APPS = [
     'koperasi.apps.KoperasiConfig',
     'risk_management.apps.RiskManagementConfig',
     'inventory.apps.InventoryConfig',
+    'monitoring.apps.MonitoringConfig',
 ]
 
 TAILWIND_APP_NAME = 'theme'
@@ -85,6 +93,7 @@ MIDDLEWARE = [
     'archiveproject.host_routing.KoperasiHostMiddleware',
     'archiveproject.host_routing.RiskHostMiddleware',
     'archiveproject.host_routing.InventoryHostMiddleware',
+    'archiveproject.host_routing.MonitorHostMiddleware',
     'archiveproject.host_routing.LandingHostMiddleware',
     'archiveproject.host_routing.SharedDomainSessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -217,6 +226,9 @@ STATICFILES_DIRS = [BASE_DIR / 'theme' / 'static', BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
+CSRF_TRUSTED_ORIGINS = list(set(CSRF_TRUSTED_ORIGINS) | {
+    'https://monitor.pwujatim.site', 'http://monitor.localhost:8000',
+})
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -275,6 +287,10 @@ RISK_BASE_URL = env(
 INVENTORY_BASE_URL = env(
     'INVENTORY_BASE_URL',
     default='https://inventory.pwujatim.site',
+).rstrip('/')
+MONITOR_BASE_URL = env(
+    'MONITOR_BASE_URL',
+    default='https://monitor.pwujatim.site',
 ).rstrip('/')
 
 SESSION_COOKIE_AGE = env.int('SESSION_COOKIE_AGE', default=28800)

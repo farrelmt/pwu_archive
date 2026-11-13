@@ -34,7 +34,7 @@ def has_system_access(user, system):
     """Return whether an account has an active role in the requested system."""
     if not user.is_authenticated or not user.is_active:
         return False
-    if system not in {"archive", "koperasi", "risk", "inventory"}:
+    if system not in {"archive", "koperasi", "risk", "inventory", "monitoring"}:
         return False
     cache = user.__dict__.setdefault("_pwu_system_access_cache", {})
     if system in cache:
@@ -56,6 +56,8 @@ def has_system_access(user, system):
             allowed = user.inventory_access.is_active
         except ObjectDoesNotExist:
             allowed = False
+    elif system == "monitoring":
+        allowed = True
     else:
         allowed = False
     cache[system] = allowed

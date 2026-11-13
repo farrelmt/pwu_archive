@@ -50,6 +50,7 @@ def root(request):
         koperasi_url = reverse('accounts:system_launch', args=['koperasi'])
         risk_url = reverse('accounts:system_launch', args=['risk'])
         inventory_url = reverse('accounts:system_launch', args=['inventory'])
+        monitoring_url = reverse('accounts:system_launch', args=['monitoring'])
 
         director_archive_only = not request.user.is_superuser and request.user.role in {
             'direktur', 'direktur_utama', 'direktur_umum',
@@ -60,6 +61,7 @@ def root(request):
             'koperasi_url': koperasi_url,
             'risk_url': risk_url,
             'inventory_url': inventory_url,
+            'monitoring_url': monitoring_url,
             'can_manage_members': can_manage_members(request.user),
             'can_access_archive': has_system_access(request.user, 'archive'),
             'can_access_koperasi': (
@@ -74,6 +76,7 @@ def root(request):
                 not director_archive_only
                 and has_system_access(request.user, 'inventory')
             ),
+            'can_access_monitoring': has_system_access(request.user, 'monitoring'),
         })
     return dashboard(request)
 
@@ -321,6 +324,7 @@ def personal_settings(request):
             "koperasi": settings.KOPERASI_HOSTS,
             "risk": settings.RISK_HOSTS,
             "inventory": settings.INVENTORY_HOSTS,
+            "monitoring": settings.MONITOR_HOSTS,
         }
         origin = next(
             (system for system, hosts in system_hosts.items() if referrer_host in hosts),
@@ -331,7 +335,7 @@ def personal_settings(request):
             or referrer.path == reverse("homepage:personal_settings")
         ):
             origin = request.session.get("settings_return_system")
-    if origin in {"archive", "koperasi", "risk", "inventory"} and has_system_access(request.user, origin):
+    if origin in {"archive", "koperasi", "risk", "inventory", "monitoring"} and has_system_access(request.user, origin):
         request.session["settings_return_system"] = origin
     else:
         origin = None

@@ -1,0 +1,32 @@
+{% load static %}
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#103b3b">
+    <title>{% block title %}Sistem Monitoring{% endblock %} · PWU Jatim</title>
+    <link rel="icon" type="image/png" href="{% static 'images/wirajatim-logo-stacked.png' %}">
+    <link rel="stylesheet" href="{% static 'monitoring/monitor.css' %}">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="{% url 'monitoring:board' %}">
+            <span class="brand-mark">M</span>
+            <span><strong>Sistem Monitoring</strong><small>PWU Jatim · Tugas per divisi</small></span>
+        </a>
+        <div class="topbar-right">
+            <span class="account-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+            <a href="{% url 'monitoring:board' %}">Papan tugas</a>
+            <a href="https://pwujatim.site/settings/?from=monitoring">Pengaturan</a>
+            <a href="https://pwujatim.site/">Portal</a>
+            <form action="{% url 'accounts:logout' %}" method="post">{% csrf_token %}<button type="submit">Keluar</button></form>
+        </div>
+    </header>
+    <main class="page-shell">
+        {% if messages %}<div class="messages" role="status">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
+        {% block content %}{% endblock %}
+    </main>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
