@@ -3,7 +3,7 @@
 {% block content %}
 <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
-        <a href="{% url 'risk:risk_list' %}" class="text-sm font-semibold text-slate-500">&larr; Register Risiko</a>
+        <a href="{% url 'risk:risk_list' %}" class="text-sm font-semibold text-slate-500">&larr; Risiko</a>
         <div class="mt-3 flex flex-wrap items-center gap-3">
             <h1 class="text-3xl font-bold">{{ risk.risk_code }}</h1>
             <span class="risk-badge {% if risk.risk_level == '-' %}risk-unrated{% elif risk.risk_level == 'Sangat Tinggi' %}risk-extreme{% elif risk.risk_level == 'Tinggi' %}risk-high{% elif risk.risk_level == 'Sedang' %}risk-medium{% elif risk.risk_level == 'Rendah' %}risk-low{% else %}risk-very-low{% endif %}">{{ risk.risk_level }}</span>
@@ -12,7 +12,7 @@
     </div>
     {% if can_edit_this %}
     <div class="flex flex-wrap gap-2">
-        <a href="{% url 'risk:monitoring_create' risk.pk %}" class="rounded-xl bg-lime-400 px-5 py-3 text-sm font-bold text-blue-950">+ Pemantauan Triwulan</a>
+        <a href="#pemantauan-triwulan" class="rounded-xl bg-lime-400 px-5 py-3 text-sm font-bold text-blue-950">Isi Pemantauan Triwulan</a>
         <a href="{% url 'risk:risk_edit' risk.pk %}" class="rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white">Edit Risiko</a>
     </div>
     {% endif %}
@@ -102,29 +102,50 @@
     </div>
 </div>
 
-<section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+<section id="perlakuan-risiko" class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <div class="border-b border-slate-200 px-5 py-4"><h2 class="text-lg font-bold">Perlakuan Risiko</h2><p class="mt-1 text-sm text-slate-500">Opsi dan rencana aksi sebelum pemantauan triwulan.</p></div>
     {% include 'risk_management/treatment_table.html' %}
 </section>
 
-<section class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 class="text-lg font-bold">Pemantauan Triwulan</h2><p class="mt-1 text-sm text-slate-500">Catat level awal dan akhir, rencana aksi, serta realisasi per periode.</p></div>
-        <a href="{% url 'risk:monitoring_report' %}" class="text-sm font-bold text-blue-700">Lihat laporan perusahaan</a>
+<section id="pemantauan-triwulan" class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div><h2 class="text-xl font-bold">Pemantauan Triwulan</h2><p class="mt-1 text-sm text-slate-500">Isi setiap triwulan dengan kolom yang sama seperti workbook Excel: rencana aksi, realisasi, penilaian risiko, deviasi, dan keterangan.</p></div>
+        <a href="{% url 'risk:monitoring_report' %}" class="text-sm font-bold text-blue-700 hover:text-blue-900">Lihat laporan perusahaan</a>
     </div>
-    <div class="mt-5 space-y-5">
-        {% for monitoring,monitoring_table_items in monitoring_tables %}
-        <article class="overflow-hidden rounded-xl border border-slate-200">
-            <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-4 py-3">
-                <div><h3 class="font-bold">{{ monitoring.get_quarter_display }} {{ monitoring.year }}</h3><p class="text-xs text-slate-500">Diperbarui {{ monitoring.updated_at|date:'d M Y H:i' }}</p></div>
-                <div class="flex items-center gap-2">
-                    <span class="risk-badge {% if monitoring.final_level == 'Sangat Tinggi' %}risk-extreme{% elif monitoring.final_level == 'Tinggi' %}risk-high{% elif monitoring.final_level == 'Sedang' %}risk-medium{% elif monitoring.final_level == 'Rendah' %}risk-low{% else %}risk-very-low{% endif %}">{{ monitoring.final_level }}</span>
-                    {% if can_edit_this %}<a href="{% url 'risk:monitoring_edit' monitoring.pk %}" class="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700">Edit Pemantauan</a><a href="{% url 'risk:action_create' monitoring.pk %}" class="rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white">+ Rencana Aksi</a>{% endif %}
-                </div>
-            </div>
-            {% include 'risk_management/monitoring_table.html' with monitorings=monitoring_table_items %}
-        </article>
-        {% empty %}<div class="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Belum ada pemantauan triwulan untuk risiko ini.</div>{% endfor %}
-    </div>
+    <form method="get" class="mt-5 flex flex-wrap items-end gap-3">
+        <input type="hidden" name="monitoring_quarter" value="{{ monitoring_quarter }}">
+        <label for="monitoring-year" class="text-sm font-bold text-slate-700">Tahun pemantauan<select id="monitoring-year" name="monitoring_year" class="mt-1 block min-w-36 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">{% for year in monitoring_years %}<option value="{{ year }}" {% if year == monitoring_year %}selected{% endif %}>{{ year }}</option>{% endfor %}</select></label>
+        <button type="submit" class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100">Tampilkan</button>
+        <span class="text-xs text-slate-500">Geser tabel ke samping dengan jari atau tombol panah.</span>
+    </form>
+    <nav class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-950 px-4 py-3 text-white" aria-label="Pilih triwulan pemantauan">
+        {% if previous_quarter %}<a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ previous_quarter }}#pemantauan-triwulan" class="rounded-lg px-3 py-2 text-sm font-bold hover:bg-blue-800" aria-label="Pemantauan triwulan sebelumnya">&lt; Sebelumnya</a>{% else %}<span class="px-3 py-2 text-sm text-blue-300" aria-disabled="true">&lt; Sebelumnya</span>{% endif %}
+        <h3 class="text-center text-sm font-extrabold sm:text-base">Pemantauan {{ monitoring_rows.0.label }} - {{ monitoring_year }}</h3>
+        {% if next_quarter %}<a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ next_quarter }}#pemantauan-triwulan" class="rounded-lg px-3 py-2 text-sm font-bold hover:bg-blue-800" aria-label="Pemantauan triwulan selanjutnya">Selanjutnya &gt;</a>{% else %}<span class="px-3 py-2 text-sm text-blue-300" aria-disabled="true">Selanjutnya &gt;</span>{% endif %}
+    </nav>
+    <div class="mt-5">{% for row in monitoring_rows %}{% include 'risk_management/monitoring_excel_entry.html' %}{% endfor %}</div>
 </section>
+<style nonce="{{ request.csp_nonce }}">
+    .monitoring-excel-scroll{max-width:100%;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#93c5fd #eff6ff;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain}
+    .monitoring-excel-table{width:2650px;table-layout:fixed;border-collapse:separate;border-spacing:0}
+    .monitor-col-no{width:52px}.monitor-col-risk{width:210px}.monitor-col-plan{width:250px}.monitor-col-date{width:220px}.monitor-col-owner{width:180px}.monitor-col-score{width:90px}.monitor-col-notes{width:300px}
+    .monitoring-excel-table th,.monitoring-excel-table td{border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;padding:.65rem;vertical-align:top;overflow-wrap:anywhere}
+    .monitoring-excel-table thead th{background:#dbeafe;color:#172554;text-align:center;vertical-align:middle;font-weight:700}
+    .monitoring-excel-table tbody tr:nth-child(even) td{background:#f8fafc}
+    .monitoring-excel-table input,.monitoring-excel-table textarea{min-width:0;max-width:100%}.monitoring-excel-table textarea{min-height:64px;resize:vertical}
+    .monitor-date-field{display:flex;align-items:center;gap:.4rem}.monitor-date-field input[type="date"]{flex:1;min-width:0;background:#fff;color:#0f172a;color-scheme:light}.monitor-date-field button{flex:none;display:grid;place-items:center;width:2.25rem;height:2.25rem;border:1px solid #93c5fd;border-radius:.5rem;background:#eff6ff;color:#1e40af;font-size:1.1rem;cursor:pointer}.monitor-date-field button:hover,.monitor-date-field button:focus-visible{background:#dbeafe;outline:2px solid #2563eb;outline-offset:1px}
+    .monitoring-excel-table .monitor-sticky-no,.monitoring-excel-table .monitor-sticky-risk{position:sticky;z-index:2;background:#fff;box-shadow:3px 0 7px -5px #64748b}
+    .monitoring-excel-table .monitor-sticky-no{left:0}.monitoring-excel-table .monitor-sticky-risk{left:52px}
+    .monitoring-excel-table thead .monitor-sticky-no,.monitoring-excel-table thead .monitor-sticky-risk{z-index:3;background:#dbeafe}
+    .monitoring-excel-table tbody tr:nth-child(even) .monitor-sticky-no,.monitoring-excel-table tbody tr:nth-child(even) .monitor-sticky-risk{background:#f8fafc}
+    .monitoring-excel-table output{display:block;min-height:2rem;padding:.35rem .2rem;text-align:center;font-weight:700;color:#1e3a8a}
+    .monitoring-excel-table .errorlist{margin:.3rem 0 0;color:#b91c1c;font-size:.7rem}
+    .monitoring-excel-table tr[hidden],.monitoring-excel-table button[hidden]{display:none}
+</style>
+<script nonce="{{ request.csp_nonce }}">
+    (()=>{const matrix=[['Sangat Rendah','Sangat Rendah','Rendah','Rendah','Sedang'],['Sangat Rendah','Rendah','Sedang','Sedang','Tinggi'],['Rendah','Sedang','Sedang','Tinggi','Tinggi'],['Sedang','Sedang','Tinggi','Tinggi','Sangat Tinggi'],['Tinggi','Tinggi','Tinggi','Sangat Tinggi','Sangat Tinggi']];
+    for(const card of document.querySelectorAll('[data-monitor-quarter]')){const area=card.querySelector('.monitoring-excel-scroll');const arrows=[...card.querySelectorAll('[data-monitor-scroll]')];function updateArrows(){const end=area.scrollWidth-area.clientWidth;for(const button of arrows)button.disabled=Number(button.dataset.monitorScroll)<0?area.scrollLeft<=1:area.scrollLeft>=end-1}for(const button of arrows)button.addEventListener('click',()=>area.scrollBy({left:Number(button.dataset.monitorScroll)*Math.max(360,area.clientWidth*.75),behavior:'smooth'}));area.addEventListener('scroll',updateArrows,{passive:true});window.addEventListener('resize',updateArrows);updateArrows();
+    const form=card.querySelector('form[method="post"]');if(!form)continue;const total=form.querySelector('input[name$="-TOTAL_FORMS"]');const template=form.querySelector('[data-action-template]');const rows=form.querySelector('[data-action-rows]');function updateRemoveButtons(){const visible=rows.querySelectorAll('tr:not([hidden])').length;for(const button of rows.querySelectorAll('[data-remove-action]'))button.hidden=visible<=1}form.querySelector('[data-add-action]').addEventListener('click',()=>{const index=Number(total.value);rows.insertAdjacentHTML('beforeend',template.innerHTML.replaceAll('__prefix__',index));total.value=index+1;updateRemoveButtons()});rows.addEventListener('click',event=>{const button=event.target.closest('[data-remove-action]');if(!button)return;const row=button.closest('tr');if(rows.querySelectorAll('tr:not([hidden])').length<=1)return;row.querySelector('input[name$="-DELETE"]').checked=true;row.hidden=true;updateRemoveButtons()});rows.addEventListener('click',event=>{const button=event.target.closest('[data-open-date-picker]');if(!button)return;const input=button.closest('.monitor-date-field').querySelector('input[type="date"]');if(input.showPicker)input.showPicker();else input.focus()});updateRemoveButtons();
+    function value(name){const input=form.querySelector('input[name$="-'+name+'"]');const number=Number(input?.value);return input?.value&&number>=1&&number<=5?number:null}function calculate(){const scores={};for(const [key,prefix] of [['initial','initial'],['final','final'],['expected','expected']]){const likelihood=value(prefix+'_likelihood'),impact=value(prefix+'_impact');scores[key]=likelihood&&impact?likelihood*impact:null;form.querySelector('[data-score="'+key+'"]').textContent=scores[key]??'—';form.querySelector('[data-level="'+key+'"]').textContent=likelihood&&impact?matrix[impact-1][likelihood-1]:'—'}form.querySelector('[data-deviation]').textContent=scores.expected!==null&&scores.final!==null?scores.expected-scores.final:'—'}for(const input of form.querySelectorAll('input[type="number"]'))input.addEventListener('input',calculate);calculate()}})()
+</script>
 {% endblock %}

@@ -24,6 +24,10 @@ class RiskRegisterAdmin(admin.ModelAdmin):
     list_filter = ("division", "risk_kind", "code_category", "status")
     search_fields = ("risk_code", "title", "description", "risk_owner")
 
+    def delete_queryset(self, request, queryset):
+        for pk in list(queryset.values_list("pk", flat=True)):
+            RiskRegister.objects.get(pk=pk).delete()
+
 
 admin.site.register(RiskActivity)
 admin.site.register(RiskMonitoring)

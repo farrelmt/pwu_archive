@@ -86,6 +86,7 @@ def _groups(sheet, *, start_row, title_column):
     for row_number in range(start_row, sheet.max_row + 1):
         row = list(sheet[row_number])
         title = _text(row[title_column - 1].value)
+        title = re.sub(r"^[ABC]/[A-Z0-9]+/\d{3}/\d+\n", "", title, count=1)
         number = row[0].value
         if title and (number not in (None, "") or current is None):
             current = {"title": title, "rows": []}
@@ -152,6 +153,7 @@ def import_risk_workbook(uploaded_file, *, user, allowed_division_ids=None):
         )
 
     identification = workbook[REQUIRED_IDENTIFICATION_SHEET]
+    identification_offset = 1 if _key(identification["B7"].value) == "kode risiko" else 0
     division = _division_for(identification["C4"].value)
     if allowed_division_ids is not None and division.pk not in allowed_division_ids:
         raise ValidationError("Anda tidak memiliki akses impor untuk divisi pada workbook ini.")
@@ -178,15 +180,15 @@ def import_risk_workbook(uploaded_file, *, user, allowed_division_ids=None):
     }
     risks_by_title = {}
 
-    for group in _groups(identification, start_row=10, title_column=3):
+    for group in _groups(identification, start_row=10, title_column=3 + identification_offset):
         rows = group["rows"]
         first = rows[0]
         title = group["title"]
         analysis = analysis_groups.get(_key(title), {"rows": []})["rows"]
-        objectives = _lines(rows, 2)
-        indications = _lines(rows, 4)
-        causes = _lines(rows, 5)
-        impacts = _lines(rows, 7)
+        objectives = _lines(rows, 2 + identification_offset)
+        indications = _lines(rows, 4 + identification_offset)
+        causes = _lines(rows, 5 + identification_offset)
+        impacts = _lines(rows, 7 + identification_offset)
         controls = _lines(analysis, 3)
         effectiveness = ""
         if any(_marked(row[5].value) for row in analysis):
@@ -210,20 +212,20 @@ def import_risk_workbook(uploaded_file, *, user, allowed_division_ids=None):
         risk.description = indications or title
         risk.indication = indications
         risk.cause = causes or "-"
-        controllability = _key(_lines(rows, 6))
+        controllability = _key(_lines(rows, 6 + identification_offset))
         risk.controllability = (
             "uncontrollable" if "uncontrollable" in controllability
             else "controllable" if "controllable" in controllability else ""
         )
         risk.impact = impacts or "-"
-        risk.inherent_likelihood = _score(first[7].value, default=1)
-        risk.inherent_impact = _score(first[8].value, default=1)
+        risk.inherent_likelihood = _score(first[7 + identification_offset].value, default=1)
+        risk.inherent_impact = _score(first[8 + identification_offset].value, default=1)
         risk.existing_controls = controls
         risk.control_effectiveness = effectiveness
         risk.is_priority = any(_marked(row[10].value) for row in analysis)
         risk.risk_owner = owner or "-"
         risk.risk_officer = officer
-        risk.identification_notes = _lines(rows, 12)
+        risk.identification_notes = _lines(rows, 12 + identification_offset)
         risk.evaluation_notes = _lines(analysis, 12)
         analysis_first = analysis[0] if analysis else None
         risk.residual_likelihood = _score(

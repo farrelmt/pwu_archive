@@ -6,9 +6,10 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 
 from accounts.activity_views import system_activity_log
@@ -26,6 +27,8 @@ from .forms import (
     RiskTreatmentFormSet,
     RiskActionPlanForm,
     RiskMonitoringForm,
+    RiskMonitoringExcelForm,
+    MonitoringExcelActionFormSet,
     RiskRegisterForm,
     RiskWorkbookImportForm,
     pic_name,
@@ -43,7 +46,7 @@ from .models import (
 )
 from .scoring import MATRIX_COLORS, LEVEL_BY_COLOR, LEVEL_ORDER, level_filter, level_rank
 from .services import import_risk_workbook
-from .exports import annual_risk_workbook
+from .exports import annual_risk_workbook, empty_import_workbook
 
 
 def _log(request, action, description, target=None, *, target_label=None, metadata=None, success=True):
@@ -271,6 +274,17 @@ def risk_list(request):
 
 
 @risk_write_required
+@require_GET
+def workbook_import_template(request):
+    return FileResponse(
+        empty_import_workbook(),
+        as_attachment=True,
+        filename=f"Template Impor Manajemen Risiko {timezone.localdate().year}.xlsx",
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@risk_write_required
 def workbook_import(request):
     form = RiskWorkbookImportForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
@@ -336,16 +350,21 @@ def annual_report(request):
     if form.is_bound and form.is_valid():
         year = form.cleaned_data["year"]
         division = form.cleaned_data["division"]
-        risks = visible_risks.filter(division=division).filter(
+        risks = visible_risks.filter(
             Q(created_at__year=year) | Q(monitorings__year=year)
-        ).distinct().order_by("risk_code").prefetch_related(
-            "treatments", Prefetch("monitorings", queryset=RiskMonitoring.objects.filter(
+        )
+        if division is not None:
+            risks = risks.filter(division=division)
+        risks = risks.distinct().order_by("risk_code").prefetch_related(
+            "treatments", "additional_causes", "additional_controls",
+            Prefetch("monitorings", queryset=RiskMonitoring.objects.filter(
                 year=year,
             ).prefetch_related("action_plans")),
         )
         if not risks.exists():
             form.add_error(None, "Tidak ada data risiko untuk tahun dan divisi yang dipilih.")
         else:
+            division_name = division.name if division else "Semua Divisi"
             download_mark = {
                 "version": 1,
                 "download_id": str(uuid4()),
@@ -354,7 +373,7 @@ def annual_report(request):
                 "full_name": request.user.get_full_name() or request.user.get_username(),
                 "downloaded_at": timezone.now().astimezone(ZoneInfo("Asia/Jakarta")).isoformat(),
                 "year": year,
-                "division_id": division.pk,
+                "division_id": division.pk if division else None,
             }
             try:
                 workbook = annual_risk_workbook(risks, division=division, year=year, download_mark=download_mark)
@@ -362,7 +381,7 @@ def annual_report(request):
                 form.add_error(None, exc)
             else:
                 from django.utils.text import slugify
-                filename = f"Manajemen Risiko {year} - {slugify(division.name)}.xlsx"
+                filename = f"Manajemen Risiko {year} - {slugify(division_name)}.xlsx"
                 response = FileResponse(
                     workbook, as_attachment=True, filename=filename,
                     content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -370,10 +389,11 @@ def annual_report(request):
                 response["Cache-Control"] = "private, no-store"
                 _log(
                     request, "ANNUAL_REPORT_DOWNLOADED",
-                    f"Menyiapkan unduhan laporan tahunan {year} untuk {division.name}: {filename}.",
+                    f"Menyiapkan unduhan laporan tahunan {year} untuk {division_name}: {filename}.",
                     division, target_label=filename,
                     metadata={
-                        "year": year, "division_id": division.pk, "division": division.name,
+                        "year": year, "division_id": division.pk if division else None,
+                        "division": division_name,
                         "filename": filename, "risk_count": len(risks), "format": "xlsx",
                         "delivery": "response_prepared",
                         "download_mark": download_mark,
@@ -427,6 +447,7 @@ def scoring_guide(request):
 def risk_detail(request, pk):
     risk = get_object_or_404(
         risks_for_user(request.user).prefetch_related(
+            "treatments",
             Prefetch(
                 "monitorings",
                 queryset=RiskMonitoring.objects.prefetch_related("action_plans").select_related("updated_by"),
@@ -434,12 +455,124 @@ def risk_detail(request, pk):
         ),
         pk=pk,
     )
+    can_edit_this = can_edit_risk(request.user, risk)
+    year_value = request.POST.get("monitoring_year") if request.method == "POST" else request.GET.get("monitoring_year")
+    if year_value and year_value.isdigit() and 2020 <= int(year_value) <= 2100:
+        selected_year = int(year_value)
+    elif request.method == "POST":
+        return HttpResponseBadRequest("Tahun pemantauan tidak valid.")
+    else:
+        selected_year = _current_period()[0]
+    quarter_value = request.POST.get("save_quarter") if request.method == "POST" else request.GET.get("monitoring_quarter")
+    selected_quarter = int(quarter_value) if quarter_value and quarter_value.isdigit() and int(quarter_value) in range(1, 5) else 1
+    existing_monitorings = list(risk.monitorings.all())
+    treatments = list(risk.treatments.all())
+    by_quarter = {item.quarter: item for item in existing_monitorings if item.year == selected_year}
+    selected_form = None
+    selected_actions = None
+    submitted_quarter = None
+    if request.method == "POST":
+        if not can_edit_this:
+            raise PermissionDenied("Anda tidak dapat mengubah pemantauan risiko divisi lain.")
+        quarter_value = request.POST.get("save_quarter", "")
+        if not quarter_value.isdigit() or int(quarter_value) not in range(1, 5):
+            return HttpResponseBadRequest("Triwulan pemantauan tidak valid.")
+        submitted_quarter = int(quarter_value)
+        data = request.POST.copy()
+        data[f"q{submitted_quarter}-year"] = selected_year
+        data[f"q{submitted_quarter}-quarter"] = submitted_quarter
+        existing = by_quarter.get(submitted_quarter)
+        selected_form = RiskMonitoringExcelForm(data, instance=existing, prefix=f"q{submitted_quarter}")
+        selected_form.instance.risk = risk
+        selected_actions = MonitoringExcelActionFormSet(
+            request.POST, instance=selected_form.instance, prefix=f"q{submitted_quarter}-actions",
+            form_kwargs={"risk": risk},
+        )
+        monitoring_valid = selected_form.is_valid()
+        actions_valid = selected_actions.is_valid()
+        if monitoring_valid and actions_valid:
+            with transaction.atomic():
+                monitoring = selected_form.save(commit=False)
+                monitoring.risk = risk
+                monitoring.updated_by = request.user
+                monitoring.save()
+                selected_actions.instance = monitoring
+                actions = selected_actions.save(commit=False)
+                for action in selected_actions.deleted_objects:
+                    action.delete()
+                for action in actions:
+                    if action.pk is None:
+                        action.created_by = request.user
+                    if action.treatment_id:
+                        action.description = action.treatment.action_plan
+                    action.updated_by = request.user
+                    action.save()
+            action = "monitoring_updated" if existing else "monitoring_created"
+            RiskActivity.objects.create(
+                risk=risk, actor=request.user, action=action,
+                description=f"Pemantauan {monitoring.get_quarter_display()} {selected_year} {'diperbarui' if existing else 'dibuat'}.",
+            )
+            _log(
+                request, "MONITORING_UPDATED" if existing else "MONITORING_CREATED",
+                f"{'Memperbarui' if existing else 'Menambahkan'} pemantauan {monitoring.get_quarter_display()} {selected_year}.",
+                monitoring, target_label=risk.risk_code,
+            )
+            messages.success(request, f"Pemantauan {monitoring.get_quarter_display()} {selected_year} berhasil disimpan.")
+            return redirect(f"{reverse('risk:risk_detail', args=[risk.pk])}?monitoring_year={selected_year}&monitoring_quarter={submitted_quarter}#pemantauan-triwulan")
+
+    monitoring_rows = []
+    for quarter, label in RiskMonitoring.QUARTER_CHOICES:
+        if quarter != selected_quarter:
+            continue
+        existing = by_quarter.get(quarter)
+        initial = {
+            "year": selected_year, "quarter": quarter,
+            "initial_likelihood": risk.inherent_likelihood,
+            "initial_impact": risk.inherent_impact,
+            "final_likelihood": risk.residual_likelihood,
+            "final_impact": risk.residual_impact,
+        }
+        form = selected_form if submitted_quarter == quarter else RiskMonitoringExcelForm(
+            instance=existing, initial=initial, prefix=f"q{quarter}",
+        )
+        linked_treatments = {
+            action.treatment_id for action in existing.action_plans.all()
+        } if existing else set()
+        initial_actions = [
+            {
+                "treatment": treatment.pk,
+                "description": treatment.action_plan,
+                "target_date": treatment.target_date,
+                "responsible_person": treatment.responsible_person or risk.risk_owner,
+            }
+            for treatment in treatments if treatment.pk not in linked_treatments
+        ]
+        if not initial_actions and not (existing and existing.action_plans.all()):
+            initial_actions = [{}]
+        action_formset = selected_actions if submitted_quarter == quarter else MonitoringExcelActionFormSet(
+            instance=existing or RiskMonitoring(risk=risk, year=selected_year, quarter=quarter),
+            prefix=f"q{quarter}-actions", initial=initial_actions,
+            form_kwargs={"risk": risk},
+        )
+        if submitted_quarter != quarter:
+            action_formset.extra = len(initial_actions)
+        monitoring_rows.append({
+            "quarter": quarter, "label": label, "monitoring": existing,
+            "form": form, "action_formset": action_formset,
+            "table_items": [existing] if existing else [],
+        })
     response = render(request, "risk_management/risk_detail.html", {
-        "risk": risk, "can_edit_this": can_edit_risk(request.user, risk),
-        "monitoring_tables": [(item, [item]) for item in risk.monitorings.all()],
+        "risk": risk, "can_edit_this": can_edit_this,
+        "monitoring_rows": monitoring_rows,
+        "monitoring_year": selected_year,
+        "monitoring_quarter": selected_quarter,
+        "previous_quarter": selected_quarter - 1 if selected_quarter > 1 else None,
+        "next_quarter": selected_quarter + 1 if selected_quarter < 4 else None,
+        "monitoring_years": sorted({selected_year, _current_period()[0], *(item.year for item in existing_monitorings)}, reverse=True),
         "treatment_risks": [risk],
     })
-    _log(request, "RISK_VIEWED", f"Membuka detail risiko {risk.risk_code}.", risk, target_label=risk.risk_code)
+    if request.method == "GET":
+        _log(request, "RISK_VIEWED", f"Membuka detail risiko {risk.risk_code}.", risk, target_label=risk.risk_code)
     return response
 
 

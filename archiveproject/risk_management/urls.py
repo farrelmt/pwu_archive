@@ -10,6 +10,7 @@ urlpatterns = [
     path("risiko/", views.risk_list, name="risk_list"),
     path("laporan-tahunan/", views.annual_report, name="annual_report"),
     path("risiko/impor-workbook/", views.workbook_import, name="workbook_import"),
+    path("risiko/template-impor/", views.workbook_import_template, name="workbook_import_template"),
     path("risiko/tambah/", views.risk_create, name="risk_create"),
     path("risiko/<int:pk>/", views.risk_detail, name="risk_detail"),
     path("risiko/<int:pk>/edit/", views.risk_edit, name="risk_edit"),

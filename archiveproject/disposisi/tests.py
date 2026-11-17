@@ -17,7 +17,7 @@ from .models import Disposisi, DisposisiLog, DisposisiRecipient
 
 
 @override_settings(
-    ALLOWED_HOSTS=["testserver"],
+    ALLOWED_HOSTS=["testserver", "archive.localhost"],
     CELERY_TASK_ALWAYS_EAGER=True,
     CELERY_TASK_EAGER_PROPAGATES=True,
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
@@ -682,7 +682,7 @@ class DisposisiSecurityTests(TestCase):
 
         self.client.force_login(self.director)
         correct_monitor = self.client.get(reverse("homepage:monitor"))
-        dashboard_response = self.client.get(reverse("homepage:dashboard"))
+        dashboard_response = self.client.get(reverse("homepage:dashboard"), HTTP_HOST="archive.localhost")
         self.assertContains(correct_monitor, self.disposisi.nomor_surat)
         self.assertContains(dashboard_response, 'id="notificationBadge"')
         self.assertContains(dashboard_response, "1 tugas perlu diproses")
@@ -1510,13 +1510,13 @@ class DisposisiSecurityTests(TestCase):
         for selected_user in (self.accounting_head, self.finance_head):
             with self.subTest(role=selected_user.role):
                 self.client.force_login(selected_user)
-                response = self.client.get(reverse("homepage:inbox"))
+                response = self.client.get(reverse("homepage:inbox"), HTTP_HOST="archive.localhost")
                 self.assertContains(response, self.disposisi.nomor_surat)
                 self.assertContains(response, "Disposisi Dibagikan")
                 self.assertContains(response, 'id="notificationBadge"')
 
         self.client.force_login(self.risk_head)
-        risk_response = self.client.get(reverse("homepage:inbox"))
+        risk_response = self.client.get(reverse("homepage:inbox"), HTTP_HOST="archive.localhost")
         self.assertNotContains(risk_response, self.disposisi.nomor_surat)
         self.assertNotContains(risk_response, 'id="notificationBadge"')
 

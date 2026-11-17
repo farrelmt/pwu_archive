@@ -114,7 +114,10 @@ class DivisionPICForm(forms.Form):
 
 class AnnualRiskReportForm(forms.Form):
     year = forms.IntegerField(label="Tahun", min_value=2020, max_value=2100)
-    division = forms.ModelChoiceField(label="Nama Divisi", queryset=RiskDivision.objects.none())
+    division = forms.ModelChoiceField(
+        label="Nama Divisi", queryset=RiskDivision.objects.none(),
+        required=False, empty_label="Semua Divisi",
+    )
 
     def __init__(self, *args, divisions, **kwargs):
         super().__init__(*args, **kwargs)
@@ -126,7 +129,8 @@ class AnnualRiskReportForm(forms.Form):
 class RiskWorkbookImportForm(forms.Form):
     workbook = forms.FileField(
         label="Workbook Manajemen Risiko",
-        help_text="Gunakan file .xlsx dengan struktur template Manajemen Risiko 2026.",
+        help_text="Pilih file .xlsx yang sudah diisi menggunakan template di halaman ini. Maksimal 10 MB.",
+        widget=forms.ClearableFileInput(attrs={"accept": ".xlsx", "class": "risk-import-file"}),
     )
 
     def clean_workbook(self):
@@ -335,6 +339,97 @@ class RiskMonitoringForm(forms.ModelForm):
         self.fields["year"].widget.attrs.update({"min": 2020, "max": 2100})
 
 
+class RiskMonitoringExcelForm(RiskMonitoringForm):
+    class Meta(RiskMonitoringForm.Meta):
+        fields = [
+            "year", "quarter", "initial_likelihood", "initial_impact",
+            "final_likelihood", "final_impact", "expected_likelihood",
+            "expected_impact", "evaluation_notes",
+        ]
+        labels = {"evaluation_notes": "Keterangan"}
+        widgets = {"evaluation_notes": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound and self.instance.pk and self.instance.business_environment_changes:
+            self.initial["evaluation_notes"] = "\n".join(filter(None, [
+                self.instance.evaluation_notes, self.instance.business_environment_changes,
+            ]))
+
+    def save(self, commit=True):
+        monitoring = super().save(commit=False)
+        monitoring.business_environment_changes = ""
+        if commit:
+            monitoring.save()
+            self.save_m2m()
+        return monitoring
+
+
+class MonitoringExcelActionForm(forms.ModelForm):
+    class Meta:
+        model = RiskActionPlan
+        fields = ["treatment", "description", "realization", "target_date", "responsible_person"]
+        widgets = {
+            "treatment": forms.HiddenInput(),
+            "description": forms.Textarea(attrs={"rows": 2}),
+            "realization": forms.Textarea(attrs={"rows": 2}),
+            "target_date": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, risk=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if risk is not None:
+            self.fields["treatment"].queryset = risk.treatments.all()
+        treatment_value = self.instance.treatment_id or self.initial.get("treatment") or self.data.get(
+            self.add_prefix("treatment")
+        )
+        self.is_treatment_linked = bool(treatment_value)
+        if self.instance.treatment_id and not self.is_bound:
+            self.initial["description"] = self.instance.treatment.action_plan
+        for field in self.fields.values():
+            field.widget.attrs["class"] = (
+                "w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm "
+                "focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            )
+        if self.is_treatment_linked:
+            self.fields["description"].widget.attrs["readonly"] = True
+
+    def clean(self):
+        cleaned = super().clean()
+        treatment = cleaned.get("treatment")
+        if self.instance.pk and self.instance.treatment_id and (
+            treatment is None or treatment.pk != self.instance.treatment_id
+        ):
+            self.add_error("treatment", "Rencana perlakuan yang sudah terhubung tidak dapat diganti di pemantauan.")
+        if treatment:
+            cleaned["description"] = treatment.action_plan
+        return cleaned
+
+
+class BaseMonitoringExcelActionFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        seen_treatments = set()
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data"):
+                continue
+            treatment = form.cleaned_data.get("treatment")
+            if form.cleaned_data.get("DELETE"):
+                if treatment or form.instance.treatment_id:
+                    raise forms.ValidationError("Baris dari Perlakuan Risiko dikelola melalui bagian Perlakuan Risiko.")
+                continue
+            if treatment:
+                if treatment.pk in seen_treatments:
+                    raise forms.ValidationError("Setiap perlakuan risiko hanya boleh muncul sekali dalam satu triwulan.")
+                seen_treatments.add(treatment.pk)
+
+
+MonitoringExcelActionFormSet = inlineformset_factory(
+    RiskMonitoring, RiskActionPlan, form=MonitoringExcelActionForm,
+    formset=BaseMonitoringExcelActionFormSet, extra=0, can_delete=True,
+)
+
+
 class RiskActionPlanForm(forms.ModelForm):
     class Meta:
         model = RiskActionPlan
@@ -352,6 +447,10 @@ class RiskActionPlanForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.treatment_id:
+            self.fields["description"].disabled = True
+            self.initial["description"] = self.instance.treatment.action_plan
+            self.fields["description"].help_text = "Rencana ini mengikuti Perlakuan Risiko dan diubah dari sana."
         common = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100"
         for field in self.fields.values():
             field.widget.attrs["class"] = common

@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models, transaction
+from django.db import DEFAULT_DB_ALIAS, models, transaction
 
 from .scoring import level_for
 
@@ -22,6 +22,22 @@ class RiskDivision(models.Model):
 class RiskCodeSequence(models.Model):
     prefix = models.CharField(max_length=32, unique=True)
     last_number = models.PositiveIntegerField(default=0)
+
+
+def compact_risk_codes(group, *, sequence, using):
+    """Close gaps across categories within one risk type and division."""
+    rows = list(RiskRegister.objects.using(using).filter(
+        risk_code__startswith=f"{group}/"
+    ).values_list("pk", "risk_code"))
+    rows.sort(key=lambda row: (int(row[1].rpartition("/")[2]), row[0]))
+    for number, (pk, old_code) in enumerate(rows, 1):
+        full_prefix = old_code.rpartition("/")[0]
+        new_code = f"{full_prefix}/{number:03d}"
+        if old_code != new_code:
+            RiskRegister.objects.using(using).filter(pk=pk).update(risk_code=new_code)
+    if sequence.last_number != len(rows):
+        sequence.last_number = len(rows)
+        sequence.save(using=using, update_fields=["last_number"])
 
 
 class RiskAccess(models.Model):
@@ -173,22 +189,50 @@ class RiskRegister(models.Model):
 
     def save(self, *args, **kwargs):
         prefix = self.code_prefix()
-        with transaction.atomic():
-            if not self.risk_code or not self.risk_code.startswith(f"{prefix}/"):
-                sequence, _ = RiskCodeSequence.objects.select_for_update().get_or_create(prefix=prefix)
+        group = prefix.rpartition("/")[0]
+        using = kwargs.get("using") or self._state.db or DEFAULT_DB_ALIAS
+        previous_code = (
+            RiskRegister.objects.using(using).filter(pk=self.pk).values_list("risk_code", flat=True).first()
+            if self.pk else None
+        )
+        previous_group = previous_code.rpartition("/")[0].rpartition("/")[0] if previous_code else None
+        with transaction.atomic(using=using):
+            sequences = {}
+            for series in sorted({group, previous_group} - {None}):
+                sequences[series], _ = RiskCodeSequence.objects.using(using).select_for_update().get_or_create(
+                    prefix=series
+                )
+            if previous_code and previous_group == group:
+                new_code = f"{prefix}/{previous_code.rpartition('/')[2]}"
+            else:
+                sequence = sequences[group]
                 sequence.last_number += 1
-                sequence.save(update_fields=["last_number"])
-                self.risk_code = f"{prefix}/{sequence.last_number:03d}"
+                sequence.save(using=using, update_fields=["last_number"])
+                new_code = f"{prefix}/{sequence.last_number:03d}"
+            if self.risk_code != new_code:
+                self.risk_code = new_code
                 if kwargs.get("update_fields") is not None:
                     kwargs["update_fields"] = set(kwargs["update_fields"]) | {
                         "risk_code", "risk_kind", "risk_source", "code_category", "division",
                     }
             super().save(*args, **kwargs)
+            if previous_group and previous_group != group:
+                compact_risk_codes(previous_group, sequence=sequences[previous_group], using=using)
+
+    def delete(self, *args, **kwargs):
+        using = kwargs.get("using") or self._state.db or DEFAULT_DB_ALIAS
+        with transaction.atomic(using=using):
+            code = RiskRegister.objects.using(using).filter(pk=self.pk).values_list("risk_code", flat=True).first()
+            if code is None:
+                return super().delete(*args, **kwargs)
+            group = code.rpartition("/")[0].rpartition("/")[0]
+            sequence, _ = RiskCodeSequence.objects.using(using).select_for_update().get_or_create(prefix=group)
+            result = super().delete(*args, **kwargs)
+            compact_risk_codes(group, sequence=sequence, using=using)
+            return result
 
     def code_prefix(self):
-        if self.risk_kind == "A":
-            source = self.risk_source or "01"
-        elif self.risk_kind == "C":
+        if self.risk_kind == "C":
             source = "KSO"
         else:
             source = self.division.code
@@ -434,6 +478,20 @@ class RiskTreatment(models.Model):
     def __str__(self):
         return f"{self.risk.risk_code}: {self.action_plan[:60]}"
 
+    def save(self, *args, **kwargs):
+        using = kwargs.get("using") or self._state.db or DEFAULT_DB_ALIAS
+        previous_plan = (
+            RiskTreatment.objects.using(using).filter(pk=self.pk).values_list("action_plan", flat=True).first()
+            if self.pk else None
+        )
+        with transaction.atomic(using=using):
+            super().save(*args, **kwargs)
+            if (previous_plan is not None and previous_plan != self.action_plan
+                    and (kwargs.get("update_fields") is None or "action_plan" in kwargs["update_fields"])):
+                RiskActionPlan.objects.using(using).filter(treatment_id=self.pk).update(
+                    description=self.action_plan
+                )
+
 
 class RiskActionPlan(models.Model):
     STATUS_CHOICES = [
@@ -446,6 +504,10 @@ class RiskActionPlan(models.Model):
 
     monitoring = models.ForeignKey(
         RiskMonitoring, on_delete=models.CASCADE, related_name="action_plans"
+    )
+    treatment = models.ForeignKey(
+        RiskTreatment, on_delete=models.SET_NULL, related_name="monitoring_actions",
+        blank=True, null=True,
     )
     description = models.TextField("Rencana aksi")
     responsible_person = models.CharField("Penanggung jawab", max_length=160)

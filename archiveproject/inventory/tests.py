@@ -276,14 +276,14 @@ class InventoryPermissionTests(TestCase):
         )
         url = reverse("inventory:internet_detail", args=[modem.pk])
         self.client.force_login(self.manager)
-        self.assertEqual(self.client.get(url, HTTP_HOST="inventory.localhost").status_code, 403)
+        self.assertEqual(self.client.get(url, HTTP_HOST="inventory.localhost").status_code, 200)
         self.client.force_login(self.viewer)
         self.assertEqual(self.client.post(url, {}, HTTP_HOST="inventory.localhost").status_code, 403)
 
-        it_user = get_user_model().objects.create_user(
-            username="it_pwu", password="test-pass-123", role="admin"
+        it_user = get_user_model().objects.get(username="it_pwu")
+        InventoryAccess.objects.update_or_create(
+            user=it_user, defaults={"role": "participant", "is_active": True}
         )
-        InventoryAccess.objects.create(user=it_user, role="participant")
         self.client.force_login(it_user)
         empty = self.client.get(url, HTTP_HOST="inventory.localhost")
         self.assertContains(empty, "Belum ada kartu SIM")
@@ -936,7 +936,7 @@ class InventoryPermissionTests(TestCase):
         self.client.force_login(self.viewer)
         response = self.client.get(reverse("inventory:member_detail", args=[self.member.pk]), HTTP_HOST="inventory.localhost")
         self.assertContains(response, "AST-001")
-        self.assertContains(response, "Laporkan Barang Rusak")
+        self.assertContains(response, "Inventaris Saya")
         self.assertNotContains(response, reverse("inventory:report_create", args=[self.item.pk]))
 
     def test_participant_dashboard_redirects_to_own_inventory(self):
@@ -1108,25 +1108,28 @@ class InventoryPermissionTests(TestCase):
     def test_total_value(self):
         self.assertEqual(self.item.total_value, Decimal("12000000"))
 
-    def test_participant_can_report_own_item(self):
+    def test_participant_can_submit_repair_request(self):
         self.client.force_login(self.viewer)
-
         response = self.client.post(
-            reverse("inventory:report_create", args=[self.item.pk]),
-            {"report_type": "damaged", "description": "Laptop tidak dapat menyala."},
+            reverse("inventory:request_new"),
+            {
+                "request_type": "repair", "submitted_on": "2026-11-17",
+                "applicant_name": self.member.full_name, "division": self.member.division,
+                "purpose": "Laptop tidak dapat menyala.",
+                "description_1": self.item.item_name, "quantity_1": "1", "unit_1": "unit",
+            },
             HTTP_HOST="inventory.localhost",
         )
-
-        report = InventoryReport.objects.get(item=self.item)
+        entry = InventoryRequest.objects.get(requester=self.viewer)
         self.assertRedirects(
             response,
-            reverse("inventory:report_list"),
+            reverse("inventory:request_detail", args=[entry.public_id]),
             fetch_redirect_response=False,
         )
-        self.assertEqual(report.reporter, self.viewer)
-        self.assertEqual(report.status, "reported")
+        self.assertEqual(entry.request_type, "repair")
+        self.assertEqual(entry.items[0]["description"], self.item.item_name)
 
-    def test_participant_cannot_report_another_members_item(self):
+    def test_participant_cannot_view_another_members_item(self):
         other_member = CompanyMember.objects.create(
             employee_id="EMP-002", full_name="Pegawai Lain",
             division="Keuangan", position="Staff",
@@ -1139,7 +1142,7 @@ class InventoryPermissionTests(TestCase):
         self.client.force_login(self.viewer)
 
         response = self.client.get(
-            reverse("inventory:report_create", args=[other_item.pk]),
+            reverse("inventory:item_detail", args=[other_item.pk]),
             HTTP_HOST="inventory.localhost",
         )
 
@@ -1338,21 +1341,23 @@ class InventoryPermissionTests(TestCase):
         )
         self.assertTrue(InventoryItem.objects.filter(pk=self.item.pk).exists())
 
-    def test_participant_only_sees_own_reports(self):
-        InventoryReport.objects.create(
-            item=self.item, reporter=self.viewer, report_type="damaged",
-            description="Laporan saya.",
+    def test_participant_only_sees_own_requests(self):
+        InventoryRequest.objects.create(
+            requester=self.viewer, request_type="repair", purpose="Permintaan saya.",
+            items=[{"description": "Laptop saya", "quantity": "1", "unit": "unit"}],
+            applicant_name=self.member.full_name, division=self.member.division,
         )
-        InventoryReport.objects.create(
-            item=self.item, reporter=self.manager, report_type="complaint",
-            description="Laporan orang lain.",
+        InventoryRequest.objects.create(
+            requester=self.manager, request_type="procurement", purpose="Permintaan orang lain.",
+            items=[{"description": "Barang lain", "quantity": "1", "unit": "unit"}],
+            applicant_name="Manajer", division="TI",
         )
         self.client.force_login(self.viewer)
 
-        response = self.client.get(reverse("inventory:report_list"), HTTP_HOST="inventory.localhost")
+        response = self.client.get(reverse("inventory:request_list"), HTTP_HOST="inventory.localhost")
 
-        self.assertContains(response, "Laporan saya.")
-        self.assertNotContains(response, "Laporan orang lain.")
+        self.assertContains(response, "Permintaan saya.")
+        self.assertNotContains(response, "Permintaan orang lain.")
 
 
     def test_section_rejects_unrelated_category_and_preserves_errors(self):
@@ -1430,24 +1435,22 @@ class InventoryPermissionTests(TestCase):
             self.assertEqual(item.category, "office")
             self.assertEqual(item.serial_number, "")
 
-    def test_new_report_menu_limits_item_selection(self):
-        other = InventoryItem.objects.create(asset_code="OTHER", item_name="Other", category="office", created_by=self.manager, updated_by=self.manager)
+    def test_new_request_requires_item_details(self):
         self.client.force_login(self.viewer)
-        url = reverse("inventory:report_new")
+        url = reverse("inventory:request_new")
         response = self.client.get(url, HTTP_HOST="inventory.localhost")
-        self.assertEqual(list(response.context["form"].fields["item"].queryset), [self.item])
-        response = self.client.post(url, {"item": other.pk, "report_type": "damaged", "description": "Broken"}, HTTP_HOST="inventory.localhost")
-        self.assertIn("item", response.context["form"].errors)
-        response = self.client.post(url, {"item": self.item.pk, "report_type": "damaged", "description": "Broken"}, HTTP_HOST="inventory.localhost")
+        self.assertContains(response, "Buat Permintaan")
+        data = {
+            "request_type": "repair", "submitted_on": "2026-11-17",
+            "applicant_name": self.member.full_name, "division": self.member.division,
+            "purpose": "Laptop rusak", "description_1": "Laptop",
+            "quantity_1": "1", "unit_1": "unit",
+        }
+        invalid = self.client.post(url, {**data, "quantity_1": ""}, HTTP_HOST="inventory.localhost")
+        self.assertIn("quantity_1", invalid.context["form"].errors)
+        response = self.client.post(url, data, HTTP_HOST="inventory.localhost")
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(InventoryReport.objects.get().item, self.item)
-        report = InventoryReport.objects.get()
-        self.assertTrue(ActivityLog.objects.filter(
-            actor=self.viewer,
-            category="INVENTORY",
-            action="REPORT_CREATED",
-            target_id=str(report.pk),
-        ).exists())
+        self.assertEqual(InventoryRequest.objects.get().requester, self.viewer)
 
     def test_only_superuser_can_open_inventory_activity_log(self):
         self.client.force_login(self.viewer)

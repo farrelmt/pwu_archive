@@ -300,13 +300,13 @@ class KoperasiScopeTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_accountant_can_open_archive(self):
+    def test_accountant_without_archive_role_cannot_open_archive(self):
         response = self.client.get(
             "/",
             HTTP_HOST="archive.localhost:8000",
         )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403)
 
     def test_archive_login_is_also_centralized(self):
         self.client.logout()

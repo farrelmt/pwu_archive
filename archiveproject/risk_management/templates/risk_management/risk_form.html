@@ -48,7 +48,6 @@
             </table>
         </div>
         <template id="emptyCauseRow"><table><tbody>{% include 'risk_management/additional_cause_row.html' with cause_form=cause_formset.empty_form %}</tbody></table></template>
-        {% if additional_formset %}<div class="mt-4 flex flex-wrap gap-3"><button type="button" id="addRiskRow" class="rounded-xl border border-blue-200 px-4 py-2 text-sm font-bold text-blue-700">+ Tambah Baris Risiko</button><template id="emptyIdentificationRow">{% include 'risk_management/additional_identification_row.html' with additional_form=additional_formset.empty_form row_number='-' row_index='__rowindex__' %}</template></div>{% endif %}
         <p class="rw-scroll-hint">Geser tabel ke samping untuk melihat seluruh kolom &rarr;</p>
     </section>
     <section id="analisis" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -73,7 +72,6 @@
                 </tr>{% for additional_form in additional_formset %}{% include 'risk_management/additional_evaluation_row.html' with row_number=forloop.counter row_index=forloop.counter %}{% endfor %}{% for control_form in control_formset %}{% include 'risk_management/additional_control_row.html' %}{% endfor %}</tbody>
             </table>
         </div>
-        {% if additional_formset %}<template id="emptyEvaluationRow">{% include 'risk_management/additional_evaluation_row.html' with additional_form=additional_formset.empty_form row_number='-' row_index='__rowindex__' %}</template>{% endif %}
         <template id="emptyControlRow"><table><tbody>{% include 'risk_management/additional_control_row.html' with control_form=control_formset.empty_form %}</tbody></table></template>
         <p class="rw-scroll-hint">Geser tabel ke samping untuk melihat seluruh kolom &rarr;</p>
     </section>
@@ -100,7 +98,6 @@
 </script>
 {% if additional_formset %}<script nonce="{{ request.csp_nonce }}">
     (()=>{
-        const total=document.getElementById('id_additional-TOTAL_FORMS');
         const identification=document.getElementById('identificationRows');
         const evaluation=document.getElementById('evaluationRows');
         const treatmentRows=document.getElementById('inlineTreatmentRows');
@@ -147,21 +144,9 @@
                 select.replaceChildren(...risks.map(item=>new Option(`${item.number}. ${item.name}`,item.index?String(item.index):'')));
                 select.value=risks.some(item=>(item.index?String(item.index):'')===selected)?selected:'';
             });
-            document.getElementById('addRiskRow').disabled=Number(total.value)>=99;
             window.refreshEvaluationControls?.();
         }
         window.refreshTreatmentRiskNames=sync;
-        document.getElementById('addRiskRow').addEventListener('click',()=>{
-            if(Number(total.value)>=99)return;
-            const index=Number(total.value);
-            for(const [templateId,target] of [['emptyIdentificationRow',identification],['emptyEvaluationRow',evaluation]]){
-                const template=document.createElement('template');
-                template.innerHTML=document.getElementById(templateId).innerHTML.replaceAll('__prefix__',index).replaceAll('__rowindex__',index+1);
-                target.appendChild(template.content);
-            }
-            total.value=index+1;
-            sync();
-        });
         form.addEventListener('click',event=>{
             const remove=event.target.closest('[data-delete-risk]');
             if(!remove)return;

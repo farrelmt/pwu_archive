@@ -30,7 +30,7 @@
         <nav class="flex-1 p-3 py-5">
             <p class="mb-2 px-3 text-[11px] font-bold uppercase tracking-[.18em] text-slate-400">Ruang Kerja</p>
             <a class="risk-nav {% if request.path == '/' %}risk-nav-active{% endif %}" href="{% url 'risk:dashboard' %}">Ringkasan</a>
-            <a class="risk-nav {% if '/risiko/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:risk_list' %}">Register Risiko</a>
+            <a class="risk-nav {% if '/risiko/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:risk_list' %}">Risiko</a>
             <a class="risk-nav {% if '/pemantauan/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:monitoring_report' %}">Pemantauan Triwulan</a>
             <a class="risk-nav {% if '/perlakuan-risiko/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:treatment_list' %}">Perlakuan Risiko</a>
             <a class="risk-nav {% if '/pedoman-penilaian/' in request.path or '/kriteria-risiko/' in request.path %}risk-nav-active{% endif %}" href="{% url 'risk:criteria' %}">Kriteria Risiko</a>

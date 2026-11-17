@@ -64,6 +64,58 @@ class TemplateReport:
             self.sheets[sheet.getAttribute("name")] = target.lstrip("/") if target.startswith("/") else "xl/" + target
         self.areas = {}
 
+    def add_identification_code_column(self):
+        """Insert a styled code column after No. without changing the source template."""
+        path = self.sheets["Identifikasi Risiko"]
+        document = minidom.parseString(self.files[path])
+        data = document.getElementsByTagName("sheetData")[0]
+
+        def shifted(address):
+            match = re.fullmatch(r"([A-Z]+)(\d+)", address)
+            if not match:
+                return address
+            column, row = match.groups()
+            number = _column_number(column)
+            return f"{_column(number + 1) if number >= 2 and int(row) >= 7 else column}{row}"
+
+        for row in _elements(data, "row"):
+            row_number = int(row.getAttribute("r"))
+            if row_number < 7:
+                continue
+            cells = _elements(row, "c")
+            for cell in cells:
+                cell.setAttribute("r", shifted(cell.getAttribute("r")))
+            if row_number in (7, 8, 9, 10):
+                source = next((cell for cell in cells if cell.getAttribute("r") == f"C{row_number}"), None)
+                inserted = document.createElementNS(MAIN_NS, "c")
+                inserted.setAttribute("r", f"B{row_number}")
+                if source and source.hasAttribute("s"):
+                    inserted.setAttribute("s", source.getAttribute("s"))
+                row.insertBefore(inserted, next((cell for cell in cells if _column_number(cell.getAttribute("r")) > 2), None))
+
+        for column in document.getElementsByTagName("col"):
+            for attribute in ("min", "max"):
+                number = int(column.getAttribute(attribute))
+                if number >= 2:
+                    column.setAttribute(attribute, str(number + 1))
+        columns = document.getElementsByTagName("cols")
+        if columns:
+            new_column = document.createElementNS(MAIN_NS, "col")
+            for attribute, value in {"min": "2", "max": "2", "width": "23", "customWidth": "1"}.items():
+                new_column.setAttribute(attribute, value)
+            columns[0].insertBefore(new_column, columns[0].firstChild)
+
+        merges = document.getElementsByTagName("mergeCells")
+        if merges:
+            for merge in merges[0].getElementsByTagName("mergeCell"):
+                merge.setAttribute("ref", ":".join(shifted(address) for address in merge.getAttribute("ref").split(":")))
+            code_merge = document.createElementNS(MAIN_NS, "mergeCell")
+            code_merge.setAttribute("ref", "B7:B8")
+            merges[0].appendChild(code_merge)
+            merges[0].setAttribute("count", str(len(merges[0].getElementsByTagName("mergeCell"))))
+
+        self.files[path] = document.toxml(encoding="UTF-8")
+
     def mark_download(self, provenance):
         """Embed signed provenance in Excel properties, outside all visible sheets."""
         custom_ns = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
@@ -302,9 +354,10 @@ def _risk_values(likelihood, impact, likelihood_column, impact_column, row):
 
 def annual_risk_workbook(risks, *, division, year, download_mark=None):
     report = TemplateReport()
+    report.add_identification_code_column()
     risks = list(risks)
     metadata = {
-        "C4": division.name,
+        "C4": division.name if division else "Semua Divisi",
         "C5": "\n".join(dict.fromkeys(r.risk_owner for r in risks if r.risk_owner)),
         "C6": "\n".join(dict.fromkeys(r.risk_officer for r in risks if r.risk_officer)),
     }
@@ -329,22 +382,31 @@ def annual_risk_workbook(risks, *, division, year, download_mark=None):
             )
             identification.append(lambda row, n=number, r=risk, p=parts, c=cause, control=control,
                                   extra_impact=extra_impact, notes=notes, first=index == 0: [
-                n if first else None, p[0], r.title if first else None, p[1], c,
-                control if c else "", p[2] if first else extra_impact or p[2],
-                *(_risk_values(r.inherent_likelihood, r.inherent_impact, "H", "I", row) if first
+                n if first else None, r.risk_code if first else None, p[0], r.title if first else None,
+                p[1], c, control if c else "", p[2] if first else extra_impact or p[2],
+                *(_risk_values(r.inherent_likelihood, r.inherent_impact, "I", "J", row) if first
                   else [None] * 4),
                 r.identification_notes if first else notes,
             ])
-        for index, control in enumerate(risk.existing_controls.splitlines() or [""]):
-            evaluation.append(lambda row, n=number, r=risk, c=control, first=index == 0: [
-                n if first else None, r.title if first else None, c,
-                *["ü" if r.control_effectiveness == value else "" for value in ("ineffective", "adequate", "effective")],
+        control_rows = [
+            (line, risk.control_effectiveness, "")
+            for line in (risk.existing_controls.splitlines() or [""])
+        ]
+        control_rows.extend(
+            (control.description, control.effectiveness, control.notes)
+            for control in risk.additional_controls.all()
+        )
+        for index, (control, effectiveness, notes) in enumerate(control_rows):
+            evaluation.append(lambda row, n=number, r=risk, c=control, e=effectiveness,
+                              notes=notes, first=index == 0: [
+                n if first else None, f"{r.risk_code}\n{r.title}" if first else None, c,
+                *["ü" if e == value else "" for value in ("ineffective", "adequate", "effective")],
                 *(_risk_values(r.residual_likelihood, r.residual_impact, "G", "H", row) if first else [None] * 4),
-                "✓" if r.is_priority and first else "", r.evaluation_notes if first else None,
+                "✓" if r.is_priority and first else "", r.evaluation_notes if first else notes,
             ])
         for index, treatment in enumerate(risk.treatments.all()):
             treatments.append(lambda row, n=number, r=risk, t=treatment, first=index == 0: [
-                n if first else None, r.title if first else None, t.option, t.action_plan,
+                n if first else None, f"{r.risk_code}\n{r.title}" if first else None, t.option, t.action_plan,
                 *_risk_values(t.expected_likelihood, t.expected_impact, "E", "F", row),
                 t.target_date, t.responsible_person, t.notes,
             ])
@@ -354,7 +416,7 @@ def annual_risk_workbook(risks, *, division, year, download_mark=None):
             actions = list(monitoring.action_plans.all()) or [None]
             for index, action in enumerate(actions):
                 def monitoring_row(row, m=monitoring, a=action, first=index == 0, n=number, r=risk):
-                    values = [n if first else None, r.title if first else None,
+                    values = [n if first else None, f"{r.risk_code}\n{r.title}" if first else None,
                               a.description if a else None, a.realization if a else None,
                               a.target_date if a else None, a.responsible_person if a else None]
                     if first:
@@ -367,16 +429,50 @@ def annual_risk_workbook(risks, *, division, year, download_mark=None):
                         values += [None] * 14
                     return values
                 quarter_records[monitoring.quarter].append(monitoring_row)
-    report.fill("Identifikasi Risiko", identification, 12, metadata=metadata)
-    report.fill("Analisis & Evaluasi Risiko", evaluation, 12, metadata=metadata)
-    report.fill("Perlakuan Risiko", treatments, 11, metadata=metadata)
+    report.fill("Identifikasi Risiko", identification, 13,
+                metadata={**metadata, "B7": "Kode Risiko", "D7": "Nama Risiko",
+                          **{f"{_column(column)}9": f"({column})" for column in range(2, 14)}})
+    report.fill("Analisis & Evaluasi Risiko", evaluation, 12,
+                metadata={**metadata, "B7": "Kode Risiko / Nama Risiko"})
+    report.fill("Perlakuan Risiko", treatments, 11,
+                metadata={**metadata, "B7": "Kode Risiko / Nama Risiko"})
     for quarter, name in [(1, "Pemantauan TW1"), (2, "Pemantauan TW2"), (3, "Pemantauan TW 3")]:
-        report.fill(name, quarter_records[quarter], 20, metadata=metadata)
+        report.fill(name, quarter_records[quarter], 20,
+                    metadata={**metadata, "B7": "Kode Risiko / Nama Risiko"})
     if quarter_records[4]:
         report.add_fourth_quarter()
-        report.fill("Pemantauan TW4", quarter_records[4], 20, metadata=metadata)
+        report.fill("Pemantauan TW4", quarter_records[4], 20,
+                    metadata={**metadata, "B7": "Kode Risiko / Nama Risiko"})
     # This system has no incidental-report records; return the original blank form.
     report.fill("Pelaporan Insidental", [], 17, start=7)
     if download_mark is not None:
         report.mark_download(download_mark)
+    return report.save()
+
+
+def empty_import_workbook():
+    """Return the official workbook layout without any example risk data."""
+    report = TemplateReport()
+    report.add_identification_code_column()
+    report.add_fourth_quarter()
+    names = (
+        ("Identifikasi Risiko", 13),
+        ("Analisis & Evaluasi Risiko", 12),
+        ("Perlakuan Risiko", 11),
+        ("Pemantauan TW1", 20),
+        ("Pemantauan TW2", 20),
+        ("Pemantauan TW 3", 20),
+        ("Pemantauan TW4", 20),
+    )
+    for name, columns in names:
+        if name == "Identifikasi Risiko":
+            headers = {"B7": "Kode Risiko", "D7": "Nama Risiko",
+                       **{f"{_column(column)}9": f"({column})" for column in range(2, 14)}}
+        else:
+            headers = {"B7": "Kode Risiko / Nama Risiko"}
+        report.fill(name, [], columns, metadata={
+            "C4": "", "C5": "", "C6": "", **headers,
+        })
+    report.fill("Pelaporan Insidental", [], 17, start=7,
+                metadata={"C4": "", "C5": "", "C6": ""})
     return report.save()
