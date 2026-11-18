@@ -1,6 +1,7 @@
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from django import forms
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
@@ -456,14 +457,38 @@ def risk_detail(request, pk):
         pk=pk,
     )
     can_edit_this = can_edit_risk(request.user, risk)
-    year_value = request.POST.get("monitoring_year") if request.method == "POST" else request.GET.get("monitoring_year")
+    treatment_post = request.method == "POST" and "save_treatment" in request.POST
+    treatment_form = None
+    if can_edit_this:
+        treatment_form = RiskTreatmentForm(
+            request.POST if treatment_post else None, user=request.user, initial={"risk": risk.pk},
+        )
+        treatment_form.fields["risk"].disabled = True
+        treatment_form.fields["risk"].widget = forms.HiddenInput()
+    if treatment_post:
+        if not can_edit_this:
+            raise PermissionDenied("Anda tidak dapat mengubah perlakuan risiko divisi lain.")
+        if treatment_form.is_valid():
+            treatment = treatment_form.save(commit=False)
+            treatment.risk = risk
+            treatment.created_by = treatment.updated_by = request.user
+            with transaction.atomic():
+                treatment.save()
+                RiskActivity.objects.create(risk=risk, actor=request.user, action="treatment_created",
+                                            description="Perlakuan risiko ditambahkan.")
+                _log(request, "RISK_TREATMENT_CREATED", "Menambahkan perlakuan risiko.", treatment,
+                     target_label=risk.risk_code)
+            messages.success(request, "Perlakuan risiko berhasil ditambahkan.")
+            return redirect(f"{reverse('risk:risk_detail', args=[risk.pk])}#perlakuan-risiko")
+    monitoring_post = request.method == "POST" and not treatment_post
+    year_value = request.POST.get("monitoring_year") if monitoring_post else request.GET.get("monitoring_year")
     if year_value and year_value.isdigit() and 2020 <= int(year_value) <= 2100:
         selected_year = int(year_value)
-    elif request.method == "POST":
+    elif monitoring_post:
         return HttpResponseBadRequest("Tahun pemantauan tidak valid.")
     else:
         selected_year = _current_period()[0]
-    quarter_value = request.POST.get("save_quarter") if request.method == "POST" else request.GET.get("monitoring_quarter")
+    quarter_value = request.POST.get("save_quarter") if monitoring_post else request.GET.get("monitoring_quarter")
     selected_quarter = int(quarter_value) if quarter_value and quarter_value.isdigit() and int(quarter_value) in range(1, 5) else 1
     existing_monitorings = list(risk.monitorings.all())
     treatments = list(risk.treatments.all())
@@ -471,7 +496,7 @@ def risk_detail(request, pk):
     selected_form = None
     selected_actions = None
     submitted_quarter = None
-    if request.method == "POST":
+    if monitoring_post:
         if not can_edit_this:
             raise PermissionDenied("Anda tidak dapat mengubah pemantauan risiko divisi lain.")
         quarter_value = request.POST.get("save_quarter", "")
@@ -562,7 +587,7 @@ def risk_detail(request, pk):
             "table_items": [existing] if existing else [],
         })
     response = render(request, "risk_management/risk_detail.html", {
-        "risk": risk, "can_edit_this": can_edit_this,
+        "risk": risk, "can_edit_this": can_edit_this, "treatment_form": treatment_form,
         "monitoring_rows": monitoring_rows,
         "monitoring_year": selected_year,
         "monitoring_quarter": selected_quarter,

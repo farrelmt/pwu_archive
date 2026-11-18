@@ -341,6 +341,30 @@ class RiskPermissionTests(TestCase):
         self.assertEqual(exported["Perlakuan Risiko"]["K10"].value, payload["notes"])
         exported.close()
 
+    def test_detail_adds_treatment_in_table(self):
+        self.client.force_login(self.officer)
+        url = reverse("risk:risk_detail", args=[self.risk.pk])
+        page = self.client.get(url, HTTP_HOST="risk.localhost")
+        self.assertContains(page, "Risk Register")
+        self.assertContains(page, 'data-add-treatment')
+        self.assertContains(page, 'id="new-treatment-row"')
+        response = self.client.post(url, {
+            "save_treatment": "1", "risk": "999999", "option": "Mengurangi risiko",
+            "action_plan": "Tindakan baru", "expected_likelihood": "2", "expected_impact": "2",
+        }, HTTP_HOST="risk.localhost")
+        self.assertRedirects(response, f"{url}#perlakuan-risiko", fetch_redirect_response=False)
+        self.assertEqual(RiskTreatment.objects.get().risk, self.risk)
+        invalid = self.client.post(url, {
+            "save_treatment": "1", "action_plan": "Tidak lengkap", "expected_likelihood": "2",
+        }, HTTP_HOST="risk.localhost")
+        self.assertEqual(invalid.status_code, 200)
+        self.assertContains(invalid, 'id="new-treatment-row"')
+        self.assertTrue(invalid.context["treatment_form"].errors)
+        self.client.force_login(self.head)
+        self.assertNotContains(self.client.get(url, HTTP_HOST="risk.localhost"), 'data-add-treatment')
+        self.assertEqual(self.client.post(url, {"save_treatment": "1", "action_plan": "Ditolak"},
+                                          HTTP_HOST="risk.localhost").status_code, 403)
+
     def test_treatment_permissions_and_validation(self):
         other = RiskRegister.objects.create(division=self.division_b, title="Risiko privat", category="operational",
                                             inherent_likelihood=1, inherent_impact=1, residual_likelihood=1,
