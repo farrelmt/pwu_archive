@@ -95,10 +95,10 @@
                 <div><dt class="text-xs font-bold uppercase text-slate-400">Target</dt><dd class="mt-1">{{ risk.target_date|date:'d F Y'|default:'-' }}</dd></div>
             </dl>
         </section>
-        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 class="font-bold">Riwayat</h2>
+        <details id="risk-history" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-bold">Riwayat Risiko<svg aria-hidden="true" class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></summary>
             <div class="mt-4 space-y-4">{% for activity in risk.activities.all %}<div class="border-l-2 border-blue-500 pl-3"><p class="text-sm font-semibold">{{ activity.description }}</p><p class="mt-1 text-xs text-slate-500">{{ activity.actor.get_full_name|default:activity.actor.username }} · {{ activity.created_at|date:'d M Y H:i' }}</p></div>{% empty %}<p class="text-sm text-slate-500">Belum ada aktivitas.</p>{% endfor %}</div>
-        </section>
+        </details>
     </div>
 </div>
 
@@ -106,9 +106,32 @@
     <div class="border-b border-slate-200 px-5 py-4"><h2 class="text-lg font-bold">Perlakuan Risiko</h2><p class="mt-1 text-sm text-slate-500">Opsi dan rencana aksi sebelum pemantauan triwulan.</p></div>
     {% include 'risk_management/treatment_table.html' %}
 </section>
+<style nonce="{{ request.csp_nonce }}">
+    #risk-history summary::-webkit-details-marker{display:none}
+    #risk-history[open] summary svg{transform:rotate(180deg)}
+</style>
+<script nonce="{{ request.csp_nonce }}">
+    (() => {
+        const history = document.getElementById('risk-history');
+        const wide = window.matchMedia('(min-width: 1280px)');
+        const syncHistory = () => { history.open = wide.matches; };
+        wide.addEventListener('change', syncHistory);
+        syncHistory();
+    })();
+</script>
 {% if treatment_form %}<script nonce="{{ request.csp_nonce }}">
     (() => {
         const row = document.getElementById('new-treatment-row');
+        {% if not treatment_form.hide_expected %}
+        const updateScore = () => {
+            const likelihood = Number(row.querySelector('[name="expected_likelihood"]').value);
+            const impact = Number(row.querySelector('[name="expected_impact"]').value);
+            const valid = Number.isInteger(likelihood) && Number.isInteger(impact) && likelihood >= 1 && likelihood <= 5 && impact >= 1 && impact <= 5;
+            row.querySelector('[data-treatment-score]').textContent = valid ? likelihood * impact : '-';
+        };
+        row.addEventListener('input', updateScore);
+        updateScore();
+        {% endif %}
         document.querySelectorAll('[data-add-treatment]').forEach(button => button.addEventListener('click', () => {
             row.hidden = false;
             row.scrollIntoView({block: 'nearest'});
@@ -117,6 +140,12 @@
         row.querySelector('[data-cancel-treatment]')?.addEventListener('click', () => {
             row.hidden = true;
             row.querySelector('form').reset();
+            {% if not treatment_form.hide_expected %}updateScore();{% endif %}
+        });
+        row.querySelector('[data-open-treatment-date-picker]')?.addEventListener('click', event => {
+            const input = event.currentTarget.previousElementSibling;
+            if (input.showPicker) input.showPicker();
+            else input.focus();
         });
     })();
 </script>{% endif %}
@@ -137,6 +166,13 @@
         <h3 class="text-center text-sm font-extrabold sm:text-base">Pemantauan {{ monitoring_rows.0.label }} - {{ monitoring_year }}</h3>
         {% if next_quarter %}<a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ next_quarter }}#pemantauan-triwulan" class="rounded-lg px-3 py-2 text-sm font-bold hover:bg-blue-800" aria-label="Pemantauan triwulan selanjutnya">Selanjutnya &gt;</a>{% else %}<span class="px-3 py-2 text-sm text-blue-300" aria-disabled="true">Selanjutnya &gt;</span>{% endif %}
     </nav>
+    <div class="mt-3 flex flex-wrap gap-2" aria-label="Status pemantauan {{ monitoring_year }}">
+        {% for quarter in quarter_statuses %}
+        <a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ quarter.number }}#pemantauan-triwulan" class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold {% if quarter.saved %}border-green-200 bg-green-50 text-green-800{% else %}border-slate-200 bg-slate-50 text-slate-600{% endif %} {% if quarter.number == monitoring_quarter %}ring-2 ring-blue-400 ring-offset-1{% endif %}" {% if quarter.number == monitoring_quarter %}aria-current="page"{% endif %}>
+            <span aria-hidden="true">{% if quarter.saved %}✓{% else %}○{% endif %}</span>{{ quarter.label }}: {% if quarter.saved %}Tersimpan{% else %}Belum disimpan{% endif %}
+        </a>
+        {% endfor %}
+    </div>
     <div class="mt-5">{% for row in monitoring_rows %}{% include 'risk_management/monitoring_excel_entry.html' %}{% endfor %}</div>
 </section>
 <style nonce="{{ request.csp_nonce }}">
@@ -148,10 +184,6 @@
     .monitoring-excel-table tbody tr:nth-child(even) td{background:#f8fafc}
     .monitoring-excel-table input,.monitoring-excel-table textarea{min-width:0;max-width:100%}.monitoring-excel-table textarea{min-height:64px;resize:vertical}
     .monitor-date-field{display:flex;align-items:center;gap:.4rem}.monitor-date-field input[type="date"]{flex:1;min-width:0;background:#fff;color:#0f172a;color-scheme:light}.monitor-date-field button{flex:none;display:grid;place-items:center;width:2.25rem;height:2.25rem;border:1px solid #93c5fd;border-radius:.5rem;background:#eff6ff;color:#1e40af;font-size:1.1rem;cursor:pointer}.monitor-date-field button:hover,.monitor-date-field button:focus-visible{background:#dbeafe;outline:2px solid #2563eb;outline-offset:1px}
-    .monitoring-excel-table .monitor-sticky-no,.monitoring-excel-table .monitor-sticky-risk{position:sticky;z-index:2;background:#fff;box-shadow:3px 0 7px -5px #64748b}
-    .monitoring-excel-table .monitor-sticky-no{left:0}.monitoring-excel-table .monitor-sticky-risk{left:52px}
-    .monitoring-excel-table thead .monitor-sticky-no,.monitoring-excel-table thead .monitor-sticky-risk{z-index:3;background:#dbeafe}
-    .monitoring-excel-table tbody tr:nth-child(even) .monitor-sticky-no,.monitoring-excel-table tbody tr:nth-child(even) .monitor-sticky-risk{background:#f8fafc}
     .monitoring-excel-table output{display:block;min-height:2rem;padding:.35rem .2rem;text-align:center;font-weight:700;color:#1e3a8a}
     .monitoring-excel-table .errorlist{margin:.3rem 0 0;color:#b91c1c;font-size:.7rem}
     .monitoring-excel-table tr[hidden],.monitoring-excel-table button[hidden]{display:none}
@@ -160,6 +192,6 @@
     (()=>{const matrix=[['Sangat Rendah','Sangat Rendah','Rendah','Rendah','Sedang'],['Sangat Rendah','Rendah','Sedang','Sedang','Tinggi'],['Rendah','Sedang','Sedang','Tinggi','Tinggi'],['Sedang','Sedang','Tinggi','Tinggi','Sangat Tinggi'],['Tinggi','Tinggi','Tinggi','Sangat Tinggi','Sangat Tinggi']];
     for(const card of document.querySelectorAll('[data-monitor-quarter]')){const area=card.querySelector('.monitoring-excel-scroll');const arrows=[...card.querySelectorAll('[data-monitor-scroll]')];function updateArrows(){const end=area.scrollWidth-area.clientWidth;for(const button of arrows)button.disabled=Number(button.dataset.monitorScroll)<0?area.scrollLeft<=1:area.scrollLeft>=end-1}for(const button of arrows)button.addEventListener('click',()=>area.scrollBy({left:Number(button.dataset.monitorScroll)*Math.max(360,area.clientWidth*.75),behavior:'smooth'}));area.addEventListener('scroll',updateArrows,{passive:true});window.addEventListener('resize',updateArrows);updateArrows();
     const form=card.querySelector('form[method="post"]');if(!form)continue;const total=form.querySelector('input[name$="-TOTAL_FORMS"]');const template=form.querySelector('[data-action-template]');const rows=form.querySelector('[data-action-rows]');function updateRemoveButtons(){const visible=rows.querySelectorAll('tr:not([hidden])').length;for(const button of rows.querySelectorAll('[data-remove-action]'))button.hidden=visible<=1}form.querySelector('[data-add-action]').addEventListener('click',()=>{const index=Number(total.value);rows.insertAdjacentHTML('beforeend',template.innerHTML.replaceAll('__prefix__',index));total.value=index+1;updateRemoveButtons()});rows.addEventListener('click',event=>{const button=event.target.closest('[data-remove-action]');if(!button)return;const row=button.closest('tr');if(rows.querySelectorAll('tr:not([hidden])').length<=1)return;row.querySelector('input[name$="-DELETE"]').checked=true;row.hidden=true;updateRemoveButtons()});rows.addEventListener('click',event=>{const button=event.target.closest('[data-open-date-picker]');if(!button)return;const input=button.closest('.monitor-date-field').querySelector('input[type="date"]');if(input.showPicker)input.showPicker();else input.focus()});updateRemoveButtons();
-    function value(name){const input=form.querySelector('input[name$="-'+name+'"]');const number=Number(input?.value);return input?.value&&number>=1&&number<=5?number:null}function calculate(){const scores={};for(const [key,prefix] of [['initial','initial'],['final','final'],['expected','expected']]){const likelihood=value(prefix+'_likelihood'),impact=value(prefix+'_impact');scores[key]=likelihood&&impact?likelihood*impact:null;form.querySelector('[data-score="'+key+'"]').textContent=scores[key]??'—';form.querySelector('[data-level="'+key+'"]').textContent=likelihood&&impact?matrix[impact-1][likelihood-1]:'—'}form.querySelector('[data-deviation]').textContent=scores.expected!==null&&scores.final!==null?scores.expected-scores.final:'—'}for(const input of form.querySelectorAll('input[type="number"]'))input.addEventListener('input',calculate);calculate()}})()
+    function value(name){const input=form.querySelector('input[name$="-'+name+'"]');const number=Number(input?.value);return input?.value&&number>=1&&number<=5?number:null}function calculate(){const likelihood=value('final_likelihood'),impact=value('final_impact');form.querySelector('[data-score="final"]').textContent=likelihood&&impact?likelihood*impact:'—';form.querySelector('[data-level="final"]').textContent=likelihood&&impact?matrix[impact-1][likelihood-1]:'—';for(const output of form.querySelectorAll('[data-deviation]')){const expected=Number(output.dataset.expectedScore);output.textContent=output.dataset.expectedScore&&likelihood&&impact?expected-likelihood*impact:'—'}}for(const input of form.querySelectorAll('input[type="number"]'))input.addEventListener('input',calculate);calculate()}})()
 </script>
 {% endblock %}

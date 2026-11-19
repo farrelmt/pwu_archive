@@ -85,6 +85,13 @@ def _current_period():
     return today.year, ((today.month - 1) // 3) + 1
 
 
+def _previous_monitoring(monitorings, year, quarter):
+    return max(
+        (item for item in monitorings if (item.year, item.quarter) < (year, quarter)),
+        key=lambda item: (item.year, item.quarter), default=None,
+    )
+
+
 def _selected_period(request):
     default_year, default_quarter = _current_period()
     try:
@@ -121,9 +128,9 @@ def _monitoring_summary(monitorings):
             "risk_count": 1,
             "plan_count": len(plans),
             "realized_count": realized,
-            "initial_score": monitoring.initial_score,
+            "initial_score": monitoring.initial_score or 0,
             "final_score": monitoring.final_score,
-            "score_reduction": monitoring.score_reduction,
+            "score_reduction": monitoring.score_reduction or 0,
         }
         for key, value in values.items():
             row[key] += value
@@ -166,7 +173,7 @@ def dashboard(request):
     current_monitorings = list(
         RiskMonitoring.objects.filter(
             risk__in=risks_for_user(request.user), year=year, quarter=quarter,
-        ).select_related("risk__division").prefetch_related("action_plans")
+        ).select_related("risk__division").prefetch_related("action_plans__treatment")
     )
     division_rows, monitoring_totals = _monitoring_summary(current_monitorings)
     response = render(request, "risk_management/dashboard.html", {
@@ -360,7 +367,7 @@ def annual_report(request):
             "treatments", "additional_causes", "additional_controls",
             Prefetch("monitorings", queryset=RiskMonitoring.objects.filter(
                 year=year,
-            ).prefetch_related("action_plans")),
+            ).prefetch_related("action_plans__treatment")),
         )
         if not risks.exists():
             form.add_error(None, "Tidak ada data risiko untuk tahun dan divisi yang dipilih.")
@@ -451,7 +458,7 @@ def risk_detail(request, pk):
             "treatments",
             Prefetch(
                 "monitorings",
-                queryset=RiskMonitoring.objects.prefetch_related("action_plans").select_related("updated_by"),
+                queryset=RiskMonitoring.objects.prefetch_related("action_plans__treatment").select_related("updated_by"),
             )
         ),
         pk=pk,
@@ -462,9 +469,15 @@ def risk_detail(request, pk):
     if can_edit_this:
         treatment_form = RiskTreatmentForm(
             request.POST if treatment_post else None, user=request.user, initial={"risk": risk.pk},
+            hide_expected=bool(risk.treatments.all()),
         )
         treatment_form.fields["risk"].disabled = True
         treatment_form.fields["risk"].widget = forms.HiddenInput()
+        for field in treatment_form.visible_fields():
+            field.field.widget.attrs["form"] = "new-treatment-form"
+            field.field.widget.attrs["class"] = "w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            if field.name in {"option", "action_plan", "notes"}:
+                field.field.widget.attrs["rows"] = 3
     if treatment_post:
         if not can_edit_this:
             raise PermissionDenied("Anda tidak dapat mengubah perlakuan risiko divisi lain.")
@@ -491,7 +504,7 @@ def risk_detail(request, pk):
     quarter_value = request.POST.get("save_quarter") if monitoring_post else request.GET.get("monitoring_quarter")
     selected_quarter = int(quarter_value) if quarter_value and quarter_value.isdigit() and int(quarter_value) in range(1, 5) else 1
     existing_monitorings = list(risk.monitorings.all())
-    treatments = list(risk.treatments.all())
+    treatments = sorted(risk.treatments.all(), key=lambda item: item.pk)
     by_quarter = {item.quarter: item for item in existing_monitorings if item.year == selected_year}
     selected_form = None
     selected_actions = None
@@ -507,10 +520,32 @@ def risk_detail(request, pk):
         data[f"q{submitted_quarter}-year"] = selected_year
         data[f"q{submitted_quarter}-quarter"] = submitted_quarter
         existing = by_quarter.get(submitted_quarter)
-        selected_form = RiskMonitoringExcelForm(data, instance=existing, prefix=f"q{submitted_quarter}")
+        if existing is None:
+            previous = _previous_monitoring(existing_monitorings, selected_year, submitted_quarter)
+            previous_actions = {action.pk: action for action in previous.action_plans.all()} if previous else {}
+            prefix = f"q{submitted_quarter}-actions"
+            total_forms = data.get(f"{prefix}-TOTAL_FORMS", "")
+            used_previous_ids = set()
+            if total_forms.isdigit():
+                for index in range(min(int(total_forms), 1000)):
+                    row_prefix = f"{prefix}-{index}"
+                    prior_id = data.get(f"{row_prefix}-previous_action", "")
+                    prior_action = previous_actions.get(int(prior_id)) if prior_id.isdigit() else None
+                    if (prior_action is None or prior_action.pk in used_previous_ids
+                            or data.get(f"{row_prefix}-DELETE")
+                            or data.get(f"{row_prefix}-treatment", "") != str(prior_action.treatment_id or "")):
+                        continue
+                    used_previous_ids.add(prior_action.pk)
+                    for field_name in ("description", "realization", "target_date", "responsible_person"):
+                        key = f"{row_prefix}-{field_name}"
+                        if not data.get(key):
+                            previous_value = getattr(prior_action, field_name)
+                            if previous_value:
+                                data[key] = previous_value.isoformat() if field_name == "target_date" else previous_value
+        selected_form = RiskMonitoringExcelForm(data, instance=existing, risk=risk, prefix=f"q{submitted_quarter}")
         selected_form.instance.risk = risk
         selected_actions = MonitoringExcelActionFormSet(
-            request.POST, instance=selected_form.instance, prefix=f"q{submitted_quarter}-actions",
+            data, instance=selected_form.instance, prefix=f"q{submitted_quarter}-actions",
             form_kwargs={"risk": risk},
         )
         monitoring_valid = selected_form.is_valid()
@@ -552,26 +587,47 @@ def risk_detail(request, pk):
         existing = by_quarter.get(quarter)
         initial = {
             "year": selected_year, "quarter": quarter,
-            "initial_likelihood": risk.inherent_likelihood,
-            "initial_impact": risk.inherent_impact,
+            "initial_likelihood": risk.residual_likelihood,
+            "initial_impact": risk.residual_impact,
             "final_likelihood": risk.residual_likelihood,
             "final_impact": risk.residual_impact,
         }
         form = selected_form if submitted_quarter == quarter else RiskMonitoringExcelForm(
-            instance=existing, initial=initial, prefix=f"q{quarter}",
+            instance=existing, initial=initial, risk=risk, prefix=f"q{quarter}",
         )
+        previous = _previous_monitoring(existing_monitorings, selected_year, quarter)
+        previous_actions = list(previous.action_plans.all()) if previous else []
+        previous_by_id = {action.pk: action for action in previous_actions}
+        previous_by_treatment = {
+            action.treatment_id: action for action in previous_actions if action.treatment_id
+        }
+        treatments_by_id = {treatment.pk: treatment for treatment in treatments}
         linked_treatments = {
             action.treatment_id for action in existing.action_plans.all()
         } if existing else set()
-        initial_actions = [
-            {
-                "treatment": treatment.pk,
-                "description": treatment.action_plan,
-                "target_date": treatment.target_date,
-                "responsible_person": treatment.responsible_person or risk.risk_owner,
-            }
-            for treatment in treatments if treatment.pk not in linked_treatments
-        ]
+        initial_actions = []
+        if not existing:
+            for prior_action in previous_actions:
+                treatment = treatments_by_id.get(prior_action.treatment_id)
+                if treatment:
+                    initial_actions.append({
+                        "treatment": treatment.pk,
+                        "description": treatment.action_plan,
+                        "responsible_person": treatment.responsible_person or risk.risk_owner,
+                        "_previous_action_id": prior_action.pk,
+                    })
+                    linked_treatments.add(treatment.pk)
+                else:
+                    initial_actions.append({
+                        "responsible_person": prior_action.responsible_person,
+                        "_previous_action_id": prior_action.pk,
+                    })
+        initial_actions.extend({
+            "treatment": treatment.pk,
+            "description": treatment.action_plan,
+            "target_date": treatment.target_date,
+            "responsible_person": treatment.responsible_person or risk.risk_owner,
+        } for treatment in treatments if treatment.pk not in linked_treatments)
         if not initial_actions and not (existing and existing.action_plans.all()):
             initial_actions = [{}]
         action_formset = selected_actions if submitted_quarter == quarter else MonitoringExcelActionFormSet(
@@ -581,8 +637,29 @@ def risk_detail(request, pk):
         )
         if submitted_quarter != quarter:
             action_formset.extra = len(initial_actions)
+        if previous and not existing and not action_formset.is_bound:
+            for action_form in action_formset.forms:
+                prior_action = previous_by_id.get(action_form.initial.get("_previous_action_id"))
+                if prior_action is None:
+                    treatment_id = action_form.instance.treatment_id or action_form.initial.get("treatment")
+                    prior_action = previous_by_treatment.get(treatment_id)
+                if prior_action is None and action_form.instance.pk:
+                    prior_action = next((item for item in previous_actions
+                                         if item.treatment_id is None and item.description == action_form.instance.description), None)
+                if prior_action is None:
+                    continue
+                action_form.previous_action_id = prior_action.pk
+                for field_name, previous_value in (
+                    ("description", prior_action.description),
+                    ("realization", prior_action.realization),
+                ):
+                    if previous_value and not action_form[field_name].value():
+                        action_form.fields[field_name].widget.attrs["placeholder"] = previous_value
+                if prior_action.target_date and not action_form["target_date"].value():
+                    action_form.previous_target_date = prior_action.target_date
         monitoring_rows.append({
             "quarter": quarter, "label": label, "monitoring": existing,
+            "previous_monitoring": previous,
             "form": form, "action_formset": action_formset,
             "table_items": [existing] if existing else [],
         })
@@ -591,6 +668,10 @@ def risk_detail(request, pk):
         "monitoring_rows": monitoring_rows,
         "monitoring_year": selected_year,
         "monitoring_quarter": selected_quarter,
+        "quarter_statuses": [
+            {"number": quarter, "label": label, "saved": quarter in by_quarter}
+            for quarter, label in RiskMonitoring.QUARTER_CHOICES
+        ],
         "previous_quarter": selected_quarter - 1 if selected_quarter > 1 else None,
         "next_quarter": selected_quarter + 1 if selected_quarter < 4 else None,
         "monitoring_years": sorted({selected_year, _current_period()[0], *(item.year for item in existing_monitorings)}, reverse=True),
@@ -601,21 +682,16 @@ def risk_detail(request, pk):
     return response
 
 
-@risk_required
-def treatment_list(request):
-    risks = risks_for_user(request.user).order_by("risk_code").prefetch_related("treatments")
-    page_obj = Paginator(risks, 20).get_page(request.GET.get("page"))
-    for risk in page_obj:
-        risk.can_edit_treatment = can_edit_risk(request.user, risk)
-    return render(request, "risk_management/treatment_list.html", {
-        "page_obj": page_obj, "treatment_risks": page_obj,
-    })
-
-
 @risk_write_required
-def treatment_create(request):
+def treatment_create(request, risk_pk=None):
+    if request.method == "GET" and risk_pk is None and request.GET.get("risk", "").isdigit():
+        return redirect("risk:treatment_create_for_risk", risk_pk=int(request.GET["risk"]))
+    selected_risk = risk_pk or (request.POST.get("risk") if request.method == "POST" else None)
+    has_treatment = bool(selected_risk and str(selected_risk).isdigit() and
+                         RiskTreatment.objects.filter(risk__in=risks_for_user(request.user),
+                                                      risk_id=selected_risk).exists())
     form = RiskTreatmentForm(request.POST if request.method == "POST" else None,
-                             user=request.user, initial={"risk": request.GET.get("risk")})
+                             user=request.user, initial={"risk": risk_pk}, hide_expected=has_treatment)
     if request.method == "POST" and form.is_valid():
         treatment = form.save(commit=False)
         treatment.created_by = treatment.updated_by = request.user
@@ -629,6 +705,8 @@ def treatment_create(request):
         return redirect("risk:risk_detail", pk=treatment.risk_id)
     return render(request, "risk_management/treatment_form.html", {
         "form": form, "page_title": "Tambah Perlakuan Risiko",
+        "hide_expected": has_treatment,
+        "risks_with_treatment": list(RiskTreatment.objects.filter(risk__in=risks_for_user(request.user)).values_list("risk_id", flat=True).distinct()),
         "risk_level_matrix": [[LEVEL_BY_COLOR[color] for color in row] for row in MATRIX_COLORS],
     })
 
@@ -640,7 +718,8 @@ def treatment_edit(request, pk):
     if not can_edit_risk(request.user, treatment.risk):
         raise PermissionDenied("Anda tidak dapat mengubah perlakuan risiko divisi lain.")
     form = RiskTreatmentForm(request.POST if request.method == "POST" else None,
-                             user=request.user, instance=treatment)
+                             user=request.user, instance=treatment,
+                             hide_expected=treatment.risk.expected_treatment.pk != treatment.pk)
     if request.method == "POST" and form.is_valid():
         treatment = form.save(commit=False)
         treatment.updated_by = request.user
@@ -655,6 +734,8 @@ def treatment_edit(request, pk):
         return redirect("risk:risk_detail", pk=treatment.risk_id)
     return render(request, "risk_management/treatment_form.html", {
         "form": form, "treatment": treatment, "page_title": "Edit Perlakuan Risiko",
+        "hide_expected": form.hide_expected,
+        "risks_with_treatment": [],
         "risk_level_matrix": [[LEVEL_BY_COLOR[color] for color in row] for row in MATRIX_COLORS],
     })
 
@@ -957,8 +1038,9 @@ def division_pic_edit(request, pk):
             before, after = {}, {}
             assignments = [("risk_officer", "risk_officer"), ("risk_owner", "division_head")]
             if division.code == "LUM":
-                assignments += [("staff_it", "staff_it"), ("staff_hrd", "staff_hrd"),
-                                ("staff_humas", "staff_humas")]
+                assignments += [("staff_it", "staff_it"), ("staff_hrd", "staff_hrd")]
+            if division.code == "SPR":
+                assignments.append(("staff_humas", "staff_humas"))
             for name, role in assignments:
                 rows = RiskAccess.objects.filter(division=division, role=role)
                 before[role] = sorted(rows.filter(is_active=True).values_list("user_id", flat=True))
@@ -991,20 +1073,20 @@ def monitoring_report(request):
     monitorings = list(
         RiskMonitoring.objects.filter(
             risk__in=visible_risks, year=year, quarter=quarter,
-        ).select_related("risk__division").prefetch_related("action_plans")
+        ).select_related("risk__division").prefetch_related("action_plans__treatment")
     )
     sort_fields = {
         "title": lambda m: m.risk.title.casefold(),
-        "initial_likelihood": lambda m: m.initial_likelihood,
-        "initial_impact": lambda m: m.initial_impact,
-        "initial_score": lambda m: LEVEL_ORDER.index(m.initial_level),
+        "initial_likelihood": lambda m: m.before_treatment_likelihood,
+        "initial_impact": lambda m: m.before_treatment_impact,
+        "initial_score": lambda m: LEVEL_ORDER.index(m.before_treatment_level) if m.before_treatment_level else None,
         "final_likelihood": lambda m: m.final_likelihood,
         "final_impact": lambda m: m.final_impact,
         "final_score": lambda m: LEVEL_ORDER.index(m.final_level),
-        "expected_likelihood": lambda m: m.expected_likelihood,
-        "expected_impact": lambda m: m.expected_impact,
-        "expected_score": lambda m: LEVEL_ORDER.index(m.expected_level) if m.expected_level else None,
-        "deviation": lambda m: m.deviation,
+        "expected_likelihood": lambda m: m.risk.expected_treatment.expected_likelihood if m.risk.expected_treatment else None,
+        "expected_impact": lambda m: m.risk.expected_treatment.expected_impact if m.risk.expected_treatment else None,
+        "expected_score": lambda m: LEVEL_ORDER.index(m.risk.expected_treatment.expected_level) if m.risk.expected_treatment and m.risk.expected_treatment.expected_level else None,
+        "deviation": lambda m: m.risk.expected_treatment.expected_score - m.final_score if m.risk.expected_treatment and m.risk.expected_treatment.expected_score is not None else None,
         "notes": lambda m: m.evaluation_notes.casefold(),
     }
     action_sort_fields = {
@@ -1081,12 +1163,12 @@ def monitoring_create(request, risk_pk):
         raise PermissionDenied("Anda tidak dapat mengubah pemantauan risiko divisi lain.")
     initial = {
         "year": _current_period()[0], "quarter": _current_period()[1],
-        "initial_likelihood": risk.inherent_likelihood,
-        "initial_impact": risk.inherent_impact,
+        "initial_likelihood": risk.residual_likelihood,
+        "initial_impact": risk.residual_impact,
         "final_likelihood": risk.residual_likelihood,
         "final_impact": risk.residual_impact,
     }
-    form = RiskMonitoringForm(request.POST or None, initial=initial)
+    form = RiskMonitoringForm(request.POST or None, initial=initial, risk=risk)
     if request.method == "POST" and form.is_valid():
         if RiskMonitoring.objects.filter(
             risk=risk, year=form.cleaned_data["year"], quarter=form.cleaned_data["quarter"],

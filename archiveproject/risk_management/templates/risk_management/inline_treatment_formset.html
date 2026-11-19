@@ -5,8 +5,8 @@
     {% include 'risk_management/treatment_table_style.html' %}
     <div class="rw-table-scroll" role="region" aria-label="Formulir Perlakuan Risiko" tabindex="0">
     <table class="treatment-table text-left text-sm">
-        <colgroup><col class="treatment-number"><col class="treatment-name"><col class="treatment-text"><col class="treatment-text"><col class="treatment-score"><col class="treatment-score"><col class="treatment-level"><col class="treatment-date"><col class="treatment-owner"><col class="treatment-text"></colgroup>
-        <thead class="bg-blue-900 text-white"><tr><th rowspan="2" scope="col">No.</th><th rowspan="2" scope="col">Nama Risiko</th><th rowspan="2" scope="col">Opsi Perlakuan Risiko</th><th rowspan="2" scope="col">Rencana Aksi Perlakuan Risiko</th><th colspan="3" scope="colgroup">Risiko yang Diharapkan</th><th rowspan="2" scope="col">Jadwal Pelaksanaan</th><th rowspan="2" scope="col">Penanggung Jawab</th><th rowspan="2" scope="col">Keterangan</th></tr><tr><th scope="col">Kemungkinan</th><th scope="col">Dampak</th><th scope="col">Level Risiko</th></tr></thead>
+        <colgroup><col class="treatment-number"><col class="treatment-name"><col class="treatment-text"><col class="treatment-text"><col class="treatment-score"><col class="treatment-score"><col class="treatment-score"><col class="treatment-level"><col class="treatment-date"><col class="treatment-owner"><col class="treatment-text"></colgroup>
+        <thead class="bg-blue-900 text-white"><tr><th rowspan="2" scope="col">No.</th><th rowspan="2" scope="col">Nama Risiko</th><th rowspan="2" scope="col">Opsi Perlakuan Risiko</th><th rowspan="2" scope="col">Rencana Aksi Perlakuan Risiko</th><th colspan="4" scope="colgroup">Risiko yang Diharapkan</th><th rowspan="2" scope="col">Jadwal Pelaksanaan</th><th rowspan="2" scope="col">Penanggung Jawab</th><th rowspan="2" scope="col">Keterangan</th></tr><tr><th scope="col">Kemungkinan</th><th scope="col">Dampak</th><th scope="col">Skor Risiko</th><th scope="col">Level Risiko</th></tr></thead>
         <tbody id="inlineTreatmentRows">{% for treatment_form in treatment_formset %}{% if not forloop.first and not treatment_form.expected_likelihood.value and not treatment_form.expected_impact.value %}{% include 'risk_management/inline_treatment_row.html' with row_number=forloop.counter detail_row=True %}{% else %}{% include 'risk_management/inline_treatment_row.html' with row_number=forloop.counter %}{% endif %}{% endfor %}</tbody>
     </table>
     </div>
@@ -34,6 +34,8 @@
                 if(label){label.textContent=select.selectedOptions[0]?.textContent||'Risiko terkait';label.classList.toggle('hidden',!singleRisk&&!row.hasAttribute('data-treatment-detail-row'));}
                 if(singleRisk)select.classList.add('hidden');
                 const likelihood=Number(row.querySelector('[name$="-expected_likelihood"]').value),impact=Number(row.querySelector('[name$="-expected_impact"]').value);
+                const score=row.querySelector('[data-treatment-score]');
+                if(score)score.textContent=riskScoreFor(likelihood,impact);
                 const level=row.querySelector('[data-treatment-level]');
                 if(level)level.textContent=riskLevelFor(likelihood,impact);
             });

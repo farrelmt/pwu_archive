@@ -407,7 +407,8 @@ def annual_risk_workbook(risks, *, division, year, download_mark=None):
         for index, treatment in enumerate(risk.treatments.all()):
             treatments.append(lambda row, n=number, r=risk, t=treatment, first=index == 0: [
                 n if first else None, f"{r.risk_code}\n{r.title}" if first else None, t.option, t.action_plan,
-                *_risk_values(t.expected_likelihood, t.expected_impact, "E", "F", row),
+                *(_risk_values(r.expected_treatment.expected_likelihood, r.expected_treatment.expected_impact, "E", "F", row)
+                  if first else [None] * 4),
                 t.target_date, t.responsible_person, t.notes,
             ])
         for monitoring in risk.monitorings.all():
@@ -420,13 +421,15 @@ def annual_risk_workbook(risks, *, division, year, download_mark=None):
                               a.description if a else None, a.realization if a else None,
                               a.target_date if a else None, a.responsible_person if a else None]
                     if first:
-                        values += _risk_values(m.initial_likelihood, m.initial_impact, "G", "H", row)
+                        values += _risk_values(r.residual_likelihood, r.residual_impact, "G", "H", row)
                         values += _risk_values(m.final_likelihood, m.final_impact, "K", "L", row)
-                        values += _risk_values(m.expected_likelihood, m.expected_impact, "O", "P", row)
-                        values += [Formula(f"Q{row}-M{row}", m.deviation) if m.deviation is not None else None,
-                                   "\n".join(filter(None, [m.evaluation_notes, m.business_environment_changes]))]
                     else:
-                        values += [None] * 14
+                        values += [None] * 8
+                    expected = r.expected_treatment
+                    values += _risk_values(expected.expected_likelihood, expected.expected_impact, "O", "P", row) if first and expected else [None] * 4
+                    deviation = expected.expected_score - m.final_score if first and expected and expected.expected_score is not None else None
+                    values += [Formula(f"Q{row}-M{row if first else row - index}", deviation) if deviation is not None else None,
+                               "\n".join(filter(None, [m.evaluation_notes, m.business_environment_changes])) if first else None]
                     return values
                 quarter_records[monitoring.quarter].append(monitoring_row)
     report.fill("Identifikasi Risiko", identification, 13,

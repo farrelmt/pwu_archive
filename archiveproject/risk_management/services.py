@@ -294,8 +294,8 @@ def import_risk_workbook(uploaded_file, *, user, allowed_division_ids=None):
             rows = group["rows"]
             first = rows[0]
             defaults = {
-                "initial_likelihood": _score(first[6].value, default=risk.residual_likelihood),
-                "initial_impact": _score(first[7].value, default=risk.residual_impact),
+                "initial_likelihood": risk.residual_likelihood,
+                "initial_impact": risk.residual_impact,
                 "final_likelihood": _score(first[10].value, default=risk.residual_likelihood),
                 "final_impact": _score(first[11].value, default=risk.residual_impact),
                 "expected_likelihood": _score(first[14].value),
@@ -320,6 +320,7 @@ def import_risk_workbook(uploaded_file, *, user, allowed_division_ids=None):
                     )
                     stats["actions_created"] += 1
                 realization = _text(row[3].value)
+                action.treatment = risk.treatments.filter(action_plan=description).first()
                 progress, status = _realization_state(realization)
                 action.responsible_person = _text(row[5].value) or risk.risk_owner
                 action.target_date = _date(row[4].value)

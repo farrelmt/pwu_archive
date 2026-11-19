@@ -40,7 +40,7 @@
 <section class="rw-table-panel">
     <div class="rw-table-toolbar"><h2>Daftar risiko <span class="rw-count">{{ page_obj.paginator.count }}</span></h2><p class="rw-table-note">Klik judul kolom untuk mengurutkan</p></div>
     <div class="overflow-x-auto" role="region" aria-label="Tabel register risiko" tabindex="0"><table class="rw-register-table">
-        <colgroup><col style="width:29%"><col style="width:16%"><col style="width:12%"><col style="width:9%"><col style="width:14%"><col style="width:12%"><col style="width:8%"></colgroup>
+        <colgroup><col style="width:27%"><col style="width:15%"><col style="width:11%"><col style="width:14%"><col style="width:14%"><col style="width:11%"><col style="width:8%"></colgroup>
         <thead><tr><th scope="col">{% sort_header 'code' 'Kode' %} / {% sort_header 'title' 'Risiko' %}</th><th scope="col">{% sort_header 'division' 'Divisi' %}</th><th scope="col">{% sort_header 'category' 'Kategori' %}</th><th scope="col">{% sort_header 'inherent' 'Level Inheren' %}</th><th scope="col">{% sort_header 'residual' 'Level Residual' %}</th><th scope="col">{% sort_header 'status' 'Status' %}</th><th scope="col"><span class="sr-only">Detail risiko</span></th></tr></thead>
         <tbody>{% for risk in page_obj %}<tr>
             <td><div class="rw-risk-identifiers"><span class="rw-code">{{ risk.risk_code }}</span>{% if risk.is_priority %}<span class="rw-priority">Prioritas</span>{% endif %}</div><a href="{% url 'risk:risk_detail' risk.pk %}" class="rw-risk-title" title="{{ risk.title }}">{{ risk.title }}</a><span class="rw-owner" title="Pemilik risiko: {{ risk.risk_owner }}">{{ risk.risk_owner|default:'-' }}</span></td>

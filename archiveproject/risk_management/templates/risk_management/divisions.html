@@ -12,6 +12,8 @@
         {% if division.code == 'LUM' %}
         <div class="rounded-xl bg-slate-50 px-3 py-3"><dt class="text-xs font-bold text-slate-500">Staff IT</dt><dd class="mt-1 text-sm font-semibold">{{ division.staff_it_name|default:'Belum ditetapkan' }}</dd></div>
         <div class="rounded-xl bg-slate-50 px-3 py-3"><dt class="text-xs font-bold text-slate-500">HRD</dt><dd class="mt-1 text-sm font-semibold">{{ division.staff_hrd_name|default:'Belum ditetapkan' }}</dd></div>
+        {% endif %}
+        {% if division.code == 'SPR' %}
         <div class="rounded-xl bg-slate-50 px-3 py-3"><dt class="text-xs font-bold text-slate-500">Humas</dt><dd class="mt-1 text-sm font-semibold">{{ division.staff_humas_name|default:'Belum ditetapkan' }}</dd></div>
         {% endif %}
     </dl>

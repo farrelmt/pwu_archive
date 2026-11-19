@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import DEFAULT_DB_ALIAS, models, transaction
+from django.utils.functional import cached_property
 
 from .scoring import level_for
 
@@ -260,6 +261,12 @@ class RiskRegister(models.Model):
     def risk_level(self):
         return self.level_for(self.residual_likelihood, self.residual_impact) if self.residual_score is not None else "-"
 
+    @cached_property
+    def expected_treatment(self):
+        treatments = list(self.treatments.all())
+        return next((item for item in treatments if item.expected_score is not None),
+                    treatments[0] if treatments else None)
+
     def __str__(self):
         return f"{self.risk_code} - {self.title}"
 
@@ -385,7 +392,29 @@ class RiskMonitoring(models.Model):
         verbose_name_plural = "Pemantauan risiko"
 
     @property
+    def before_treatment_likelihood(self):
+        return self.risk.residual_likelihood
+
+    @property
+    def before_treatment_impact(self):
+        return self.risk.residual_impact
+
+    @property
+    def before_treatment_score(self):
+        if self.before_treatment_likelihood is None or self.before_treatment_impact is None:
+            return None
+        return self.before_treatment_likelihood * self.before_treatment_impact
+
+    @property
+    def before_treatment_level(self):
+        if self.before_treatment_score is None:
+            return None
+        return RiskRegister.level_for(self.before_treatment_likelihood, self.before_treatment_impact)
+
+    @property
     def initial_score(self):
+        if self.risk_id:
+            return self.before_treatment_score
         return self.initial_likelihood * self.initial_impact
 
     @property
@@ -394,7 +423,7 @@ class RiskMonitoring(models.Model):
 
     @property
     def score_reduction(self):
-        return self.initial_score - self.final_score
+        return self.initial_score - self.final_score if self.initial_score is not None else None
 
     @property
     def final_level(self):
@@ -402,6 +431,8 @@ class RiskMonitoring(models.Model):
 
     @property
     def initial_level(self):
+        if self.risk_id:
+            return self.before_treatment_level
         return RiskRegister.level_for(self.initial_likelihood, self.initial_impact)
 
     @property
@@ -532,10 +563,38 @@ class RiskActionPlan(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["target_date", "pk"]
+        ordering = ["treatment_id", "pk"]
         indexes = [models.Index(fields=["status", "target_date"], name="risk_action_status_idx")]
         verbose_name = "Rencana aksi risiko"
         verbose_name_plural = "Rencana aksi risiko"
+
+    @property
+    def expected_likelihood(self):
+        if not self.treatment_id:
+            return None
+        expected = self.treatment.risk.expected_treatment
+        return expected.expected_likelihood if expected else None
+
+    @property
+    def expected_impact(self):
+        if not self.treatment_id:
+            return None
+        expected = self.treatment.risk.expected_treatment
+        return expected.expected_impact if expected else None
+
+    @property
+    def expected_level(self):
+        if not self.treatment_id:
+            return None
+        expected = self.treatment.risk.expected_treatment
+        return expected.expected_level if expected else None
+
+    @property
+    def expected_score(self):
+        if not self.treatment_id:
+            return None
+        expected = self.treatment.risk.expected_treatment
+        return expected.expected_score if expected else None
 
     @property
     def is_realized(self):

@@ -1,30 +1,38 @@
 {% extends 'risk_management/base.html' %}
 {% block title %}{{ page_title }}{% endblock %}
 {% block content %}
-<div><a href="{% url 'risk:treatment_list' %}" class="text-sm font-bold text-slate-500">&larr; Perlakuan Risiko</a><h1 class="mt-2 text-3xl font-bold">{{ page_title }}</h1></div>
+<div><a href="{% if treatment %}{% url 'risk:risk_detail' treatment.risk_id %}{% else %}{% url 'risk:risk_list' %}{% endif %}" class="text-sm font-bold text-slate-500">&larr; Risk Register</a><h1 class="mt-2 text-3xl font-bold">{{ page_title }}</h1></div>
 <form method="post" class="mt-6 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 {% csrf_token %}
 {% if form.non_field_errors %}<div class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>{% endif %}
 {% include 'risk_management/treatment_table_style.html' %}
 <div class="overflow-x-auto" role="region" aria-label="Formulir Perlakuan Risiko" tabindex="0"><table class="treatment-table text-left text-sm">
-<colgroup><col class="treatment-number"><col class="treatment-name"><col class="treatment-text"><col class="treatment-text"><col class="treatment-score"><col class="treatment-score"><col class="treatment-level"><col class="treatment-date"><col class="treatment-owner"><col class="treatment-text"></colgroup>
-<thead class="bg-blue-900 text-white"><tr><th rowspan="2">No.</th><th rowspan="2">Nama Risiko</th><th rowspan="2">Opsi Perlakuan Risiko</th><th rowspan="2">Rencana Aksi Perlakuan Risiko</th><th colspan="3">Risiko yang Diharapkan</th><th rowspan="2">Jadwal Pelaksanaan</th><th rowspan="2">Penanggung Jawab</th><th rowspan="2">Keterangan</th></tr><tr><th>Kemungkinan</th><th>Dampak</th><th>Level Risiko</th></tr></thead>
+<colgroup><col class="treatment-number"><col class="treatment-name"><col class="treatment-text"><col class="treatment-text"><col class="treatment-score"><col class="treatment-score"><col class="treatment-score"><col class="treatment-level"><col class="treatment-date"><col class="treatment-owner"><col class="treatment-text"></colgroup>
+<thead class="bg-blue-900 text-white"><tr><th rowspan="2">No.</th><th rowspan="2">Nama Risiko</th><th rowspan="2">Opsi Perlakuan Risiko</th><th rowspan="2">Rencana Aksi Perlakuan Risiko</th><th colspan="4">Risiko yang Diharapkan</th><th rowspan="2">Jadwal Pelaksanaan</th><th rowspan="2">Penanggung Jawab</th><th rowspan="2">Keterangan</th></tr><tr><th>Kemungkinan</th><th>Dampak</th><th>Skor Risiko</th><th>Level Risiko</th></tr></thead>
 <tbody><tr><td>1</td>
 <td>{% include 'risk_management/document_form_field.html' with field=form.risk %}</td>
 <td>{% include 'risk_management/document_form_field.html' with field=form.option %}</td>
 <td>{% include 'risk_management/document_form_field.html' with field=form.action_plan %}</td>
-<td>{% include 'risk_management/document_form_field.html' with field=form.expected_likelihood %}</td>
-<td>{% include 'risk_management/document_form_field.html' with field=form.expected_impact %}</td>
-<td><output id="expectedLevel" for="id_expected_likelihood id_expected_impact">-</output></td>
+{% if hide_expected %}<td colspan="4" class="text-slate-500">Mengikuti Risiko yang Diharapkan untuk Nama Risiko ini.{{ form.expected_likelihood }}{{ form.expected_impact }}</td>{% else %}<td data-expected-cell>{% include 'risk_management/document_form_field.html' with field=form.expected_likelihood %}</td>
+<td data-expected-cell>{% include 'risk_management/document_form_field.html' with field=form.expected_impact %}</td>
+<td data-expected-cell><output id="expectedScore" for="id_expected_likelihood id_expected_impact">-</output></td>
+<td data-expected-cell><output id="expectedLevel" for="id_expected_likelihood id_expected_impact">-</output></td><td data-expected-shared colspan="4" class="text-slate-500" hidden>Mengikuti Risiko yang Diharapkan untuk Nama Risiko ini.</td>{% endif %}
 <td>{% include 'risk_management/document_form_field.html' with field=form.target_date %}</td>
 <td>{% include 'risk_management/document_form_field.html' with field=form.responsible_person %}</td>
 <td>{% include 'risk_management/document_form_field.html' with field=form.notes %}</td>
 </tr></tbody></table></div>
-<div class="flex justify-end gap-3"><a href="{% url 'risk:treatment_list' %}" class="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold">Batal</a><button class="rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white">Simpan Perlakuan Risiko</button></div>
+<div class="flex justify-end gap-3"><a href="{% if treatment %}{% url 'risk:risk_detail' treatment.risk_id %}{% else %}{% url 'risk:risk_list' %}{% endif %}" class="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold">Batal</a><button class="rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white">Simpan Perlakuan Risiko</button></div>
 </form>
 {{ risk_level_matrix|json_script:"treatmentRiskLevelMatrix" }}
+{{ risks_with_treatment|json_script:"risksWithTreatment" }}
 <script nonce="{{ request.csp_nonce }}">
-    function updateExpectedRisk(){const likelihood=Number(document.getElementById('id_expected_likelihood').value),impact=Number(document.getElementById('id_expected_impact').value);const matrix=JSON.parse(document.getElementById('treatmentRiskLevelMatrix').textContent);const valid=Number.isInteger(likelihood)&&Number.isInteger(impact)&&likelihood>=1&&likelihood<=5&&impact>=1&&impact<=5;document.getElementById('expectedLevel').textContent=valid?matrix[impact-1][likelihood-1]:'-';}
-    ['id_expected_likelihood','id_expected_impact'].forEach(id=>document.getElementById(id).addEventListener('input',updateExpectedRisk));updateExpectedRisk();
+    function updateExpectedRisk(){const likelihood=Number(document.getElementById('id_expected_likelihood').value),impact=Number(document.getElementById('id_expected_impact').value);const matrix=JSON.parse(document.getElementById('treatmentRiskLevelMatrix').textContent);const valid=Number.isInteger(likelihood)&&Number.isInteger(impact)&&likelihood>=1&&likelihood<=5&&impact>=1&&impact<=5;document.getElementById('expectedScore').textContent=valid?likelihood*impact:'-';document.getElementById('expectedLevel').textContent=valid?matrix[impact-1][likelihood-1]:'-';}
+    {% if not hide_expected %}
+    const existingRisks=new Set(JSON.parse(document.getElementById('risksWithTreatment').textContent).map(String));
+    const riskField=document.getElementById('id_risk');
+    function updateExpectedVisibility(){const shared=existingRisks.has(riskField.value);document.querySelectorAll('[data-expected-cell]').forEach(cell=>cell.hidden=shared);document.querySelector('[data-expected-shared]').hidden=!shared;for(const id of ['id_expected_likelihood','id_expected_impact'])document.getElementById(id).disabled=shared;}
+    ['id_expected_likelihood','id_expected_impact'].forEach(id=>document.getElementById(id).addEventListener('input',updateExpectedRisk));
+    riskField.addEventListener('change',updateExpectedVisibility);updateExpectedRisk();updateExpectedVisibility();
+    {% endif %}
 </script>
 {% endblock %}

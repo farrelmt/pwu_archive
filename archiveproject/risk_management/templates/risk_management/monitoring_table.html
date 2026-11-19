@@ -36,14 +36,14 @@
                                 <td class="whitespace-pre-line">{{ action.realization|default:'-' }}{% if action.realization_date %}<p class="mt-2 text-xs text-slate-500">{{ action.realization_date|date:'d M Y' }}</p>{% endif %}</td>
                                 <td>{{ action.target_date|date:'d M Y'|default:'-' }}</td>
                                 <td>{{ action.responsible_person|default:'-' }}</td>
-                                {% if forloop.first %}{% include 'risk_management/monitoring_shared_cells.html' %}{% endif %}
+                                {% include 'risk_management/monitoring_shared_cells.html' with action=action first=forloop.first %}
                             </tr>
                         {% empty %}
                             <tr>
                                 <td class="text-center monitor-fixed-number">{{ risk_number }}</td>
                                 <td class="monitor-fixed-risk"><a href="{% url 'risk:risk_detail' monitoring.risk.pk %}" class="font-semibold text-blue-800">{{ monitoring.risk.title }}</a></td>
                                 <td>Belum ada rencana aksi.</td><td>-</td><td>-</td><td>-</td>
-                                {% include 'risk_management/monitoring_shared_cells.html' %}
+                                {% include 'risk_management/monitoring_shared_cells.html' with first=True %}
                             </tr>
                         {% endfor %}
                     {% endwith %}

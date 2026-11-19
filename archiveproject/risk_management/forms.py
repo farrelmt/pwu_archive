@@ -22,8 +22,13 @@ class RiskTreatmentForm(forms.ModelForm):
             "expected_impact": forms.NumberInput(attrs={"min": 1, "max": 5}),
         }
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, user=None, hide_expected=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.hide_expected = hide_expected
+        if hide_expected:
+            for name in ("expected_likelihood", "expected_impact"):
+                self.fields[name].disabled = True
+                self.fields[name].widget = forms.HiddenInput()
         if "risk" in self.fields:
             risks = risks_for_user(user)
             accesses = accesses_for_user(user)
@@ -99,8 +104,10 @@ class DivisionPICForm(forms.Form):
         super().__init__(*args, **kwargs)
         current = division_pic_users(division)
         if division.code != "LUM":
-            for name in ("staff_it", "staff_hrd", "staff_humas"):
+            for name in ("staff_it", "staff_hrd"):
                 self.fields.pop(name)
+        if division.code != "SPR":
+            self.fields.pop("staff_humas")
         for name, role in (("risk_officer", "risk_officer"), ("risk_owner", "division_head"),
                            ("staff_it", "staff_it"), ("staff_hrd", "staff_hrd"),
                            ("staff_humas", "staff_humas")):
@@ -332,11 +339,41 @@ class RiskMonitoringForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.risk = kwargs.pop("risk", None)
         super().__init__(*args, **kwargs)
+        self.risk = self.risk or (self.instance.risk if self.instance.risk_id else None)
+        if self.risk:
+            self.initial["initial_likelihood"] = self.risk.residual_likelihood
+            self.initial["initial_impact"] = self.risk.residual_impact
+            treatment = self.risk.expected_treatment
+            self.initial["expected_likelihood"] = treatment.expected_likelihood if treatment else None
+            self.initial["expected_impact"] = treatment.expected_impact if treatment else None
+        for name in ("initial_likelihood", "initial_impact", "expected_likelihood", "expected_impact"):
+            self.fields[name].disabled = True
         common = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100"
         for field in self.fields.values():
             field.widget.attrs["class"] = common
         self.fields["year"].widget.attrs.update({"min": 2020, "max": 2100})
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.risk and (self.risk.residual_likelihood is None or self.risk.residual_impact is None):
+            self.add_error(None, "Lengkapi Analisis & Evaluasi Risiko sebelum menyimpan pemantauan.")
+        return cleaned
+
+    def save(self, commit=True):
+        monitoring = super().save(commit=False)
+        if self.risk:
+            monitoring.risk = self.risk
+            monitoring.initial_likelihood = self.risk.residual_likelihood
+            monitoring.initial_impact = self.risk.residual_impact
+            treatment = self.risk.expected_treatment
+            monitoring.expected_likelihood = treatment.expected_likelihood if treatment else None
+            monitoring.expected_impact = treatment.expected_impact if treatment else None
+        if commit:
+            monitoring.save()
+            self.save_m2m()
+        return monitoring
 
 
 class RiskMonitoringExcelForm(RiskMonitoringForm):
@@ -382,6 +419,10 @@ class MonitoringExcelActionForm(forms.ModelForm):
             self.fields["treatment"].queryset = risk.treatments.all()
         treatment_value = self.instance.treatment_id or self.initial.get("treatment") or self.data.get(
             self.add_prefix("treatment")
+        )
+        self.source_treatment = (
+            self.fields["treatment"].queryset.filter(pk=treatment_value).first()
+            if treatment_value else None
         )
         self.is_treatment_linked = bool(treatment_value)
         if self.instance.treatment_id and not self.is_bound:
