@@ -123,7 +123,7 @@ def member_list(request):
         rows.append({
             "user": user,
             "roles": list(dict.fromkeys(roles)),
-            "division": member_division(user.username),
+            "division": member_division(user),
         })
 
     grouped_rows = {division: [] for division in MEMBER_DIVISION_ORDER}
@@ -193,7 +193,7 @@ def member_export(request):
             inventory_access = None
         sheet.append([excel_text(value) for value in [
             user.get_full_name(), user.username, user.email, user.phone,
-            member_division(user.username), user.get_role_display(),
+            member_division(user), user.get_role_display(),
             koperasi_roles, risk_roles,
             inventory_access.get_role_display()
             if inventory_access and inventory_access.is_active else "",
@@ -411,7 +411,7 @@ def personal_settings(request):
         "can_manage_members": can_manage_members(user),
         "form": form,
         "return_url": return_url,
-        "division": member_division(user.username),
+        "division": member_division(user),
         "role_rows": role_rows,
     })
 

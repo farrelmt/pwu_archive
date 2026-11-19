@@ -15,7 +15,7 @@ def ensure_shared_system_access(sender, instance, created, update_fields=None, *
     # database queries on the critical login path.
     profile_fields = {
         "username", "first_name", "last_name", "email", "phone",
-        "role", "is_active",
+        "division", "role", "is_active",
     }
     if not created and update_fields is not None and profile_fields.isdisjoint(update_fields):
         return

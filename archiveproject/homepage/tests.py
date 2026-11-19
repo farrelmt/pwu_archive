@@ -451,6 +451,49 @@ class MemberManagementTests(TestCase):
             sorted(int(username.rsplit("_", 1)[1]) for username in umum_usernames),
         )
 
+    def test_member_admin_can_change_member_division(self):
+        member = get_user_model().objects.create_user(
+            username="kso_1", password="test-password", role="employee",
+        )
+        self.client.force_login(self.admin)
+        edit_url = reverse("homepage:member_edit", args=[member.pk])
+
+        form_response = self.client.get(edit_url, HTTP_HOST="pwujatim.site")
+        self.assertEqual(form_response.context["form"]["division"].value(), "Wirajatim KSO")
+
+        response = self.client.post(
+            edit_url,
+            {
+                "username": member.username,
+                "first_name": "",
+                "last_name": "",
+                "email": "",
+                "phone": "",
+                "division": "Divisi Keuangan",
+                "password": "",
+                "password_confirm": "",
+                "role": "employee",
+                "koperasi_roles": [],
+                "risk_roles": [],
+                "risk_division": "",
+                "inventory_role": "participant",
+                "is_active": "on",
+            },
+            HTTP_HOST="pwujatim.site",
+        )
+
+        self.assertRedirects(response, reverse("homepage:member_list"), fetch_redirect_response=False)
+        member.refresh_from_db()
+        self.assertEqual(member.division, "Divisi Keuangan")
+        self.assertEqual(member.company_member_profile.division, "Divisi Keuangan")
+        list_response = self.client.get(reverse("homepage:member_list"), HTTP_HOST="pwujatim.site")
+        groups = {group["name"]: [row["user"].username for row in group["rows"]]
+                  for group in list_response.context["member_groups"]}
+        self.assertIn("kso_1", groups["Divisi Keuangan"])
+        export_response = self.client.get(reverse("homepage:member_export"), HTTP_HOST="pwujatim.site")
+        sheet = load_workbook(BytesIO(export_response.content), read_only=True).active
+        self.assertEqual(next(row for row in sheet.values if row[1] == "kso_1")[4], "Divisi Keuangan")
+
     def test_member_admin_cannot_deactivate_own_account(self):
         self.client.force_login(self.admin)
         response = self.client.post(

@@ -1,10 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from accounts.directory import MEMBER_DIVISION_ORDER
 
 
 class SystemUser(AbstractUser):
     phone = models.CharField(max_length=20, blank=True, null=True)
     job_description = models.TextField("Deskripsi pekerjaan", blank=True, max_length=1000)
+    division = models.CharField(
+        "Divisi", max_length=120, blank=True, default="",
+        choices=[("", "Berdasarkan username"), *[(name, name) for name in MEMBER_DIVISION_ORDER]],
+    )
 
     ROLE_CHOICES = [
         ('admin', 'Admin'),

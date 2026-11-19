@@ -4,7 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from accounts.directory import MEMBER_DIVISION_ORDER
+from accounts.directory import MEMBER_DIVISION_ORDER, member_division
 from inventory.models import InventoryAccess
 from koperasi.models import KoperasiAccess
 from risk_management.models import RiskAccess, RiskDivision
@@ -143,7 +143,7 @@ class MemberAccessForm(forms.ModelForm):
         model = User
         fields = (
             "username", "first_name", "last_name", "email", "phone",
-            "role", "is_active",
+            "division", "role", "is_active",
         )
         labels = {
             "username": "Username",
@@ -151,6 +151,7 @@ class MemberAccessForm(forms.ModelForm):
             "last_name": "Nama belakang",
             "email": "Email",
             "phone": "Nomor telepon",
+            "division": "Divisi Member",
             "role": "Role Sistem Arsip",
             "is_active": "Akun aktif",
         }
@@ -174,6 +175,7 @@ class MemberAccessForm(forms.ModelForm):
         ]
 
         if self.instance.pk:
+            self.initial["division"] = self.instance.division or member_division(self.instance)
             koperasi_roles = list(self.instance.koperasi_accesses.filter(
                 company__isnull=True, is_active=True
             ).values_list("role", flat=True))

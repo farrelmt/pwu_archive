@@ -16,8 +16,13 @@ MEMBER_DIVISION_ORDER = (
 )
 
 
-def member_division(username):
-    """Return the shared portal/inventory division for a PWU username."""
+def member_division(user):
+    """Return a member's chosen division, or infer it for older accounts."""
+    if not isinstance(user, str):
+        if user.division:
+            return user.division
+        user = user.username
+    username = user
     username = (username or "").casefold()
     prefix_groups = (
         (("akuntansi_",), "Divisi Akuntansi"),
@@ -30,7 +35,7 @@ def member_division(username):
         (("umum_",), "Divisi Umum"),
         (("humas_",), "Humas"),
         (("hrd_",), "HRD"),
-        (("wirajatim_kso_",), "Wirajatim KSO"),
+        (("wirajatim_kso_", "kso_"), "Wirajatim KSO"),
     )
     if username in {"direktur", "direktur_utama"}:
         return "Direksi"

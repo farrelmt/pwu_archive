@@ -20,7 +20,7 @@ def sync_company_member(user):
         "full_name": user.get_full_name().strip() or user.username,
         "email": user.email or "",
         "phone": user.phone or "",
-        "division": member_division(user.username),
+        "division": member_division(user),
         "position": user.get_role_display() or "Pegawai",
         "status": "active" if user.is_active else "inactive",
     }
