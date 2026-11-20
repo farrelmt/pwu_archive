@@ -589,9 +589,12 @@ def risk_detail(request, pk):
             "year": selected_year, "quarter": quarter,
             "initial_likelihood": risk.residual_likelihood,
             "initial_impact": risk.residual_impact,
-            "final_likelihood": risk.residual_likelihood,
-            "final_impact": risk.residual_impact,
         }
+        if existing is None:
+            initial.update({
+                "final_likelihood": risk.residual_likelihood,
+                "final_impact": risk.residual_impact,
+            })
         form = selected_form if submitted_quarter == quarter else RiskMonitoringExcelForm(
             instance=existing, initial=initial, risk=risk, prefix=f"q{quarter}",
         )
@@ -663,8 +666,11 @@ def risk_detail(request, pk):
             "form": form, "action_formset": action_formset,
             "table_items": [existing] if existing else [],
         })
+    days_to_target = (risk.target_date - timezone.localdate()).days if risk.target_date else None
     response = render(request, "risk_management/risk_detail.html", {
         "risk": risk, "can_edit_this": can_edit_this, "treatment_form": treatment_form,
+        "days_to_target": days_to_target,
+        "days_overdue": -days_to_target if days_to_target is not None and days_to_target < 0 else None,
         "monitoring_rows": monitoring_rows,
         "monitoring_year": selected_year,
         "monitoring_quarter": selected_quarter,

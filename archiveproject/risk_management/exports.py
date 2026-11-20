@@ -414,7 +414,10 @@ def annual_risk_workbook(risks, *, division, year, download_mark=None):
         for monitoring in risk.monitorings.all():
             if monitoring.year != year:
                 continue
-            actions = list(monitoring.action_plans.all()) or [None]
+            actions = sorted(
+                monitoring.action_plans.all(),
+                key=lambda action: (action.treatment_id is None, action.treatment_id or 0, action.pk),
+            ) or [None]
             for index, action in enumerate(actions):
                 def monitoring_row(row, m=monitoring, a=action, first=index == 0, n=number, r=risk):
                     values = [n if first else None, f"{r.risk_code}\n{r.title}" if first else None,

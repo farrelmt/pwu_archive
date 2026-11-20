@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 from xml.etree import ElementTree
 
@@ -46,6 +46,28 @@ class RiskPermissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="deleteRiskForm"')
         self.assertContains(response, '+ Tambah Opsi')
+
+    def test_detail_shows_notes_and_days_until_target(self):
+        today = timezone.localdate()
+        RiskRegister.objects.filter(pk=self.risk.pk).update(
+            target_date=today + timedelta(days=5),
+            identification_notes="Catatan identifikasi",
+            evaluation_notes="Catatan evaluasi",
+        )
+        self.client.force_login(self.officer)
+        url = reverse("risk:risk_detail", args=[self.risk.pk])
+        response = self.client.get(url, HTTP_HOST="risk.localhost")
+        self.assertContains(response, "Sisa waktu penyelesaian")
+        self.assertContains(response, "5 hari lagi")
+        self.assertContains(response, "Catatan identifikasi")
+        self.assertContains(response, "Catatan evaluasi")
+
+        RiskRegister.objects.filter(pk=self.risk.pk).update(target_date=today - timedelta(days=2))
+        self.assertContains(self.client.get(url, HTTP_HOST="risk.localhost"), "Terlambat 2 hari")
+        RiskRegister.objects.filter(pk=self.risk.pk).update(status="closed")
+        self.assertContains(self.client.get(url, HTTP_HOST="risk.localhost"), "Selesai")
+        RiskRegister.objects.filter(pk=self.risk.pk).update(status="open", target_date=None)
+        self.assertContains(self.client.get(url, HTTP_HOST="risk.localhost"), "Target belum ditetapkan")
 
     def test_officer_can_delete_own_risk_with_treatments(self):
         RiskTreatment.objects.create(risk=self.risk, action_plan="Rencana", created_by=self.officer, updated_by=self.officer)
@@ -1797,13 +1819,21 @@ class RiskPermissionTests(TestCase):
         self.assertContains(page, "Tambah Baris Rencana Aksi")
         self.assertContains(page, "Simpan Triwulan I")
         self.assertContains(page, 'name="q1-evaluation_notes"')
+        self.assertContains(page, 'name="q1-is_priority"')
+        self.assertContains(page, "Prioritas Risiko")
         self.assertNotContains(page, 'name="q1-business_environment_changes"')
         self.assertNotContains(page, "Register Risiko")
+
+        edit_page = self.client.get(reverse("risk:risk_edit", args=[self.risk.pk]), HTTP_HOST="risk.localhost")
+        for table_id in ("identifikasi-table-scroll", "analisis-table-scroll", "perlakuan-table-scroll"):
+            self.assertContains(edit_page, f'aria-controls="{table_id}"', count=2)
+            self.assertContains(edit_page, f'id="{table_id}"')
 
         data = {
             "monitoring_year": "2026", "save_quarter": "1",
             "q1-initial_likelihood": "4", "q1-initial_impact": "4",
             "q1-final_likelihood": "3", "q1-final_impact": "2",
+            "q1-is_priority": "on",
             "q1-expected_likelihood": "2", "q1-expected_impact": "2",
             "q1-evaluation_notes": "Mitigasi berjalan dan perubahan pasar",
             "q1-actions-TOTAL_FORMS": "2", "q1-actions-INITIAL_FORMS": "0",
@@ -1824,6 +1854,7 @@ class RiskPermissionTests(TestCase):
         self.assertEqual(created.status_code, 302)
         monitoring = RiskMonitoring.objects.get(risk=self.risk, year=2026, quarter=1)
         self.assertEqual(monitoring.final_score, 6)
+        self.assertTrue(monitoring.is_priority)
         self.assertEqual(monitoring.evaluation_notes, "Mitigasi berjalan dan perubahan pasar")
         self.assertEqual(monitoring.business_environment_changes, "")
         actions = list(monitoring.action_plans.order_by("pk"))
@@ -1835,6 +1866,7 @@ class RiskPermissionTests(TestCase):
         page = self.client.get(url, {"monitoring_year": 2026}, HTTP_HOST="risk.localhost")
         self.assertEqual([item["saved"] for item in page.context["quarter_statuses"]], [True, False, False, False])
         self.assertContains(page, "Triwulan I: Tersimpan")
+        self.assertTrue(page.context["monitoring_rows"][0]["form"]["is_priority"].value())
         self.assertEqual(
             page.context["monitoring_rows"][0]["form"].initial["evaluation_notes"],
             "Mitigasi berjalan dan perubahan pasar\nPerubahan lama",
@@ -1846,10 +1878,12 @@ class RiskPermissionTests(TestCase):
             "q1-actions-0-id": str(actions[0].pk), "q1-actions-1-id": str(actions[1].pk),
             "q1-actions-0-description": "SOP final",
         }
+        updated_data.pop("q1-is_priority")
         updated = self.client.post(url, updated_data, HTTP_HOST="risk.localhost")
         self.assertEqual(updated.status_code, 302)
         monitoring.refresh_from_db()
         self.assertEqual(monitoring.final_score, 3)
+        self.assertFalse(monitoring.is_priority)
         self.assertEqual(monitoring.business_environment_changes, "")
         self.assertEqual(monitoring.action_plans.order_by("pk").first().description, "SOP final")
         self.assertEqual(RiskMonitoring.objects.filter(risk=self.risk, year=2026, quarter=1).count(), 1)
@@ -1869,12 +1903,41 @@ class RiskPermissionTests(TestCase):
         self.assertFalse(RiskMonitoring.objects.get(
             risk=self.risk, year=2026, quarter=2,
         ).action_plans.exists())
+        self.assertFalse(RiskMonitoring.objects.get(
+            risk=self.risk, year=2026, quarter=2,
+        ).is_priority)
 
         self.client.force_login(self.head)
         read_only = self.client.get(url, {"monitoring_year": 2026}, HTTP_HOST="risk.localhost")
         self.assertContains(read_only, "SOP final")
+        self.assertContains(read_only, 'aria-label="Prioritas Risiko: Tidak"')
         denied = self.client.post(url, data, HTTP_HOST="risk.localhost")
         self.assertEqual(denied.status_code, 403)
+
+    def test_existing_third_quarter_uses_and_saves_its_own_final_impact(self):
+        monitoring = RiskMonitoring.objects.create(
+            risk=self.risk, year=2026, quarter=3,
+            initial_likelihood=4, initial_impact=4,
+            final_likelihood=2, final_impact=3, updated_by=self.officer,
+        )
+        self.client.force_login(self.officer)
+        url = reverse("risk:risk_detail", args=[self.risk.pk])
+        page = self.client.get(url, {"monitoring_year": 2026, "monitoring_quarter": 3}, HTTP_HOST="risk.localhost")
+        self.assertEqual(page.context["monitoring_rows"][0]["form"]["final_impact"].value(), 3)
+        self.assertContains(page, 'aria-label="Simpan perubahan Triwulan III"')
+        self.assertContains(page, 'form="quarter-3"')
+        saved = self.client.post(url, {
+            "monitoring_year": "2026", "save_quarter": "3",
+            "q3-final_likelihood": "2", "q3-final_impact": "2",
+            "q3-actions-TOTAL_FORMS": "1", "q3-actions-INITIAL_FORMS": "0",
+            "q3-actions-MIN_NUM_FORMS": "0", "q3-actions-MAX_NUM_FORMS": "1000",
+        }, HTTP_HOST="risk.localhost")
+        self.assertEqual(saved.status_code, 302)
+        monitoring.refresh_from_db()
+        self.assertEqual((monitoring.final_likelihood, monitoring.final_impact, monitoring.final_score), (2, 2, 4))
+        page = self.client.get(url, {"monitoring_year": 2026, "monitoring_quarter": 3}, HTTP_HOST="risk.localhost")
+        self.assertEqual(page.context["monitoring_rows"][0]["form"]["final_impact"].value(), 2)
+        self.assertContains(page, '<output data-score="final">4</output>')
 
     def test_risk_urls_encrypt_ids_and_reject_plain_or_modified_ids(self):
         detail_url = reverse("risk:risk_detail", args=[self.risk.pk])

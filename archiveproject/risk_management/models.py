@@ -353,6 +353,7 @@ class RiskMonitoring(models.Model):
     final_impact = models.PositiveSmallIntegerField(
         "Dampak akhir", validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
+    is_priority = models.BooleanField("Prioritas Risiko", default=False)
     expected_likelihood = models.PositiveSmallIntegerField(
         "Kemungkinan yang diharapkan",
         validators=[MinValueValidator(1), MaxValueValidator(5)],

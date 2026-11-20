@@ -93,6 +93,9 @@
                 <div><dt class="text-xs font-bold uppercase text-slate-400">Pemilik Risiko</dt><dd class="mt-1">{{ risk.risk_owner }}</dd></div>
                 <div><dt class="text-xs font-bold uppercase text-slate-400">Risk Officer</dt><dd class="mt-1">{{ risk.risk_officer|default:'-' }}</dd></div>
                 <div><dt class="text-xs font-bold uppercase text-slate-400">Target</dt><dd class="mt-1">{{ risk.target_date|date:'d F Y'|default:'-' }}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Sisa waktu penyelesaian</dt><dd class="mt-1 font-bold {% if days_overdue %}text-red-700{% elif days_to_target == 0 %}text-amber-700{% else %}text-blue-800{% endif %}">{% if risk.status == 'closed' %}Selesai{% elif days_to_target is None %}Target belum ditetapkan{% elif days_overdue %}Terlambat {{ days_overdue }} hari{% elif days_to_target == 0 %}Jatuh tempo hari ini{% else %}{{ days_to_target }} hari lagi{% endif %}</dd></div>
+                <div><dt class="text-xs font-bold uppercase text-slate-400">Keterangan</dt><dd class="mt-1 whitespace-pre-line">{{ risk.identification_notes|default:'-' }}</dd></div>
+                {% if risk.evaluation_notes %}<div><dt class="text-xs font-bold uppercase text-slate-400">Keterangan analisis dan evaluasi</dt><dd class="mt-1 whitespace-pre-line">{{ risk.evaluation_notes }}</dd></div>{% endif %}
             </dl>
         </section>
         <details id="risk-history" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -155,29 +158,30 @@
         <div><h2 class="text-xl font-bold">Pemantauan Triwulan</h2><p class="mt-1 text-sm text-slate-500">Isi setiap triwulan dengan kolom yang sama seperti workbook Excel: rencana aksi, realisasi, penilaian risiko, deviasi, dan keterangan.</p></div>
         <a href="{% url 'risk:monitoring_report' %}" class="text-sm font-bold text-blue-700 hover:text-blue-900">Lihat laporan perusahaan</a>
     </div>
-    <form method="get" class="mt-5 flex flex-wrap items-end gap-3">
+    <form method="get" data-monitor-year-form class="mt-5 flex flex-wrap items-end gap-3">
         <input type="hidden" name="monitoring_quarter" value="{{ monitoring_quarter }}">
         <label for="monitoring-year" class="text-sm font-bold text-slate-700">Tahun pemantauan<select id="monitoring-year" name="monitoring_year" class="mt-1 block min-w-36 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">{% for year in monitoring_years %}<option value="{{ year }}" {% if year == monitoring_year %}selected{% endif %}>{{ year }}</option>{% endfor %}</select></label>
         <button type="submit" class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100">Tampilkan</button>
         <span class="text-xs text-slate-500">Geser tabel ke samping dengan jari atau tombol panah.</span>
     </form>
     <nav class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-950 px-4 py-3 text-white" aria-label="Pilih triwulan pemantauan">
-        {% if previous_quarter %}<a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ previous_quarter }}#pemantauan-triwulan" class="rounded-lg px-3 py-2 text-sm font-bold hover:bg-blue-800" aria-label="Pemantauan triwulan sebelumnya">&lt; Sebelumnya</a>{% else %}<span class="px-3 py-2 text-sm text-blue-300" aria-disabled="true">&lt; Sebelumnya</span>{% endif %}
+        {% if previous_quarter %}<a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ previous_quarter }}#pemantauan-triwulan" data-monitor-quarter-nav class="rounded-lg px-3 py-2 text-sm font-bold hover:bg-blue-800" aria-label="Pemantauan triwulan sebelumnya">&lt; Sebelumnya</a>{% else %}<span class="px-3 py-2 text-sm text-blue-300" aria-disabled="true">&lt; Sebelumnya</span>{% endif %}
         <h3 class="text-center text-sm font-extrabold sm:text-base">Pemantauan {{ monitoring_rows.0.label }} - {{ monitoring_year }}</h3>
-        {% if next_quarter %}<a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ next_quarter }}#pemantauan-triwulan" class="rounded-lg px-3 py-2 text-sm font-bold hover:bg-blue-800" aria-label="Pemantauan triwulan selanjutnya">Selanjutnya &gt;</a>{% else %}<span class="px-3 py-2 text-sm text-blue-300" aria-disabled="true">Selanjutnya &gt;</span>{% endif %}
+        {% if next_quarter %}<a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ next_quarter }}#pemantauan-triwulan" data-monitor-quarter-nav class="rounded-lg px-3 py-2 text-sm font-bold hover:bg-blue-800" aria-label="Pemantauan triwulan selanjutnya">Selanjutnya &gt;</a>{% else %}<span class="px-3 py-2 text-sm text-blue-300" aria-disabled="true">Selanjutnya &gt;</span>{% endif %}
     </nav>
     <div class="mt-3 flex flex-wrap gap-2" aria-label="Status pemantauan {{ monitoring_year }}">
         {% for quarter in quarter_statuses %}
-        <a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ quarter.number }}#pemantauan-triwulan" class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold {% if quarter.saved %}border-green-200 bg-green-50 text-green-800{% else %}border-slate-200 bg-slate-50 text-slate-600{% endif %} {% if quarter.number == monitoring_quarter %}ring-2 ring-blue-400 ring-offset-1{% endif %}" {% if quarter.number == monitoring_quarter %}aria-current="page"{% endif %}>
+        {% if quarter.number == monitoring_quarter and can_edit_this %}<button type="submit" form="quarter-{{ quarter.number }}" class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold border-blue-200 bg-blue-50 text-blue-800 ring-2 ring-blue-400 ring-offset-1" aria-label="Simpan perubahan {{ quarter.label }}" aria-current="page">
+        {% else %}<a href="?monitoring_year={{ monitoring_year }}&amp;monitoring_quarter={{ quarter.number }}#pemantauan-triwulan" data-monitor-quarter-nav class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold {% if quarter.saved %}border-green-200 bg-green-50 text-green-800{% else %}border-slate-200 bg-slate-50 text-slate-600{% endif %} {% if quarter.number == monitoring_quarter %}ring-2 ring-blue-400 ring-offset-1{% endif %}" {% if quarter.number == monitoring_quarter %}aria-current="page"{% endif %}>{% endif %}
             <span aria-hidden="true">{% if quarter.saved %}✓{% else %}○{% endif %}</span>{{ quarter.label }}: {% if quarter.saved %}Tersimpan{% else %}Belum disimpan{% endif %}
-        </a>
+            {% if quarter.number == monitoring_quarter and can_edit_this %}<span class="rounded-full bg-blue-700 px-2 py-0.5 text-white">Simpan perubahan</span></button>{% else %}</a>{% endif %}
         {% endfor %}
     </div>
     <div class="mt-5">{% for row in monitoring_rows %}{% include 'risk_management/monitoring_excel_entry.html' %}{% endfor %}</div>
 </section>
 <style nonce="{{ request.csp_nonce }}">
     .monitoring-excel-scroll{max-width:100%;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#93c5fd #eff6ff;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain}
-    .monitoring-excel-table{width:2650px;table-layout:fixed;border-collapse:separate;border-spacing:0}
+    .monitoring-excel-table{width:2740px;table-layout:fixed;border-collapse:separate;border-spacing:0}
     .monitor-col-no{width:52px}.monitor-col-risk{width:210px}.monitor-col-plan{width:250px}.monitor-col-date{width:220px}.monitor-col-owner{width:180px}.monitor-col-score{width:90px}.monitor-col-notes{width:300px}
     .monitoring-excel-table th,.monitoring-excel-table td{border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;padding:.65rem;vertical-align:top;overflow-wrap:anywhere}
     .monitoring-excel-table thead th{background:#dbeafe;color:#172554;text-align:center;vertical-align:middle;font-weight:700}
@@ -194,4 +198,21 @@
     const form=card.querySelector('form[method="post"]');if(!form)continue;const total=form.querySelector('input[name$="-TOTAL_FORMS"]');const template=form.querySelector('[data-action-template]');const rows=form.querySelector('[data-action-rows]');function updateRemoveButtons(){const visible=rows.querySelectorAll('tr:not([hidden])').length;for(const button of rows.querySelectorAll('[data-remove-action]'))button.hidden=visible<=1}form.querySelector('[data-add-action]').addEventListener('click',()=>{const index=Number(total.value);rows.insertAdjacentHTML('beforeend',template.innerHTML.replaceAll('__prefix__',index));total.value=index+1;updateRemoveButtons()});rows.addEventListener('click',event=>{const button=event.target.closest('[data-remove-action]');if(!button)return;const row=button.closest('tr');if(rows.querySelectorAll('tr:not([hidden])').length<=1)return;row.querySelector('input[name$="-DELETE"]').checked=true;row.hidden=true;updateRemoveButtons()});rows.addEventListener('click',event=>{const button=event.target.closest('[data-open-date-picker]');if(!button)return;const input=button.closest('.monitor-date-field').querySelector('input[type="date"]');if(input.showPicker)input.showPicker();else input.focus()});updateRemoveButtons();
     function value(name){const input=form.querySelector('input[name$="-'+name+'"]');const number=Number(input?.value);return input?.value&&number>=1&&number<=5?number:null}function calculate(){const likelihood=value('final_likelihood'),impact=value('final_impact');form.querySelector('[data-score="final"]').textContent=likelihood&&impact?likelihood*impact:'—';form.querySelector('[data-level="final"]').textContent=likelihood&&impact?matrix[impact-1][likelihood-1]:'—';for(const output of form.querySelectorAll('[data-deviation]')){const expected=Number(output.dataset.expectedScore);output.textContent=output.dataset.expectedScore&&likelihood&&impact?expected-likelihood*impact:'—'}}for(const input of form.querySelectorAll('input[type="number"]'))input.addEventListener('input',calculate);calculate()}})()
 </script>
+{% if can_edit_this %}<script nonce="{{ request.csp_nonce }}">
+    (()=>{
+        const quarterForm=document.getElementById('quarter-{{ monitoring_quarter }}');
+        if(!quarterForm)return;
+        let changed=false;
+        quarterForm.addEventListener('input',()=>{changed=true});
+        quarterForm.addEventListener('change',()=>{changed=true});
+        for(const link of document.querySelectorAll('[data-monitor-quarter-nav]')){
+            link.addEventListener('click',event=>{
+                if(changed&&!window.confirm('Perubahan triwulan ini belum disimpan. Pindah tanpa menyimpan?'))event.preventDefault();
+            });
+        }
+        document.querySelector('[data-monitor-year-form]')?.addEventListener('submit',event=>{
+            if(changed&&!window.confirm('Perubahan triwulan ini belum disimpan. Ganti tahun tanpa menyimpan?'))event.preventDefault();
+        });
+    })();
+</script>{% endif %}
 {% endblock %}

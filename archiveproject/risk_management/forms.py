@@ -331,7 +331,7 @@ class RiskMonitoringForm(forms.ModelForm):
         fields = [
             "year", "quarter", "initial_likelihood", "initial_impact",
             "final_likelihood", "final_impact", "business_environment_changes",
-            "expected_likelihood", "expected_impact", "evaluation_notes",
+            "expected_likelihood", "expected_impact", "is_priority", "evaluation_notes",
         ]
         widgets = {
             "business_environment_changes": forms.Textarea(attrs={"rows": 3}),
@@ -352,7 +352,10 @@ class RiskMonitoringForm(forms.ModelForm):
             self.fields[name].disabled = True
         common = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100"
         for field in self.fields.values():
-            field.widget.attrs["class"] = common
+            field.widget.attrs["class"] = (
+                "h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-500"
+                if isinstance(field.widget, forms.CheckboxInput) else common
+            )
         self.fields["year"].widget.attrs.update({"min": 2020, "max": 2100})
 
     def clean(self):
@@ -381,7 +384,7 @@ class RiskMonitoringExcelForm(RiskMonitoringForm):
         fields = [
             "year", "quarter", "initial_likelihood", "initial_impact",
             "final_likelihood", "final_impact", "expected_likelihood",
-            "expected_impact", "evaluation_notes",
+            "expected_impact", "is_priority", "evaluation_notes",
         ]
         labels = {"evaluation_notes": "Keterangan"}
         widgets = {"evaluation_notes": forms.Textarea(attrs={"rows": 3})}

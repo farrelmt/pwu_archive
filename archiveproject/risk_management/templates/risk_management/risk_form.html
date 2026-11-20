@@ -16,7 +16,8 @@
     {% if form.non_field_errors %}<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{ form.non_field_errors }}</div>{% endif %}
     <section id="identifikasi" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div class="rw-section-heading"><span class="rw-section-number" aria-hidden="true">01</span><div><h2 class="text-lg font-bold">Identifikasi Risiko</h2><p>Pilih jenis dan kategori untuk kode otomatis. Sumber risiko wajib untuk risiko strategis dan dapat diisi untuk jenis lain; risiko proyek memakai divisi KSO. Analisis dan perlakuan dapat diisi nanti.</p></div></div>
-        <div class="rw-table-scroll" tabindex="0" role="region" aria-label="Formulir Identifikasi Risiko">
+        {% include 'risk_management/risk_table_scroll_controls.html' with table_id='identifikasi-table-scroll' table_label='Identifikasi Risiko' %}
+        <div id="identifikasi-table-scroll" class="rw-table-scroll" tabindex="0" role="region" aria-label="Formulir Identifikasi Risiko">
             <table class="risk-document-form risk-identification-form w-full border-collapse text-left text-sm">
                 <colgroup><col class="document-number"><col class="document-meta"><col class="document-meta"><col class="document-meta"><col class="document-meta"><col class="document-text"><col class="document-text"><col class="document-text"><col class="document-text"><col class="document-control"><col class="document-text"><col class="document-score"><col class="document-score"><col class="document-score"><col class="document-level"><col class="document-text"></colgroup>
                 <thead class="bg-slate-50 text-xs text-slate-600">
@@ -52,7 +53,8 @@
     </section>
     <section id="analisis" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div class="rw-section-heading"><span class="rw-section-number" aria-hidden="true">02</span><div><h2 class="text-lg font-bold">Analisis &amp; Evaluasi Risiko</h2><p>Nilai efektivitas pengendalian dan risiko setelah pengendalian.</p></div></div>
-        <div class="rw-table-scroll" tabindex="0" role="region" aria-label="Formulir Analisis dan Evaluasi Risiko">
+        {% include 'risk_management/risk_table_scroll_controls.html' with table_id='analisis-table-scroll' table_label='Analisis dan Evaluasi Risiko' %}
+        <div id="analisis-table-scroll" class="rw-table-scroll" tabindex="0" role="region" aria-label="Formulir Analisis dan Evaluasi Risiko">
             <table class="risk-document-form risk-evaluation-form w-full border-collapse text-left text-sm">
                 <colgroup><col class="document-number"><col class="document-text"><col class="document-text"><col class="document-score"><col class="document-score"><col class="document-score"><col class="document-score"><col class="document-score"><col class="document-score"><col class="document-level"><col class="document-control"><col class="document-text"></colgroup>
                 <thead class="bg-slate-50 text-xs text-slate-600">
@@ -82,6 +84,64 @@
 <style nonce="{{ request.csp_nonce }}">
 .risk-document-form{table-layout:fixed}.risk-identification-form{width:2820px}.risk-evaluation-form{width:1710px}.risk-document-form .document-number{width:50px}.risk-document-form .document-meta{width:180px}.risk-document-form .document-text{width:220px}.risk-document-form .document-control{width:170px}.risk-document-form .document-score{width:100px}.risk-document-form .document-level{width:130px}.risk-document-form th,.risk-document-form td{border:1px solid #cbd5e1;padding:.75rem;vertical-align:top;overflow-wrap:anywhere}.risk-document-form th{vertical-align:middle}.risk-document-form textarea,.risk-document-form input,.risk-document-form select{min-width:0;max-width:100%;box-sizing:border-box}.risk-document-form textarea{resize:vertical}.risk-document-form output{display:block;white-space:pre-line}.risk-document-form input[type=radio]{width:1rem;height:1rem}
 </style>
+<script nonce="{{ request.csp_nonce }}">
+    (()=>{
+        const editor=document.querySelector('.risk-editor');
+        const nav=editor.querySelector('.rw-section-nav');
+        const floatingHeads=[];
+        let frameRequested=false;
+        function updateFloatingHeads(){
+            frameRequested=false;
+            const top=nav.getBoundingClientRect().bottom+8;
+            for(const {area,table,head,copy,stickyControls} of floatingHeads){
+                const areaRect=area.getBoundingClientRect();
+                const headerRect=table.tHead.getBoundingClientRect();
+                const visible=areaRect.top<top&&headerRect.bottom<=top&&areaRect.bottom>top+headerRect.height+stickyControls.offsetHeight;
+                head.hidden=!visible;
+                if(!visible)continue;
+                head.style.top=`${top}px`;
+                head.style.left=`${areaRect.left}px`;
+                head.style.width=`${areaRect.width}px`;
+                copy.style.width=`${table.getBoundingClientRect().width}px`;
+                copy.style.transform=`translateX(${-area.scrollLeft}px)`;
+            }
+        }
+        function scheduleFloatingHeads(){
+            if(frameRequested)return;
+            frameRequested=true;
+            requestAnimationFrame(updateFloatingHeads);
+        }
+        for(const controls of document.querySelectorAll('[data-risk-table-controls]')){
+            const buttons=[...controls.querySelectorAll('[data-risk-scroll]')];
+            const area=document.getElementById(buttons[0].getAttribute('aria-controls'));
+            const table=area.querySelector('table');
+            const head=document.createElement('div');
+            const stickyControls=controls.cloneNode(true);
+            const copy=document.createElement('table');
+            head.className='rw-frozen-table-head';
+            head.hidden=true;
+            copy.className=table.className;
+            copy.setAttribute('aria-hidden','true');
+            copy.append(table.querySelector('colgroup').cloneNode(true),table.tHead.cloneNode(true));
+            head.append(stickyControls,copy);
+            editor.append(head);
+            floatingHeads.push({area,table,head,copy,stickyControls});
+            const allButtons=[...buttons,...stickyControls.querySelectorAll('[data-risk-scroll]')];
+            function update(){
+                const end=area.scrollWidth-area.clientWidth;
+                for(const button of allButtons)button.disabled=Number(button.dataset.riskScroll)<0?area.scrollLeft<=1:area.scrollLeft>=end-1;
+                scheduleFloatingHeads();
+            }
+            for(const button of allButtons)button.addEventListener('click',()=>area.scrollBy({left:Number(button.dataset.riskScroll)*Math.max(320,area.clientWidth*.75),behavior:'smooth'}));
+            area.addEventListener('scroll',update,{passive:true});
+            window.addEventListener('resize',update);
+            update();
+        }
+        window.addEventListener('scroll',scheduleFloatingHeads,{passive:true});
+        window.addEventListener('resize',scheduleFloatingHeads);
+        scheduleFloatingHeads();
+    })();
+</script>
 <script nonce="{{ request.csp_nonce }}">
     function updateRiskDocument(){
         ['inherent','residual'].forEach(prefix=>{
