@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+import uuid
 
 from accounts.directory import MEMBER_DIVISION_ORDER
 
@@ -19,6 +20,7 @@ class Assignment(models.Model):
     ]
 
     title = models.CharField("Tugas", max_length=220)
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     description = models.TextField("Deskripsi", blank=True)
     month = models.DateField("Bulan kerja", default=current_month)
     start_date = models.DateField("Tanggal mulai")
@@ -32,6 +34,7 @@ class Assignment(models.Model):
         related_name="monitoring_assignments", verbose_name="Penanggung jawab",
     )
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="todo")
+    completed_at = models.DateTimeField("Selesai pada", blank=True, null=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
         related_name="monitoring_created_assignments",
@@ -49,9 +52,50 @@ class Assignment(models.Model):
         if self.start_date and self.due_date and self.due_date < self.start_date:
             raise ValidationError({"due_date": "Tenggat tidak boleh sebelum tanggal mulai."})
 
+    def save(self, *args, **kwargs):
+        if self.status == "done" and self.completed_at is None:
+            self.completed_at = timezone.now()
+        elif self.status != "done":
+            self.completed_at = None
+        if kwargs.get("update_fields") is not None and "status" in kwargs["update_fields"]:
+            kwargs["update_fields"] = set(kwargs["update_fields"]) | {"completed_at"}
+        super().save(*args, **kwargs)
+
     @property
     def is_overdue(self):
         return self.status != "done" and self.due_date < timezone.localdate()
 
     def __str__(self):
         return self.title
+
+
+class ChecklistGroup(models.Model):
+    assignment = models.ForeignKey(
+        Assignment, on_delete=models.CASCADE, related_name="checklist_groups",
+    )
+    title = models.CharField("Judul checklist", max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+
+    def __str__(self):
+        return self.title
+
+
+class ChecklistItem(models.Model):
+    assignment = models.ForeignKey(
+        Assignment, on_delete=models.CASCADE, related_name="checklist_items",
+    )
+    group = models.ForeignKey(
+        ChecklistGroup, on_delete=models.CASCADE, related_name="items",
+    )
+    text = models.CharField("Langkah", max_length=220)
+    is_done = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+
+    def __str__(self):
+        return self.text

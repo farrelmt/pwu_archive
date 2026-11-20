@@ -9,11 +9,7 @@ def has_monitor_access(user):
 
 
 def can_edit_assignment(user, assignment):
-    return bool(has_monitor_access(user) and (
-        user.is_superuser or user.role == "admin"
-        or assignment.created_by_id == user.pk
-        or assignment.responsible_id == user.pk
-    ))
+    return has_monitor_access(user)
 
 
 def monitor_required(view):

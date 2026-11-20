@@ -1,0 +1,17 @@
+{% extends 'monitoring/base.html' %}
+{% block title %}Daftar tugas{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Semua penugasan</p><h1>Daftar tugas</h1><p class="subtle">Cari tugas dan saring berdasarkan bulan, divisi, atau status.</p></div><a class="primary-button" href="{% url 'monitoring:assignment_create' %}">+ Tugas baru</a></div>
+<form method="get" class="list-filters" aria-label="Cari dan filter tugas">
+    <label>Search<input type="search" name="q" value="{{ search }}" placeholder="Judul, deskripsi, penanggung jawab"></label>
+    <label>Bulan<input type="month" name="month" value="{{ month_value }}"></label>
+    <label>Divisi<select name="division"><option value="">Semua divisi</option>{% for name in divisions %}<option value="{{ name }}" {% if name == division %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <label>Status<select name="status"><option value="">Semua status</option>{% for key, label in statuses %}<option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <button type="submit" class="primary-button">Tampilkan</button><a class="secondary-button" href="{% url 'monitoring:assignment_list' %}">Reset</a>
+</form>
+<div class="table-wrap"><table class="task-table"><thead><tr><th>Tugas</th><th>Divisi</th><th>Penanggung jawab</th><th>Bulan asal</th><th>Tenggat</th><th>Checklist</th><th>Status</th></tr></thead><tbody>
+    {% for assignment in page %}<tr><td><a href="{% url 'monitoring:assignment_detail' assignment.public_id %}">{{ assignment.title }}</a>{% if assignment.description %}<small>{{ assignment.description|truncatechars:85 }}</small>{% endif %}</td><td>{{ assignment.division }}</td><td>{{ assignment.responsible.get_full_name|default:assignment.responsible.username }}</td><td>{{ assignment.month|date:'F Y' }}</td><td>{{ assignment.due_date|date:'d M Y' }}{% if assignment.is_overdue %}<small class="overdue-label">Terlambat</small>{% endif %}</td><td>{{ assignment.checklist_done }}/{{ assignment.checklist_total }}</td><td>{{ assignment.get_status_display }}</td></tr>
+    {% empty %}<tr><td colspan="7" class="empty-table">Tidak ada tugas yang cocok.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if page.has_other_pages %}<nav class="pagination" aria-label="Halaman daftar tugas">{% if page.has_previous %}<a href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ page.previous_page_number }}">Sebelumnya</a>{% endif %}<span>Halaman {{ page.number }} dari {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ page.next_page_number }}">Berikutnya</a>{% endif %}</nav>{% endif %}
+{% endblock %}

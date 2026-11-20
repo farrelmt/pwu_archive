@@ -18,6 +18,7 @@
         <div class="topbar-right">
             <span class="account-name">{{ request.user.get_full_name|default:request.user.username }}</span>
             <a href="{% url 'monitoring:board' %}">Papan tugas</a>
+            <a href="{% url 'monitoring:assignment_list' %}">Daftar tugas</a>
             <a href="https://pwujatim.site/settings/?from=monitoring">Pengaturan</a>
             <a href="https://pwujatim.site/">Portal</a>
             <form action="{% url 'accounts:logout' %}" method="post">{% csrf_token %}<button type="submit">Keluar</button></form>

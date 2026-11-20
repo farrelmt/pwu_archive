@@ -1,10 +1,83 @@
 {% extends 'monitoring/base.html' %}
 {% block title %}{{ assignment.title }}{% endblock %}
 {% block content %}
-<a class="back-link" href="{{ back_url }}">← Kembali ke papan</a>
-<div class="page-heading compact"><div><p class="eyebrow">{{ assignment.division }} · {{ assignment.month|date:'F Y' }}</p><h1>{{ assignment.title }}</h1><p class="subtle">Dibuat oleh {{ assignment.created_by.get_full_name|default:assignment.created_by.username }} pada {{ assignment.created_at|date:'d M Y H:i' }}</p></div>{% if can_edit %}<a class="primary-button" href="{% url 'monitoring:assignment_edit' assignment.pk %}">Edit tugas</a>{% endif %}</div>
-<div class="detail-grid">
-    <section class="detail-panel"><h2>Deskripsi</h2><div class="detail-description">{{ assignment.description|default:'Belum ada deskripsi.'|linebreaks }}</div></section>
-    <aside class="detail-panel"><h2>Rincian</h2><dl><dt>Status</dt><dd>{{ assignment.get_status_display }}{% if assignment.is_overdue %} · Terlambat{% endif %}</dd><dt>Bulan kerja</dt><dd>{{ assignment.month|date:'F Y' }}</dd><dt>Divisi</dt><dd>{{ assignment.division }}</dd><dt>Penanggung jawab</dt><dd>{{ assignment.responsible.get_full_name|default:assignment.responsible.username }}</dd><dt>Tanggal mulai</dt><dd>{{ assignment.start_date|date:'d M Y' }}</dd><dt>Tenggat waktu</dt><dd>{{ assignment.due_date|date:'d M Y' }}</dd></dl></aside>
+<div class="task-detail-actions">
+    <a class="back-link" href="{{ back_url }}">← Kembali ke papan</a>
+    {% if editor_open %}<div class="task-edit-actions"><button class="primary-button task-edit-primary" type="submit" form="assignment-edit-form">Simpan tugas</button><a class="secondary-button task-edit-primary" href="{% url 'monitoring:assignment_detail' assignment.public_id %}">Selesai mengedit</a><form method="post" action="{% url 'monitoring:assignment_delete' assignment.public_id %}" class="task-delete-form" data-confirm="Hapus tugas ini beserta semua checklist-nya?">{% csrf_token %}<button class="task-delete-button" type="submit">Hapus tugas</button></form></div>
+    {% else %}<a class="primary-button task-edit-primary" href="?edit=1">Edit Tugas &amp; Checklist</a>{% endif %}
+</div>
+{% if editor_open %}
+<form id="assignment-edit-form" method="post" action="{% url 'monitoring:assignment_detail' assignment.public_id %}?edit=1">{% csrf_token %}</form>
+{% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+{% endif %}
+
+<section class="task-hero">
+    <div class="task-hero-top">
+        <span class="task-kicker">Detail penugasan · {{ assignment.month|date:'F Y' }}</span>
+    </div>
+    <h1>{% if editor_open %}<label class="sr-only" for="{{ form.title.id_for_label }}">Tugas</label>{{ form.title }}{% else %}{{ assignment.title }}{% endif %}</h1>
+    {% if editor_open %}{% for error in form.title.errors %}<small class="task-field-error">{{ error }}</small>{% endfor %}{% endif %}
+    <div class="task-tags">
+        {% if editor_open %}
+        <label class="sr-only" for="{{ form.status.id_for_label }}">Status</label>{{ form.status }}
+        <label class="sr-only" for="{{ form.division.id_for_label }}">Divisi</label>{{ form.division }}
+        {% else %}
+        <span class="task-status task-status-{{ assignment.status }}">{{ assignment.get_status_display }}</span>
+        <span class="task-tag">{{ assignment.division }}</span>
+        {% endif %}
+        {% if assignment.is_overdue %}<span class="task-tag task-tag-overdue">Terlambat</span>{% endif %}
+    </div>
+    {% if editor_open %}{% for error in form.status.errors %}<small class="task-field-error">{{ error }}</small>{% endfor %}{% for error in form.division.errors %}<small class="task-field-error">{{ error }}</small>{% endfor %}{% endif %}
+    <div class="task-hero-bottom">
+        <span>Dibuat oleh <strong>{{ assignment.created_by.get_full_name|default:assignment.created_by.username }}</strong> · {{ assignment.created_at|date:'d M Y' }}</span>
+        <span>Tenggat <strong>{{ assignment.due_date|date:'d M Y' }}</strong></span>
+    </div>
+</section>
+
+<div class="task-detail-layout">
+    <section id="edit-tugas" class="task-main-panel {% if editor_open %}task-edit-mode{% endif %}" aria-label="Daftar pekerjaan">
+        <div class="task-panel-heading"><span class="task-count">{{ checklist_done }} / {{ checklist_items|length }} selesai</span></div>
+        <div class="task-progress-track" role="progressbar" aria-label="Progres checklist" aria-valuenow="{{ checklist_done }}" aria-valuemin="0" aria-valuemax="{{ checklist_items|length }}"><span style="width: {{ checklist_progress }}%"></span></div>
+
+        {% for group in checklist_groups %}
+        <article id="checklist-group-{{ group.pk }}" class="task-group">
+            <div class="task-group-top">
+                {% if editor_open %}
+                <form method="post" action="{% url 'monitoring:checklist_group_edit' assignment.public_id group.pk %}" class="task-group-title-form">{% csrf_token %}<input type="text" name="title" value="{{ group.title }}" maxlength="120" required aria-label="Judul grup checklist"><button type="submit">Simpan</button></form>
+                <form method="post" action="{% url 'monitoring:checklist_group_delete' assignment.public_id group.pk %}" class="task-delete-form" data-confirm="Hapus grup dan semua tugas di dalamnya?">{% csrf_token %}<button type="submit" class="task-remove-link">Hapus grup</button></form>
+                {% else %}<h3>{{ group.title }}</h3>{% endif %}
+            </div>
+            <div class="task-group-progress"><span>{{ group.done_count }}/{{ group.item_count }}</span><div class="task-group-progress-track"><span style="width: {{ group.progress_percent }}%"></span></div></div>
+            {% if group.item_count %}
+            <ol class="task-checklist">
+                {% for item in group.items.all %}
+                <li class="{% if item.is_done %}is-done{% endif %}">
+                    {% if editor_open %}
+                    <form method="post" action="{% url 'monitoring:checklist_edit' assignment.public_id item.pk %}" class="task-item-form">{% csrf_token %}<input type="text" name="text" value="{{ item.text }}" maxlength="220" required aria-label="Tugas checklist {{ forloop.counter }}"><button type="submit">Simpan</button></form>
+                    <form method="post" action="{% url 'monitoring:checklist_delete' assignment.public_id item.pk %}">{% csrf_token %}<button type="submit" class="task-remove-link" aria-label="Hapus {{ item.text }}">Hapus</button></form>
+                    {% else %}
+                    <form method="post" action="{% url 'monitoring:checklist_toggle' assignment.public_id item.pk %}" class="task-check-form">{% csrf_token %}<button type="submit" class="checklist-toggle {% if item.is_done %}checked{% endif %}" aria-label="{% if item.is_done %}Batalkan{% else %}Tandai selesai{% endif %}: {{ item.text }}" {% if not can_edit %}disabled{% endif %}>{% if item.is_done %}✓{% endif %}</button></form>
+                    <span class="task-item-text">{{ item.text }}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ol>
+            {% endif %}
+            {% if editor_open %}<form method="post" action="{% url 'monitoring:checklist_add' assignment.public_id group.pk %}" class="task-add-items">{% csrf_token %}<textarea name="steps" rows="2" required aria-label="Tugas baru untuk {{ group.title }}"></textarea><button type="submit" class="secondary-button">+ Tambah</button></form>{% endif %}
+        </article>
+        {% endfor %}
+        {% if editor_open %}<form method="post" action="{% url 'monitoring:checklist_group_add' assignment.public_id %}" class="task-add-checklist">{% csrf_token %}<button type="submit">+ Checklist</button></form>{% endif %}
+    </section>
+
+    <aside class="task-side">
+        <section class="task-side-panel"><p class="task-section-label">Catatan</p><h2>Deskripsi</h2>{% if editor_open %}<label class="sr-only" for="{{ form.description.id_for_label }}">Deskripsi</label>{{ form.description }}{% for error in form.description.errors %}<small class="field-error">{{ error }}</small>{% endfor %}{% else %}<div class="detail-description">{{ assignment.description|default:'Belum ada deskripsi.'|linebreaks }}</div>{% endif %}</section>
+        <section class="task-side-panel"><p class="task-section-label">Informasi</p><h2>Rincian tugas</h2><dl class="task-facts">
+            <div><dt>Penanggung jawab</dt><dd>{% if editor_open %}{{ form.responsible }}{% for error in form.responsible.errors %}<small class="field-error">{{ error }}</small>{% endfor %}{% else %}{{ assignment.responsible.get_full_name|default:assignment.responsible.username }}{% endif %}</dd></div>
+            <div><dt>Tanggal mulai</dt><dd>{% if editor_open %}{{ form.start_date }}{% for error in form.start_date.errors %}<small class="field-error">{{ error }}</small>{% endfor %}{% else %}{{ assignment.start_date|date:'d M Y' }}{% endif %}</dd></div>
+            <div><dt>Tenggat waktu</dt><dd>{% if editor_open %}{{ form.due_date }}{% for error in form.due_date.errors %}<small class="field-error">{{ error }}</small>{% endfor %}{% else %}{{ assignment.due_date|date:'d M Y' }}{% endif %}</dd></div>
+            <div><dt>Bulan kerja</dt><dd>{% if editor_open %}{{ form.month }}{% for error in form.month.errors %}<small class="field-error">{{ error }}</small>{% endfor %}{% else %}{{ assignment.month|date:'F Y' }}{% endif %}</dd></div>
+        </dl></section>
+    </aside>
 </div>
 {% endblock %}
+{% block scripts %}{% if editor_open %}<script nonce="{{ request.csp_nonce }}">document.querySelectorAll('.task-delete-form').forEach(form => form.addEventListener('submit', event => { if (!window.confirm(form.dataset.confirm)) event.preventDefault(); }));const title=document.getElementById('id_title');if(title){const fitTitle=()=>{title.style.height='auto';title.style.height=`${title.scrollHeight}px`;};title.addEventListener('input',fitTitle);window.addEventListener('resize',fitTitle);fitTitle();}</script>{% endif %}{% endblock %}
